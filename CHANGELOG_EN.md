@@ -2,6 +2,19 @@
 
 [简体中文](CHANGELOG.md) | English
 
+## r13.13.0 — 2026-10-18
+
+`versionCode 141`, a maintenance update based on `r13.12.2`.
+
+### Fixes
+
+- Fixed settings backup failing when a preference key exceeded 128 bytes (Issue #12). Backup V2 now allows keys up to 256 bytes and continues to reject longer keys.
+
+### Build Toolchain
+
+- Upgraded Java and Kotlin bytecode targets to Java 25, with matching Gradle and Kotlin plugin/BOM updates.
+- Android API, ABI, libxposed, and ROM support boundaries are unchanged.
+
 ## r13.12.2 — 2026-08-19
 
 `versionCode 140`, the final stable release in the r13.12 series. Supersedes `r13.12.0` / `r13.12.1`.

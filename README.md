@@ -10,7 +10,7 @@ CustoMIUIzer A13 是面向 **MIUI 14 / Android 13** 的系统界面与交互定�
 > 当前版本继续作为 MIUI 14 / Android 13 的稳定维护版本保留。
 > 后续仅在出现严重问题、必要兼容修复或有实际使用需求时更新。
 
-- 当前版本：`r13.12.2`（versionCode `140`）
+- 当前版本：`r13.13.0`（versionCode `141`）
 - 应用 ID：`tv.withaibuild.customiuizer.r13`
 - 源码仓库：<https://github.com/tomthenpc/customiuizer-a13>
 - 用户下载：<https://github.com/Xposed-Modules-Repo/tv.withaibuild.customiuizer.r13/releases>

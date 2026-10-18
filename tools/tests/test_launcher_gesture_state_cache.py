@@ -239,6 +239,7 @@ class ScopeProtectionTest(unittest.TestCase):
         )
         changed = [p for p in result.stdout.splitlines() if p]
         allowed = {
+            "app/src/main/java/tv/withaibuild/customiuizer/utils/BackupFormatV2.kt",
             "app/src/main/java/tv/withaibuild/customiuizer/mods/LauncherGestureHooks.kt",
             "app/src/main/java/tv/withaibuild/customiuizer/mods/SystemAudioAndVolumeHooks.kt",
             "app/src/main/java/tv/withaibuild/customiuizer/mods/SystemUILockScreenHooks.kt",

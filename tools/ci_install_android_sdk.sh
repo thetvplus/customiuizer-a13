@@ -6,8 +6,7 @@ if ! command -v sdkmanager >/dev/null 2>&1; then
   exit 1
 fi
 
-sdkmanager --install \
+sdkmanager --channel=0 --install \
   "platform-tools" \
-  "build-tools;35.0.0" \
-  "platforms;android-36" \
-  "cmdline-tools;latest"
+  "build-tools;36.0.0" \
+  "platforms;android-36"

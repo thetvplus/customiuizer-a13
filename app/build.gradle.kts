@@ -2,6 +2,15 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+}
+
+kotlin {
+    compilerOptions {
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_4)
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_4)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget("25"))
+    }
 }
 
 val keystorePropertiesPath =
@@ -19,8 +28,8 @@ val hasReleaseSigning = if (keystorePropertiesFile != null && keystoreProperties
     false
 }
 
-val lastVersion = 140
-val lastVersionName = "r13.12.2"
+val lastVersion = 141
+val lastVersionName = "r13.13.0"
 val supportedLocales = setOf(
     "ru-rRU",
     "zh-rCN",
@@ -36,6 +45,8 @@ val supportedLocales = setOf(
 android {
     namespace = "tv.withaibuild.customiuizer"
     compileSdk = 36
+    // Keep the pinned SDK package aligned with tools/ci_install_android_sdk.sh.
+    buildToolsVersion = "36.0.0"
 
     signingConfigs {
         create("v2") {
@@ -116,8 +127,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
     }
     java {
         toolchain {
