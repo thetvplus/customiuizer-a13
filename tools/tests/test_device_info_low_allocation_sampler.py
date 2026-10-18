@@ -422,6 +422,9 @@ class ScopeProtectionTest(unittest.TestCase):
         # Final closeout intentionally updates README and CHANGELOG.
         if branch == "devin/a13-maintenance-closeout":
             allowed = {"README.md", "README_EN.md"}
+        elif branch == "devin/a13-r13.13.0":
+            # This task updates release metadata and verification hashes for Kotlin 2.4.
+            allowed = {"README.md", "README_EN.md", "gradle/verification-metadata.xml"}
         else:
             allowed = set()
         for path in changed_files():

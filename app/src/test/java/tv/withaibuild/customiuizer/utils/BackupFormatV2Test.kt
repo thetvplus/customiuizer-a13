@@ -61,6 +61,24 @@ class BackupFormatV2Test {
             (encoded[11].toInt() and 0xFF)
         assertEquals(BuildConfig.VERSION_CODE, revision)
     }
+
+    @Test
+    fun encodeDecodeRoundTripsKeyLongerThanLegacyLimit() {
+        val key = "k".repeat(142)
+        val decoded = BackupFormatV2.decode(BackupFormatV2.encode(linkedMapOf(key to true)))
+        assertEquals(true, decoded[key])
+    }
+
+    @Test
+    fun encodeRejectsKeyAboveLimit() {
+        val key = "k".repeat(BackupFormatV2.MAX_KEY_BYTES + 1)
+        try {
+            BackupFormatV2.encode(linkedMapOf(key to true))
+            fail("Expected BackupFormatException")
+        } catch (e: BackupFormatV2.BackupFormatException) {
+            assertTrue(e.message?.contains("Key too long") == true)
+        }
+    }
 }
 
 class BackupRestoreTest {

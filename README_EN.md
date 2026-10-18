@@ -10,7 +10,7 @@ CustoMIUIzer A13 customizes the system UI and interactions on **MIUI 14 / Androi
 > The project remains available as a stable maintenance build for MIUI 14 / Android 13.
 > Future updates, if any, will be limited to critical fixes, necessary compatibility work, or actual maintainer needs.
 
-- Current version: `r13.12.2` (versionCode `140`)
+- Current version: `r13.13.0` (versionCode `141`)
 - Application ID: `tv.withaibuild.customiuizer.r13`
 - Source repository: <https://github.com/tomthenpc/customiuizer-a13>
 - User downloads: <https://github.com/Xposed-Modules-Repo/tv.withaibuild.customiuizer.r13/releases>

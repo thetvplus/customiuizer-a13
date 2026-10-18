@@ -41,7 +41,7 @@ object BackupFormatV2 {
 
     const val MAX_FILE_SIZE = 2L * 1024 * 1024
     const val MAX_ENTRY_COUNT = 4096
-    const val MAX_KEY_BYTES = 128
+    const val MAX_KEY_BYTES = 256
     const val MAX_STRING_BYTES = 65535
     const val MAX_SET_ITEMS = 1024
 

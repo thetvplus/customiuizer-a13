@@ -59,7 +59,8 @@ Installer 检查对应 preference 标志后才安装；关闭功能不创建业�
 
 - MIUI 14 / Android 13 / SDK 33：主支持
 - HyperOS 1 / Android 13：实验兼容，能力探测 + 安全跳过
-- `minSdk=33`、`targetSdk=33`
+- 编译 SDK 边界：`minSdk=33`、`targetSdk=34`；产品支持边界见上方平台说明。
+- Java/Kotlin 字节码目标：25；Android API 运行边界仍由 minSdk/targetSdk 与上方设备支持说明定义。
 - libxposed API 101 为最低运行基线；API 102 类型不得进入 API 101 必经生产路径
 - `module.prop`：`minApiVersion=101`、`targetApiVersion=102`
 

@@ -2,6 +2,19 @@
 
 简体中文 | [English](CHANGELOG_EN.md)
 
+## r13.13.0 — 2026-10-18
+
+`versionCode 141`，基于 `r13.12.2` 的维护更新。
+
+### 修复
+
+- 修复设置备份因偏好键长于 128 字节而保存失败的问题（Issue #12）；Backup V2 现在允许最多 256 字节的键，并继续拒绝超限键。
+
+### 构建工具链
+
+- Java 与 Kotlin 字节码目标升级到 Java 25，并同步升级 Gradle 与 Kotlin 插件 / BOM。
+- 不改变 Android API、ABI、libxposed 或 ROM 支持边界。
+
 ## r13.12.2 — 2026-08-19
 
 `versionCode 140`，r13.12 系列最终稳定版本，已包含并取代 `r13.12.0` / `r13.12.1`。
