@@ -107,3 +107,40 @@ R01 仅针对振幅缩放与定时调节；选择应用振动、静音振动和�
 - 直接 Hook 调用点 632→633（新增仅在 system_server 安装的辅助功能计算入口）；活动 catalog 仍为 67，legacy census 仍为 522/212。过程矩阵、所有权索引及 legacy 摘要随源码更新。
 - 最终生产状态的 fast/full、编译和 lint 通过；新增 Toast 17 项、振动 10 项全部通过。全量 JVM 1269 项，0 失败/错误、1 skipped；Python 1340 项，0 失败、4 skipped；compileall 与差异检查通过。核对 API 101.0.1 二进制确实提供 `deoptimize(Executable):boolean`，未引入 API 102 专用调用。SystemUI gate 审计索引仅随 FeatureCatalog 行号刷新。
 - `STATIC_VERIFIED = YES`（限定上述实际静态范围）；`BUILD_VERIFIED = YES`。无 `LOG_VERIFIED` / `DEVICE_VERIFIED`，不声明运行时性能收益，未生成 APK。
+
+## 第四批 H06 / H07：音频焦点与即时音量调整
+
+- Base SHA：`6dccc5588e08dc22fc99a07160729809b053c1ad`；同一工作分支与 API 101/102 边界。继续按用户授权完成一批后酌情推送工作分支；不合并 main、不发布 APK。开始前核对共享目录的 921 个非保护已跟踪文件，全部与 Base 一致；README/技能文件的四处既存差异继续保留。
+- 语义来源：MonwF `dfd3a4de5201d058357c692250e35b1cb74edfb6::System.java` → A13 初始 `c696d33::System.java` → 本批 Base → A14 只读观察 `4f3ef7060ca1934029b074eb3e06ef085690c694::SystemAudioHooks.kt`。当前上游/旧 A13 仍跳过整个 `handleFocusLoss`，且即时音量调整的 after 回调不区分原生异常；保留两个设置的原意，按本轮 A13 DEX 证据修正。A14 仅用作语义参考，没有导入其快照基础设施或 API 102 调用。
+
+### H06：仅抑制 CAN_DUCK 的实际处理分支
+
+- 分类 `A13_COMPAT_VARIANT`。再次校验两份 services 的完整 SHA-256 与 ZIP CRC，与前表一致。DEXSQL 定义均为 `handleFocusLoss(int,FocusRequester,boolean):void` 和 private `frameworkHandleFocusLoss(int,FocusRequester,boolean):boolean`。
+- 两份原生外层方法都会先更新丢失焦点状态/通知标记，处理外部策略及 MIUI 的忽略请求规则，再在 winner 非空时调用内部 helper。旧 Hook 在入口直接返回，破坏这些记账和通知。本批不再 Hook 外层；只对 helper 的 CAN_DUCK（-3）且 winner 非空分支返回 true，表示此轮已经处理，避免实际 duck 或再通知应用自行降音量。
+- 非 CAN_DUCK、空 winner、原生外部策略与 MIUI 忽略规则继续执行。两份 helper 的永久焦点丢失 fade 分支等待时间分别为 1000ms/2000ms，均保留各自原生行为，不统一成 A14 或另一 ROM 的值。
+- 隐藏自身类型不能写成公共 SDK Class 合同：保留已有按名称合同，但在冷路径要求唯一 helper 声明、完整三参数类型及 boolean 返回值。外层方法也需完整三参数/void 校验；仅去优化这个已证明的直接调用者，避免编译内联绕过 helper Hook。校验或去优化失败发生在任何业务 Hook 安装之前。
+- 偏好关闭后恢复原生 helper 决策，已安装状态不重置；不新增 observer、receiver、任务、控制器状态或持有者。固定目标安装失败使用已有终端失败选项，不重试或重复安装。
+
+### H07：成功结果与异常分开处理
+
+- 分类 `UPSTREAM_INTENT_EQUIVALENT`。两份 ROM 都定义 `AudioService$VolumeController.suppressAdjustment(int,int,boolean):boolean`，依赖 `mController:android.media.IVolumeController`。
+- 原生方法可能先检查音频活动，再更新首次按键/长按时间。仍先完整执行原方法一次；只有原生成功、媒体流、非静音调整、控制器非空且用户仍启用功能时才将结果设为 false。普通异常保留原对象继续抛出；包装的 JVM 致命异常由既有边界传播。
+- 控制器字段进入必要合同，安装冷路径解析并核对字段类型和方法 boolean 返回值；回调只复用已解析 Field 和读取已有偏好，不再每次按键查找字段或为只读参数复制整个数组。无设备性能收益声明。
+- 固定目标安装失败为终端失败；关闭功能时不初始化解析器/Hook，已安装后关闭也不重新安装。
+
+### 候选核查：清理全部任务继续保留
+
+在 services 中查询不到 `WindowProcessUtils.getPerceptibleRecentAppList` 不足以退役。补查同 ROM 的 MIUI 扩展库后，两份 `miui-services.jar` 均定义 `getPerceptibleRecentAppList(ActivityTaskManagerService):Map`（public static）。本批不修改或退役该功能，也不据此声明完整行为已验证。
+
+| 补查输入 | SHA-256 | 完整性 |
+| --- | --- | --- |
+| xaga `system_ext/framework/miui-services.jar` | `94645be43a535f3f001d3d3eb66454a10bc04eec97b897bc08abb65857795fab` | 全 ZIP CRC 通过 |
+| veux `system_ext/framework/miui-services.jar` | `3100d65d5ba902217b5f8a2678a5898d2b6fa288bb5a70c700ab5be685f62dd6` | 全 ZIP CRC 通过 |
+| veux `system_ext/framework/miui.services.jar` | `85251431a2f4b4c1d942c2475ed0fe6637d90e703eafb521f2e18b24386d1b78` | 全 ZIP CRC 通过；此输入未定义上述目标 |
+
+### 本批验证
+
+- 先建立两项最小回归，再运行未修复代码：焦点状态缺失、音量原生异常被覆盖两项均失败。修复后两项通过；扩展回归检查精确目标、必要依赖、原生策略/MIUI 规则、重复 loss/恢复 gain、其他焦点变化、原参数/状态/异常、关闭与终端失败。
+- 新夹具只是对 DEX 控制流和边界的 JVM 模型，不模拟音频输出、Binder、系统时钟、实际长按计时或 ART Hook。直接 Hook 数量仍为 633，活动 catalog 67、legacy census 522/212；没有新功能或功能退役。
+- 最终生产状态的 fast/full、编译和 lint 通过；本批 20 项针对性回归通过。全量 JVM 1289 项，0 失败/错误、1 skipped；Python 1340 项，0 失败、4 skipped；compileall 与差异检查通过。SystemUI gate 索引仅按 FeatureCatalog 行号刷新，所有权索引数量保持不变。
+- `STATIC_VERIFIED = YES`（上述静态范围）；`BUILD_VERIFIED = YES`。没有 `LOG_VERIFIED` / `DEVICE_VERIFIED`，不声明实际音频效果或性能收益，未生成 APK。

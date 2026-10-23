@@ -1,6 +1,7 @@
 package com.android.server.audio
 
 import android.content.ContentResolver
+import android.media.IVolumeController
 import android.util.SparseIntArray
 
 class AudioService {
@@ -19,7 +20,22 @@ class AudioService {
     fun shouldZenMuteStream(streamType: Int): Boolean = false
 
     inner class VolumeController {
-        fun suppressAdjustment(streamType: Int, direction: Int, isMuteAdjust: Boolean): Boolean = false
+        @JvmField var mController: IVolumeController? = null
+        var calls = 0
+        var nativeResult = false
+        var nativeFailure: RuntimeException? = null
+        var lastArgs: List<Any?> = emptyList()
+        var nativeStateUpdated = false
+
+        // Preserve the once-only native decision and its state changes. The ROM's
+        // timing/AudioSystem checks are not simulated by this JVM fixture.
+        fun suppressAdjustment(streamType: Int, flags: Int, isMuteAdjust: Boolean): Boolean {
+            calls++
+            lastArgs = listOf(streamType, flags, isMuteAdjust)
+            nativeStateUpdated = true
+            nativeFailure?.let { throw it }
+            return nativeResult
+        }
     }
 
     inner class VolumeStreamState {

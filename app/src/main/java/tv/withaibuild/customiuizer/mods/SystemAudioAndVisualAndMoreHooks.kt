@@ -112,14 +112,17 @@ object SystemAudioAndVisualAndMoreHooks {
 
     @JvmStatic
     fun FirstVolumePressHook(lpparam: SystemServerStartingParam) {
-        ModuleHelper.findAndHookMethod("com.android.server.audio.AudioService\$VolumeController", lpparam.classLoader, "suppressAdjustment", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, object : MethodHook() {
+        val controller = XposedHelpers.findClass("com.android.server.audio.AudioService\$VolumeController", lpparam.classLoader)
+        val controllerField = XposedHelpers.findField(controller, "mController")
+        require(controllerField.type.name == "android.media.IVolumeController")
+        require(controller.getDeclaredMethod("suppressAdjustment", Int::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType).returnType == Boolean::class.javaPrimitiveType)
+        ModuleHelper.findAndHookMethod(controller, "suppressAdjustment", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                val streamType = param.args[0] as? Int ?: return
-                if (streamType != AudioManager.STREAM_MUSIC) return
-                val isMuteAdjust = param.args[2] as? Boolean ?: return
-                if (isMuteAdjust) return
-                val mController = XposedHelpers.getObjectField(param.thisObject, "mController")
-                if (mController == null) return
+                if (param.throwable != null || param.result !is Boolean) return
+                if (!MainModule.mPrefs.getBoolean("system_firstpress")) return
+                if (param.getArg(0) != AudioManager.STREAM_MUSIC || param.getArg(2) != false) return
+                if (controllerField.get(param.thisObject) == null) return
                 param.setResult(false)
             }
         })

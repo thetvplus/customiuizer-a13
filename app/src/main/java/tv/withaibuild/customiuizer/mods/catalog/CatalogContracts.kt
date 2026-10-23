@@ -56,6 +56,14 @@ object CatalogContracts {
                     memberName = "suppressAdjustment",
                     parameterTypes = listOf(INT, INT, BOOLEAN)
                 )
+            ),
+            SingleTargetRequirement(
+                target = HookTargetSpec(
+                    id = "AudioService.VolumeController.mController",
+                    operation = HookOperation.FIELD_RESOLUTION,
+                    className = "com.android.server.audio.AudioService\$VolumeController",
+                    memberName = "mController"
+                )
             )
         )
     )
@@ -641,10 +649,10 @@ object CatalogContracts {
         requirements = listOf(
             SingleTargetRequirement(
                 target = HookTargetSpec(
-                    id = "FocusRequester.handleFocusLoss",
+                    id = "FocusRequester.frameworkHandleFocusLoss",
                     operation = HookOperation.ALL_METHODS_BY_NAME,
                     className = "com.android.server.audio.FocusRequester",
-                    memberName = "handleFocusLoss"
+                    memberName = "frameworkHandleFocusLoss"
                 )
             )
         )

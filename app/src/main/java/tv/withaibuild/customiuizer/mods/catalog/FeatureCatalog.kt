@@ -462,6 +462,7 @@ object FeatureCatalog {
                     runtime = runtime,
                     compatResult = compatResult,
                     contract = CatalogContracts.firstVolumePress,
+                    terminalFailure = true,
                     diagnosticId = DiagnosticIds.FIRST_VOLUME_PRESS
                 ) {
                     SystemAudioAndVisualAndMoreHooks.FirstVolumePressHook(
@@ -1348,6 +1349,7 @@ object FeatureCatalog {
                     runtime = runtime,
                     compatResult = compatResult,
                     contract = CatalogContracts.noDucking,
+                    terminalFailure = true,
                     diagnosticId = DiagnosticIds.NO_DUCKING
                 ) {
                     SystemNotificationMoreHooks.NoDuckingHook(

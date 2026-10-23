@@ -90,3 +90,37 @@ WHERE class_descriptor = 'Landroid/view/WindowManager$LayoutParams;'
 AND field_name = 'hideTimeoutMilliseconds'
 ORDER BY field_name, file_id;
 -- Decode getRecommendedTimeoutMillis(II)I: cached minimum, no Binder call in this method.
+
+-- H06/H07: input = intact A13 services.jar, definitions only.
+SELECT file_id, descriptor, access_flags FROM methods
+WHERE access_flags IS NOT NULL AND (
+    (class_descriptor = 'Lcom/android/server/audio/FocusRequester;'
+     AND name IN ('handleFocusLoss', 'frameworkHandleFocusLoss', 'handleFocusGain'))
+    OR (class_descriptor = 'Lcom/android/server/audio/AudioService$VolumeController;'
+        AND name = 'suppressAdjustment'))
+ORDER BY class_descriptor, name, file_id;
+
+SELECT file_id, method, callee FROM method_calls
+WHERE method_class = 'Lcom/android/server/audio/FocusRequester;'
+AND callee_class = 'Lcom/android/server/audio/FocusRequester;'
+AND callee_name = 'frameworkHandleFocusLoss'
+ORDER BY file_id, method;
+
+SELECT file_id, field_name, field_descriptor FROM class_fields
+WHERE class_descriptor = 'Lcom/android/server/audio/AudioService$VolumeController;'
+AND field_name = 'mController'
+ORDER BY file_id;
+
+-- Decode both focus methods separately for both ROMs. The outer method updates
+-- focus state and notifies policy; only the inner CAN_DUCK branch is suppressed.
+-- Loss=-1 native fade delays differ (xaga 1000ms / veux 2000ms); leave them native.
+-- Decode suppressAdjustment(IIZ)Z: keep native AudioSystem/long-press state and
+-- exceptions, then change only a successful eligible media-stream result.
+
+-- Candidate check: this member is in SAME-ROM miui-services.jar, not services.jar.
+-- Input = intact MIUI extension archives. Absence in services.jar is not retirement proof.
+SELECT file_id, descriptor, access_flags FROM methods
+WHERE access_flags IS NOT NULL
+AND class_descriptor = 'Lcom/android/server/wm/WindowProcessUtils;'
+AND name = 'getPerceptibleRecentAppList'
+ORDER BY file_id, descriptor;

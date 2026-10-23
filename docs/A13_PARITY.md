@@ -22,6 +22,8 @@ A14 reference SHA:  d20d96b543a49a584970e312da7d704958a155aa
 | 熄屏动画时长（第二批 H03） | `A13_COMPAT_VARIANT`；使用 `DisplayPowerController.initialize(int):void` 及同类三个必要字段，保留先开启渐隐、原生初始化、再修改熄屏时长的顺序；旧无参路径移除 |
 | Toast 时长（第三批 H04） | `A13_COMPAT_VARIANT`；匹配 A13 原生调度和窗口路径，仅在对应同步作用域中调整无障碍建议前的基础时长，保留原生一次调度与动画补时；不再遍历队列重置计时 |
 | 按应用控制振动（第三批 H05） | `UPSTREAM_INTENT_EQUIVALENT`；精确匹配 A13 六参数 `vibrate`（包名索引 1），完整合同覆盖 `systemReady` 与过滤入口；初始化失败不注册偏好监听，不引入 A14 的 deviceId 参数 |
+| 禁用闪避（第四批 H06） | `A13_COMPAT_VARIANT`；只拦截 A13 `frameworkHandleFocusLoss(int,FocusRequester,boolean):boolean` 的 CAN_DUCK 分支，保留外层焦点记账、策略通知、MIUI 规则及其他焦点变化 |
+| 即时音量调整（第四批 H07） | `UPSTREAM_INTENT_EQUIVALENT`；保留 `suppressAdjustment(int,int,boolean):boolean` 原生一次调用、参数及长按状态，只改成功的媒体流非静音调整结果；必要控制器字段进入合同，原生异常不再被 false 覆盖 |
 
 ## 平台边界
 

@@ -3338,7 +3338,7 @@ It does not judge INSTALLER_ONLY, GATE_ONLY, DEFAULT_MISMATCH, etc.
 ### FeatureCatalog_networkIndicatorWifi
 - source_file: `app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt`
 - source_method: `FeatureCatalog`
-- lines: 531-557
+- lines: 532-558
 - phase: `FEATURE_CATALOG_GATE`
 - parse_status: `PARSED`
 - branch_kind: `IF`
@@ -3357,7 +3357,7 @@ It does not judge INSTALLER_ONLY, GATE_ONLY, DEFAULT_MISMATCH, etc.
 ### FeatureCatalog_muteVisibleNotifications
 - source_file: `app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt`
 - source_method: `FeatureCatalog`
-- lines: 558-584
+- lines: 559-585
 - phase: `FEATURE_CATALOG_GATE`
 - parse_status: `PARSED`
 - branch_kind: `IF`
@@ -3376,7 +3376,7 @@ It does not judge INSTALLER_ONLY, GATE_ONLY, DEFAULT_MISMATCH, etc.
 ### FeatureCatalog_hideDismissView
 - source_file: `app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt`
 - source_method: `FeatureCatalog`
-- lines: 696-722
+- lines: 697-723
 - phase: `FEATURE_CATALOG_GATE`
 - parse_status: `PARSED`
 - branch_kind: `IF`
@@ -3395,7 +3395,7 @@ It does not judge INSTALLER_ONLY, GATE_ONLY, DEFAULT_MISMATCH, etc.
 ### FeatureCatalog_hideLockScreenHint
 - source_file: `app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt`
 - source_method: `FeatureCatalog`
-- lines: 723-749
+- lines: 724-750
 - phase: `FEATURE_CATALOG_GATE`
 - parse_status: `PARSED`
 - branch_kind: `IF`
@@ -3414,7 +3414,7 @@ It does not judge INSTALLER_ONLY, GATE_ONLY, DEFAULT_MISMATCH, etc.
 ### FeatureCatalog_noNetworkSpeedSeparator
 - source_file: `app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt`
 - source_method: `FeatureCatalog`
-- lines: 861-887
+- lines: 862-888
 - phase: `FEATURE_CATALOG_GATE`
 - parse_status: `PARSED`
 - branch_kind: `IF`
@@ -3433,7 +3433,7 @@ It does not judge INSTALLER_ONLY, GATE_ONLY, DEFAULT_MISMATCH, etc.
 ### FeatureCatalog_hideIconsClock
 - source_file: `app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt`
 - source_method: `FeatureCatalog`
-- lines: 888-914
+- lines: 889-915
 - phase: `FEATURE_CATALOG_GATE`
 - parse_status: `PARSED`
 - branch_kind: `IF`
@@ -3452,7 +3452,7 @@ It does not judge INSTALLER_ONLY, GATE_ONLY, DEFAULT_MISMATCH, etc.
 ### FeatureCatalog_tempHideOverlaySystemUI
 - source_file: `app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt`
 - source_method: `FeatureCatalog`
-- lines: 944-970
+- lines: 945-971
 - phase: `FEATURE_CATALOG_GATE`
 - parse_status: `PARSED`
 - branch_kind: `IF`
@@ -3471,7 +3471,7 @@ It does not judge INSTALLER_ONLY, GATE_ONLY, DEFAULT_MISMATCH, etc.
 ### FeatureCatalog_hideStatusBarBeforeScreenshot
 - source_file: `app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt`
 - source_method: `FeatureCatalog`
-- lines: 971-997
+- lines: 972-998
 - phase: `FEATURE_CATALOG_GATE`
 - parse_status: `PARSED`
 - branch_kind: `IF`
@@ -3490,7 +3490,7 @@ It does not judge INSTALLER_ONLY, GATE_ONLY, DEFAULT_MISMATCH, etc.
 ### FeatureCatalog_hideNavBarBeforeScreenshot
 - source_file: `app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt`
 - source_method: `FeatureCatalog`
-- lines: 998-1024
+- lines: 999-1025
 - phase: `FEATURE_CATALOG_GATE`
 - parse_status: `PARSED`
 - branch_kind: `IF`
@@ -3509,7 +3509,7 @@ It does not judge INSTALLER_ONLY, GATE_ONLY, DEFAULT_MISMATCH, etc.
 ### FeatureCatalog_chargingInfo
 - source_file: `app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt`
 - source_method: `FeatureCatalog`
-- lines: 1135-1169
+- lines: 1136-1170
 - phase: `FEATURE_CATALOG_GATE`
 - parse_status: `PARSED`
 - branch_kind: `IF`

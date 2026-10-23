@@ -153,7 +153,7 @@
       "default_values": [
         false
       ],
-      "end_line": 557,
+      "end_line": 558,
       "feature_id": "networkIndicatorWifi",
       "id": "FeatureCatalog_networkIndicatorWifi",
       "install_target": "FeatureDispatcher",
@@ -169,7 +169,7 @@
       "raw_expression": "{ prefs ->\n                prefs.getBoolean(\"system_networkindicator_wifi\", false)\n            }",
       "source_file": "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",
       "source_method": "FeatureCatalog",
-      "start_line": 531
+      "start_line": 532
     },
     {
       "accessors": [
@@ -190,7 +190,7 @@
       "default_values": [
         false
       ],
-      "end_line": 584,
+      "end_line": 585,
       "feature_id": "muteVisibleNotifications",
       "id": "FeatureCatalog_muteVisibleNotifications",
       "install_target": "FeatureDispatcher",
@@ -206,7 +206,7 @@
       "raw_expression": "{ prefs ->\n                prefs.getBoolean(\"system_mutevisiblenotif\", false)\n            }",
       "source_file": "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",
       "source_method": "FeatureCatalog",
-      "start_line": 558
+      "start_line": 559
     },
     {
       "accessors": [
@@ -227,7 +227,7 @@
       "default_values": [
         false
       ],
-      "end_line": 722,
+      "end_line": 723,
       "feature_id": "hideDismissView",
       "id": "FeatureCatalog_hideDismissView",
       "install_target": "FeatureDispatcher",
@@ -243,7 +243,7 @@
       "raw_expression": "{ prefs ->\n                prefs.getBoolean(\"system_removedismiss\", false)\n            }",
       "source_file": "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",
       "source_method": "FeatureCatalog",
-      "start_line": 696
+      "start_line": 697
     },
     {
       "accessors": [
@@ -264,7 +264,7 @@
       "default_values": [
         false
       ],
-      "end_line": 749,
+      "end_line": 750,
       "feature_id": "hideLockScreenHint",
       "id": "FeatureCatalog_hideLockScreenHint",
       "install_target": "FeatureDispatcher",
@@ -280,7 +280,7 @@
       "raw_expression": "{ prefs ->\n                prefs.getBoolean(\"system_hidelshint\", false)\n            }",
       "source_file": "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",
       "source_method": "FeatureCatalog",
-      "start_line": 723
+      "start_line": 724
     },
     {
       "accessors": [
@@ -301,7 +301,7 @@
       "default_values": [
         false
       ],
-      "end_line": 887,
+      "end_line": 888,
       "feature_id": "noNetworkSpeedSeparator",
       "id": "FeatureCatalog_noNetworkSpeedSeparator",
       "install_target": "FeatureDispatcher",
@@ -317,7 +317,7 @@
       "raw_expression": "{ prefs ->\n                prefs.getBoolean(\"system_nonetspeedseparator\", false)\n            }",
       "source_file": "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",
       "source_method": "FeatureCatalog",
-      "start_line": 861
+      "start_line": 862
     },
     {
       "accessors": [
@@ -338,7 +338,7 @@
       "default_values": [
         false
       ],
-      "end_line": 914,
+      "end_line": 915,
       "feature_id": "hideIconsClock",
       "id": "FeatureCatalog_hideIconsClock",
       "install_target": "FeatureDispatcher",
@@ -354,7 +354,7 @@
       "raw_expression": "{ prefs ->\n                prefs.getBoolean(\"system_statusbaricons_clock\", false)\n            }",
       "source_file": "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",
       "source_method": "FeatureCatalog",
-      "start_line": 888
+      "start_line": 889
     },
     {
       "accessors": [
@@ -375,7 +375,7 @@
       "default_values": [
         false
       ],
-      "end_line": 970,
+      "end_line": 971,
       "feature_id": "tempHideOverlaySystemUI",
       "id": "FeatureCatalog_tempHideOverlaySystemUI",
       "install_target": "FeatureDispatcher",
@@ -391,7 +391,7 @@
       "raw_expression": "{ prefs ->\n                prefs.getBoolean(\"system_screenshot_overlay\", false)\n            }",
       "source_file": "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",
       "source_method": "FeatureCatalog",
-      "start_line": 944
+      "start_line": 945
     },
     {
       "accessors": [
@@ -412,7 +412,7 @@
       "default_values": [
         false
       ],
-      "end_line": 997,
+      "end_line": 998,
       "feature_id": "hideStatusBarBeforeScreenshot",
       "id": "FeatureCatalog_hideStatusBarBeforeScreenshot",
       "install_target": "FeatureDispatcher",
@@ -428,7 +428,7 @@
       "raw_expression": "{ prefs ->\n                prefs.getBoolean(\"system_hidestatusbar_whenscreenshot\", false)\n            }",
       "source_file": "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",
       "source_method": "FeatureCatalog",
-      "start_line": 971
+      "start_line": 972
     },
     {
       "accessors": [
@@ -449,7 +449,7 @@
       "default_values": [
         false
       ],
-      "end_line": 1024,
+      "end_line": 1025,
       "feature_id": "hideNavBarBeforeScreenshot",
       "id": "FeatureCatalog_hideNavBarBeforeScreenshot",
       "install_target": "FeatureDispatcher",
@@ -465,7 +465,7 @@
       "raw_expression": "{ prefs ->\n                prefs.getBoolean(\"controls_hidenavbar_whenscreenshot\", false)\n            }",
       "source_file": "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",
       "source_method": "FeatureCatalog",
-      "start_line": 998
+      "start_line": 999
     },
     {
       "accessors": [
@@ -492,7 +492,7 @@
       "default_values": [
         false
       ],
-      "end_line": 1169,
+      "end_line": 1170,
       "feature_id": "chargingInfo",
       "id": "FeatureCatalog_chargingInfo",
       "install_target": "FeatureDispatcher",
@@ -515,7 +515,7 @@
       "raw_expression": "{ prefs ->\n                prefs.getBoolean(\"system_charginginfo\", false)\n            }",
       "source_file": "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",
       "source_method": "FeatureCatalog",
-      "start_line": 1135
+      "start_line": 1136
     }
   ],
   "FEATURE_DISPATCH_CALLS": [

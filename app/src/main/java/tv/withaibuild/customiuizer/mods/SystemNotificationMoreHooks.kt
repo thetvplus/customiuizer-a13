@@ -478,11 +478,30 @@ object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun NoDuckingHook(lpparam: SystemServerStartingParam) {
-        ModuleHelper.hookAllMethods("com.android.server.audio.FocusRequester", lpparam.classLoader, "handleFocusLoss", object : MethodHook() {
+        val requester = XposedHelpers.findClass("com.android.server.audio.FocusRequester", lpparam.classLoader)
+        requireNoDuckingTarget(requester)
+        val parent = requester.getDeclaredMethod("handleFocusLoss", Int::class.javaPrimitiveType,
+            requester, Boolean::class.javaPrimitiveType)
+        require(parent.returnType == Void.TYPE)
+        // The parent must execute its bookkeeping and call the hooked helper even
+        // when its compiled implementation previously inlined that helper.
+        check(XposedHelpers.moduleInst.deoptimize(parent)) { "Cannot deoptimize audio focus loss caller" }
+        ModuleHelper.hookAllMethods(requester, "frameworkHandleFocusLoss", object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                if (param.getArg(0) == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) param.returnAndSkip(null)
+                if (MainModule.mPrefs.getBoolean("system_noducking") &&
+                    param.getArg(0) == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK && param.getArg(1) != null) {
+                    param.returnAndSkip(true)
+                }
             }
         })
+    }
+
+    private fun requireNoDuckingTarget(requester: Class<*>) {
+        val methods = requester.declaredMethods.filter { it.name == "frameworkHandleFocusLoss" }
+        require(methods.size == 1 && methods[0].returnType == Boolean::class.javaPrimitiveType &&
+            methods[0].parameterTypes.contentEquals(arrayOf(Int::class.javaPrimitiveType, requester, Boolean::class.javaPrimitiveType))) {
+            "Unsupported A13 frameworkHandleFocusLoss target"
+        }
     }
 
     @JvmStatic
