@@ -259,11 +259,12 @@ class ScopeProtectionTest(unittest.TestCase):
             ["git", "branch", "--show-current"], capture_output=True, text=True, cwd=REPO_ROOT
         ).stdout.strip()
         if branch == "devin/a13-hook-accuracy-20261024":
-            # Exact H01/H02/R01 production scope from docs/A13_HOOK_REFINEMENT.md.
+            # Exact H01/H02/H03/R01 production scope from docs/A13_HOOK_REFINEMENT.md.
             allowed |= {
                 "app/src/main/java/tv/withaibuild/customiuizer/installers/SystemServerInstaller.java",
                 "app/src/main/java/tv/withaibuild/customiuizer/mods/SystemAudioAndVisualAndMoreHooks.kt",
                 "app/src/main/java/tv/withaibuild/customiuizer/mods/SystemNotificationMoreHooks.kt",
+                "app/src/main/java/tv/withaibuild/customiuizer/mods/SystemDisplayAndWindowHooks.kt",
                 "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/CanaryContracts.kt",
                 "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/CatalogContracts.kt",
                 "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",

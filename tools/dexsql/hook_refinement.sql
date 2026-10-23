@@ -13,6 +13,21 @@ WHERE access_flags IS NOT NULL AND (
     OR name = 'doVibratorOn')
 ORDER BY descriptor, file_id;
 
+-- H03: same-ROM services.jar screen-off animation bundle. initialize() is obsolete.
+SELECT file_id, descriptor, access_flags FROM methods
+WHERE access_flags IS NOT NULL
+AND class_descriptor = 'Lcom/android/server/display/DisplayPowerController;'
+AND name = 'initialize'
+ORDER BY descriptor, file_id;
+
+SELECT file_id, field_name, field_descriptor FROM class_fields
+WHERE class_descriptor = 'Lcom/android/server/display/DisplayPowerController;'
+AND field_name IN ('mColorFadeEnabled', 'mColorFadeFadesConfig', 'mColorFadeOffAnimator')
+ORDER BY field_name, file_id;
+
+-- Decode initialize(I)V separately for each file_id: flags must be set before
+-- native initialization creates the animator; duration is changed afterward.
+
 SELECT file_id, class_descriptor, field_name, field_descriptor FROM class_fields
 WHERE class_descriptor = 'Lcom/android/server/TelephonyRegistry$Record;'
 AND field_name IN ('events', 'eventList', 'callingPackage')

@@ -958,7 +958,31 @@ object CatalogContracts {
                     operation = HookOperation.EXACT_METHOD,
                     className = "com.android.server.display.DisplayPowerController",
                     memberName = "initialize",
-                    parameterTypes = emptyList()
+                    parameterTypes = listOf(INT)
+                )
+            ),
+            SingleTargetRequirement(
+                target = HookTargetSpec(
+                    id = "DisplayPowerController.mColorFadeEnabled",
+                    operation = HookOperation.FIELD_RESOLUTION,
+                    className = "com.android.server.display.DisplayPowerController",
+                    memberName = "mColorFadeEnabled"
+                )
+            ),
+            SingleTargetRequirement(
+                target = HookTargetSpec(
+                    id = "DisplayPowerController.mColorFadeFadesConfig",
+                    operation = HookOperation.FIELD_RESOLUTION,
+                    className = "com.android.server.display.DisplayPowerController",
+                    memberName = "mColorFadeFadesConfig"
+                )
+            ),
+            SingleTargetRequirement(
+                target = HookTargetSpec(
+                    id = "DisplayPowerController.mColorFadeOffAnimator",
+                    operation = HookOperation.FIELD_RESOLUTION,
+                    className = "com.android.server.display.DisplayPowerController",
+                    memberName = "mColorFadeOffAnimator"
                 )
             )
         )

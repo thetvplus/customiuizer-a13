@@ -60,3 +60,18 @@ R01 仅针对振幅缩放与定时调节；选择应用振动、静音振动和�
 - 未取得 `LOG_VERIFIED` / `DEVICE_VERIFIED`，不声明运行时性能收益。
 
 后续每批先确认目标、消费者和失败语义，再修改并记录结果。其他功能不能仅凭单个样本查询零行就批量删除。
+
+## 第二批 H03：熄屏动画时长
+
+- 本批 Base SHA：`67b04a796c23eb140be60dd2428c3ece961319a5`；继续使用同一独立工作分支。共享源码与该提交核对一致，README/skill 既存差异继续保留。
+- 范围：只修复 `ScreenAnimHook` 的 A13 目标与必要依赖，分类 `A13_COMPAT_VARIANT`。不改变设置键、时长含义、默认值、版本、依赖或其他显示功能；不推送、不发布。
+- 再次校验两份 services 的 SHA-256 与全 ZIP CRC，结果与上表一致。DEXSQL 在两份输入中都只找到 `DisplayPowerController.initialize(I)V`（private），没有无参方法。
+- 同类字段均为 `mColorFadeEnabled:Z`、`mColorFadeFadesConfig:Z`、`mColorFadeOffAnimator:ObjectAnimator`。两个 ROM 分别解码，均先读取渐隐标志，再创建原生亮屏/熄屏 animator；原生默认亮屏 250ms、熄屏 100ms。模块只修改熄屏 animator，保留原方法一次调用和初始屏幕状态参数。
+- 语义核对顺序：MonwF 当前 `dfd3a4de5201d058357c692250e35b1cb74edfb6` 的 `System.java::ScreenAnimHook` → A13 初始 `c696d33` → 本批 Base SHA → A14 只读观察 `447aeb175f18745ae7cddd05c89af66ec0dd510d::SystemDisplayHooks.ScreenAnimHook`。三者仍沿用无参入口，不能代替 A13 ABI 证据；保留先开启渐隐、原生创建动画、再设置时长的既有意图，不移植 A14 的实现。
+- 合同将精确 `initialize(int)` 与三个字段作为同一必要集合；安装前校验字段类型和 void 返回值。缺少依赖时整项跳过，类型不符时在创建 Hook 前失败。字段只在安装冷路径解析，回调使用已经解析的字段。
+- 生命周期：保持按 controller 所有者注册偏好回调，同一所有者替换注册，重新初始化后读取当前 animator；原生初始化失败时不注册 observer，原始异常继续抛出，包装的 JVM 致命错误继续传播。
+- JVM 夹具按实际 A13 ABI 建立；修复前 8 项中 7 项在安装断言失败，关闭功能用例通过。修复后针对性 9 项通过，新增逐个必要字段缺失检查，并覆盖前后顺序、参数传递、亮屏时长不变、250ms 回退、所有者替换、偏好更新不重装、普通/致命异常传播。测试 animator 仅存储时长，不模拟渲染或证明设备动画效果。
+- 已同步过程矩阵、parity 记录和 legacy 索引摘要；直接 Hook 数量仍为 632。历史 launcher 任务范围检查仅为当前分支增加本批的 `SystemDisplayAndWindowHooks.kt`，不取消其他文件的保护。
+- 完整门禁通过：full 包含编译、1242 项 JVM 测试（0 失败/错误，1 skipped）和 lint；1340 项 Python 测试通过（4 skipped），compileall 与差异检查通过。`STATIC_VERIFIED = YES`；`BUILD_VERIFIED = YES`。无日志或设备验证，未生成 APK。
+
+下一候选 H04：Toast 时长的旧无参 `showNextToastLocked()` 在两份 services 中都不存在，实际为 `showNextToastLocked(boolean)`；后续需同时审计原生时长调度、辅助功能建议时长和 DisplayPolicy 路径。本批只登记，不将改签名当作完整修复，也不退役仍有有效 A13 目标的功能。
