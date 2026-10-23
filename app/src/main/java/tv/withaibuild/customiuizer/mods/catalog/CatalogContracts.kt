@@ -3,6 +3,9 @@ package tv.withaibuild.customiuizer.mods.catalog
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.CombinedVibration
+import android.os.IBinder
+import android.os.VibrationAttributes
 import tv.withaibuild.customiuizer.mods.utils.AnyOfRequirement
 import tv.withaibuild.customiuizer.mods.utils.Criticality
 import tv.withaibuild.customiuizer.mods.utils.HookOperation
@@ -151,11 +154,51 @@ object CatalogContracts {
         requirements = listOf(
             SingleTargetRequirement(
                 target = HookTargetSpec(
-                    id = "NotificationManagerService.showNextToastLocked",
-                    operation = HookOperation.EXACT_METHOD,
+                    id = "NotificationManagerService.scheduleDurationReachedLocked",
+                    operation = HookOperation.ALL_METHODS_BY_NAME,
                     className = "com.android.server.notification.NotificationManagerService",
-                    memberName = "showNextToastLocked",
-                    parameterTypes = emptyList()
+                    memberName = "scheduleDurationReachedLocked"
+                )
+            ),
+            SingleTargetRequirement(
+                target = HookTargetSpec(
+                    id = "DisplayPolicy.adjustWindowParamsLw",
+                    operation = HookOperation.ALL_METHODS_BY_NAME,
+                    className = "com.android.server.wm.DisplayPolicy",
+                    memberName = "adjustWindowParamsLw"
+                )
+            ),
+            SingleTargetRequirement(
+                target = HookTargetSpec(
+                    id = "AccessibilityManager.getRecommendedTimeoutMillis",
+                    operation = HookOperation.EXACT_METHOD,
+                    className = "android.view.accessibility.AccessibilityManager",
+                    memberName = "getRecommendedTimeoutMillis",
+                    parameterTypes = listOf(INT, INT)
+                )
+            ),
+            SingleTargetRequirement(
+                target = HookTargetSpec(
+                    id = "NotificationManagerService.mAccessibilityManager",
+                    operation = HookOperation.FIELD_RESOLUTION,
+                    className = "com.android.server.notification.NotificationManagerService",
+                    memberName = "mAccessibilityManager"
+                )
+            ),
+            SingleTargetRequirement(
+                target = HookTargetSpec(
+                    id = "DisplayPolicy.mAccessibilityManager",
+                    operation = HookOperation.FIELD_RESOLUTION,
+                    className = "com.android.server.wm.DisplayPolicy",
+                    memberName = "mAccessibilityManager"
+                )
+            ),
+            SingleTargetRequirement(
+                target = HookTargetSpec(
+                    id = "WindowManager.LayoutParams.hideTimeoutMilliseconds",
+                    operation = HookOperation.FIELD_RESOLUTION,
+                    className = "android.view.WindowManager\$LayoutParams",
+                    memberName = "hideTimeoutMilliseconds"
                 )
             )
         )
@@ -1040,6 +1083,15 @@ object CatalogContracts {
                     className = "com.android.server.vibrator.VibratorManagerService",
                     memberName = "systemReady",
                     parameterTypes = emptyList()
+                )
+            ),
+            SingleTargetRequirement(
+                target = HookTargetSpec(
+                    id = "VibratorManagerService.vibrate",
+                    operation = HookOperation.EXACT_METHOD,
+                    className = "com.android.server.vibrator.VibratorManagerService",
+                    memberName = "vibrate",
+                    parameterTypes = listOf(INT, STRING, CombinedVibration::class.java, VibrationAttributes::class.java, STRING, IBinder::class.java)
                 )
             )
         )

@@ -75,3 +75,35 @@ R01 仅针对振幅缩放与定时调节；选择应用振动、静音振动和�
 - 完整门禁通过：full 包含编译、1242 项 JVM 测试（0 失败/错误，1 skipped）和 lint；1340 项 Python 测试通过（4 skipped），compileall 与差异检查通过。`STATIC_VERIFIED = YES`；`BUILD_VERIFIED = YES`。无日志或设备验证，未生成 APK。
 
 下一候选 H04：Toast 时长的旧无参 `showNextToastLocked()` 在两份 services 中都不存在，实际为 `showNextToastLocked(boolean)`；后续需同时审计原生时长调度、辅助功能建议时长和 DisplayPolicy 路径。本批只登记，不将改签名当作完整修复，也不退役仍有有效 A13 目标的功能。
+
+## 第三批 H04 / H05：Toast 调度与按应用控制振动
+
+- Base SHA：`3cae1c67451dae476e794f2bef67b08f4739af4d`；同一工作分支。用户本轮授权“批量完成后再酌情推送”：完整门禁通过后仅推送工作分支；不合并 main、不打 tag、不发布 APK。
+- 生产修改限两个已有功能及其合同。`system_toasttime` 仍是 `(option - 4) * 1000` 的偏移，0 关闭、最少 1000ms；损坏的数值限定在 UI 的 0..19 范围。振动的允许列表/屏蔽列表、空包名与初始化前放行语义保持。
+- 来源核对顺序：MonwF 当前 `dfd3a4de5201d058357c692250e35b1cb74edfb6::System.java` → A13 初始 `c696d33::System.java` → 本批 Base → 本次只读观察的 A14 `b8d40fadc385b69d1857a3d41f79bba02c1d2df5`。上游/旧 A13 的 Toast 队列重计时和无参目标已不适合这两份 A13 services；A14 观察代码仍有该 Toast 旧路径。其振动入口另有 deviceId、包名在索引 2，只用于识别差异，不移植。
+
+### H04：原生基础时长、辅助功能、动画补时依次执行
+
+- 分类 `A13_COMPAT_VARIANT`。重新校验上表两份 services 及 xaga framework 的完整 SHA-256/ZIP CRC。DEXSQL 分别解码两份 ROM：
+  - `scheduleDurationReachedLocked(ToastRecord,boolean):void` 先按 `getDuration()` 选择 2000/3500ms，再调用 `getRecommendedTimeoutMillis(base,2)`，然后按原生条件补 250/333ms 并发送一次消息。
+  - `showNextToastLocked(boolean)` 在当前 Toast 已显示时立即返回；旧 after 回调会对已有记录重置计时。`ToastRecord.duration` 也不是该 A13 记录的有效字段。
+  - `DisplayPolicy.adjustWindowParamsLw(WindowState,WindowManager.LayoutParams):void` 的 2005 分支先将无效/过大的窗口时长规整为 4100ms，再调用同一辅助功能建议，最后继续其余窗口策略。
+- xaga framework 定义 `hideTimeoutMilliseconds:long` 和 `getRecommendedTimeoutMillis(int,int):int`；后者只读取已缓存的辅助功能最小时长。veux framework SHA-256 为 `a1f0411fd273af6422de6d38296b1ecd4b001d78af605c2a76d2483f84fe3e63`，全 ZIP 检查首先在 `classes.dex` 失败，整份排除；不以它证明 framework ABI 或通用 HyperOS 支持。veux 的 services 证据仍然独立有效。
+- 使用每次安装独有的 `ThreadLocal`，只在原生调度/Toast 窗口同步调用内、同一个 AccessibilityManager、文本标志和已确认基础时长匹配时调整参数。原生辅助功能方法仍执行一次，保留其返回值；原生调度和其余窗口策略各执行一次。非 Toast 窗口、-1 等负值哨兵及自定义窗口时长保留原生处理。既有标准窗口桶与超过 4100ms 的窗口继续使用旧功能的 3500ms 基础值，但不再覆盖辅助功能建议结果。
+- 嵌套调用恢复上层状态，普通/致命异常均经 `finally` 清理作用域，不跨线程持有 controller。不访问队列、不移除原生消息、不 Hook Handler、不新增 observer。偏好归零后原生路径恢复，不重装 Hook。
+- 合同覆盖调度、窗口、辅助功能方法和三个字段。两个隐藏参数入口使用已有按名称合同，加安装前的唯一声明/完整参数类型/void 返回值校验；新增重载或 ABI 漂移均在安装任何 Hook 前拒绝。字段仅在安装冷路径解析并核对类型，回调复用字段。
+- 两个已确认的同步调用方法在冷路径执行 API 101 已提供的 `deoptimize`，避免它们的编译体内联辅助函数后绕过 Hook；任一处理失败时零 Hook、终端失败，不重试。不对其他方法或整个进程去优化。依据：[libxposed 的调用方内联说明](https://libxposed.github.io/api/io/github/libxposed/api/XposedInterface.html#deoptimize(java.lang.reflect.Executable))；实际设备是否命中仍待验证。
+
+### H05：按 A13 的实际振动入口收紧匹配
+
+- 分类 `UPSTREAM_INTENT_EQUIVALENT`。两份 services 的定义均为 `vibrate(int,String,CombinedVibration,VibrationAttributes,String,IBinder):void`，没有 A14 的额外 deviceId。包名索引 1，允许路径原参数传递、原方法一次调用和异常传播均保持；命中用户配置时才跳过。
+- 原合同仅覆盖 `systemReady()`，遗漏过滤入口，可能只安装初始化就误报成功。本批将两者设为同一必要集合，冷路径检查 void 返回值，再按精确参数安装。
+- `systemReady` 原生失败时不写入状态或注册新的偏好监听；成功后保留两个按服务所有者绑定、重复初始化替换的监听。初始配置使用现有安全数值读取，检查异常使用现有致命异常传播边界。
+- 两个功能的固定目标安装失败使用已有 `FailedPermanent` 状态；仅为这两个调用开启 legacy 适配器的终端失败选项。去优化失败、安装异常或部分成功均不会在同一进程再次尝试，避免重复业务 Hook；其他功能的重试策略保持既有默认值。
+
+### 本批验证
+
+- 新增 ROM 形状的静态/JVM 夹具；显式模拟调用链，不是 ART Hook 或设备运行。覆盖缺少任一必要成员时零 Hook、错误/新增隐藏重载拒绝、A14 重载不被匹配、原参数/调用次数、辅助功能与动画补时、窗口隔离、嵌套/关闭/跨线程作用域、普通与 JVM 致命异常、监听替换和偏好更新不重装。
+- 直接 Hook 调用点 632→633（新增仅在 system_server 安装的辅助功能计算入口）；活动 catalog 仍为 67，legacy census 仍为 522/212。过程矩阵、所有权索引及 legacy 摘要随源码更新。
+- 最终生产状态的 fast/full、编译和 lint 通过；新增 Toast 17 项、振动 10 项全部通过。全量 JVM 1269 项，0 失败/错误、1 skipped；Python 1340 项，0 失败、4 skipped；compileall 与差异检查通过。核对 API 101.0.1 二进制确实提供 `deoptimize(Executable):boolean`，未引入 API 102 专用调用。SystemUI gate 审计索引仅随 FeatureCatalog 行号刷新。
+- `STATIC_VERIFIED = YES`（限定上述实际静态范围）；`BUILD_VERIFIED = YES`。无 `LOG_VERIFIED` / `DEVICE_VERIFIED`，不声明运行时性能收益，未生成 APK。

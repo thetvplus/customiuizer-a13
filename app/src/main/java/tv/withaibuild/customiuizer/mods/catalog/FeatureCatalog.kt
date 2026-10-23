@@ -37,6 +37,7 @@ import tv.withaibuild.customiuizer.mods.utils.HookInstaller
 import tv.withaibuild.customiuizer.mods.utils.HookTargetContract
 import tv.withaibuild.customiuizer.mods.utils.InstallPhase
 import tv.withaibuild.customiuizer.mods.utils.ProcessScope
+import tv.withaibuild.customiuizer.mods.utils.RuntimeFatality
 import tv.withaibuild.customiuizer.utils.PrefMap
 
 /**
@@ -515,6 +516,7 @@ object FeatureCatalog {
                     runtime = runtime,
                     compatResult = compatResult,
                     contract = CatalogContracts.toastTime,
+                    terminalFailure = true,
                     diagnosticId = DiagnosticIds.TOAST_TIME
                 ) {
                     SystemAudioAndVisualAndMoreHooks.ToastTimeHook(
@@ -1727,6 +1729,7 @@ object FeatureCatalog {
                     runtime = runtime,
                     compatResult = compatResult,
                     contract = CatalogContracts.selectiveVibration,
+                    terminalFailure = true,
                     diagnosticId = DiagnosticIds.SELECTIVE_VIBRATION
                 ) {
                     SystemNotificationMoreHooks.SelectiveVibrationHook(
@@ -2082,16 +2085,23 @@ object FeatureCatalog {
         compatResult: HookInstallResult,
         contract: HookTargetContract,
         diagnosticId: String,
+        terminalFailure: Boolean = false,
         crossinline installer: () -> Unit
     ): FeatureInstallResult {
-        val session = HookInstaller.withSession(
-            resolver = runtime.resolver,
-            contract = compatResult.resolvedContract ?: contract,
-            diagnosticId = diagnosticId,
-            classLoader = runtime.classLoader,
-            compatibilityResult = compatResult
-        ) {
-            installer()
+        val session = try {
+            HookInstaller.withSession(
+                resolver = runtime.resolver,
+                contract = compatResult.resolvedContract ?: contract,
+                diagnosticId = diagnosticId,
+                classLoader = runtime.classLoader,
+                compatibilityResult = compatResult
+            ) {
+                installer()
+            }
+        } catch (t: Throwable) {
+            RuntimeFatality.throwIfFatal(t)
+            if (!terminalFailure) throw t
+            return FeatureInstallResult.FailedPermanent("$diagnosticId: ${t.javaClass.simpleName}: ${t.message}")
         }
 
         return when (session.installation) {
@@ -2108,9 +2118,11 @@ object FeatureCatalog {
                     reasonCode = session.reasonCode
                 )
             )
-            else -> FeatureInstallResult.FailedTransient(
-                session.detail ?: "$diagnosticId session failed"
-            )
+            else -> {
+                val detail = session.detail ?: "$diagnosticId session failed"
+                if (terminalFailure) FeatureInstallResult.FailedPermanent(detail)
+                else FeatureInstallResult.FailedTransient(detail)
+            }
         }
     }
 

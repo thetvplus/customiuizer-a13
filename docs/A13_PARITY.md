@@ -20,6 +20,8 @@ A14 reference SHA:  d20d96b543a49a584970e312da7d704958a155aa
 | 直达通知渠道设置 | `A13_COMPAT_VARIANT`；精确点击签名，正确 `NotificationUtil`，公开 Settings action，按通知 UID 选用户，失败保留原行为 |
 | 旧振幅/定时调节 | `DEAD_UPSTREAM_PATH`（已核验两份 A13 services 样本）；退役 UI、调度、合同与实现，旧偏好不再消费，其他振动功能独立保留 |
 | 熄屏动画时长（第二批 H03） | `A13_COMPAT_VARIANT`；使用 `DisplayPowerController.initialize(int):void` 及同类三个必要字段，保留先开启渐隐、原生初始化、再修改熄屏时长的顺序；旧无参路径移除 |
+| Toast 时长（第三批 H04） | `A13_COMPAT_VARIANT`；匹配 A13 原生调度和窗口路径，仅在对应同步作用域中调整无障碍建议前的基础时长，保留原生一次调度与动画补时；不再遍历队列重置计时 |
+| 按应用控制振动（第三批 H05） | `UPSTREAM_INTENT_EQUIVALENT`；精确匹配 A13 六参数 `vibrate`（包名索引 1），完整合同覆盖 `systemReady` 与过滤入口；初始化失败不注册偏好监听，不引入 A14 的 deviceId 参数 |
 
 ## 平台边界
 

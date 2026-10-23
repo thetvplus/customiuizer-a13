@@ -10,7 +10,10 @@ import android.content.Intent
 import android.content.res.Resources
 import android.media.AudioManager
 import android.os.Handler
+import android.os.CombinedVibration
+import android.os.IBinder
 import android.os.UserHandle
+import android.os.VibrationAttributes
 import android.provider.Settings
 import android.util.TypedValue
 import android.view.View
@@ -431,7 +434,7 @@ object SystemNotificationMoreHooks {
             val isSelected = selectedApps != null && selectedApps.contains(pkgName)
             opt == 2 && !isSelected || opt == 3 && isSelected
         } catch (t: Throwable) {
-            if (t is OutOfMemoryError) throw t
+            rethrowFatal(t)
             XposedHelpers.log(t)
             false
         }
@@ -439,9 +442,15 @@ object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun SelectiveVibrationHook(lpparam: SystemServerStartingParam) {
-        ModuleHelper.findAndHookMethod("com.android.server.vibrator.VibratorManagerService", lpparam.classLoader, "systemReady", object : MethodHook() {
+        val serviceClass = "com.android.server.vibrator.VibratorManagerService"
+        val service = XposedHelpers.findClass(serviceClass, lpparam.classLoader)
+        require(service.getDeclaredMethod("systemReady").returnType == Void.TYPE)
+        require(service.getDeclaredMethod("vibrate", Int::class.javaPrimitiveType, String::class.java,
+            CombinedVibration::class.java, VibrationAttributes::class.java, String::class.java, IBinder::class.java).returnType == Void.TYPE)
+        ModuleHelper.findAndHookMethod(serviceClass, lpparam.classLoader, "systemReady", object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                XposedHelpers.setAdditionalInstanceField(param.thisObject, "mVibrationMode", MainModule.mPrefs.getString("system_vibration", "1").toInt())
+                if (param.throwable != null) return
+                XposedHelpers.setAdditionalInstanceField(param.thisObject, "mVibrationMode", MainModule.mPrefs.getStringAsInt("system_vibration", 1))
                 ModuleHelper.observeOwnedPreferenceChange("system.vibrationMode", param.thisObject) { owner, key ->
                     if (key.endsWith("system_vibration")) {
                         XposedHelpers.setAdditionalInstanceField(owner, "mVibrationMode", MainModule.mPrefs.getStringAsInt("system_vibration", 1))
@@ -457,7 +466,9 @@ object SystemNotificationMoreHooks {
             }
         })
 
-        ModuleHelper.hookAllMethods("com.android.server.vibrator.VibratorManagerService", lpparam.classLoader, "vibrate", object : MethodHook() {
+        ModuleHelper.findAndHookMethod(serviceClass, lpparam.classLoader, "vibrate", Int::class.javaPrimitiveType,
+            String::class.java, CombinedVibration::class.java, VibrationAttributes::class.java, String::class.java,
+            IBinder::class.java, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
                 val pkgName = param.getArg(1) as? String ?: return
                 if (checkVibration(pkgName, param.thisObject)) param.returnAndSkip(null)
