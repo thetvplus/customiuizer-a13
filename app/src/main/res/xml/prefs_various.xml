@@ -3,6 +3,8 @@
 	android:layout_height="match_parent"
 	android:key="pref_key_various">
 
+	<tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx android:title="@string/settings_group_apps" />
+
 	<tv.withaibuild.customiuizer.prefs.PreferenceEx
 		android:key="pref_key_various_hiddenfeatures_cat"
 		android:title="@string/various_hiddenfeatures_title"

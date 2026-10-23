@@ -11,6 +11,40 @@ import org.junit.Test
 
 class LauncherHotSeatGestureStateTest {
 
+    private fun readyState() = LauncherGestureHooks.HotSeatGestureState().apply {
+        updateThresholdsIfNeeded(160, 1f, 8)
+    }
+
+    @Test fun cancelledOrRepeatedUpNeverExecutesAnAction() {
+        val state = readyState()
+        assertEquals(0, state.finish(200f, 0f, 200))
+        state.begin(0f, 0f, 100)
+        state.cancel()
+        assertEquals(0, state.finish(200f, 0f, 200))
+        state.begin(0f, 0f, 300)
+        assertEquals(1, state.finish(200f, 0f, 400))
+        assertEquals(0, state.finish(200f, 0f, 400))
+    }
+
+    @Test fun newDownReplacesCancelledGestureAndPreservesThresholds() {
+        val state = readyState()
+        state.begin(400f, 0f, 100)
+        state.cancel()
+        state.begin(200f, 10f, 200)
+        assertEquals(-1, state.finish(0f, 10f, 300))
+        state.begin(0f, 0f, 400)
+        assertEquals(0, state.finish(200f, 20f, 500))
+        state.begin(0f, 0f, 600)
+        assertEquals(0, state.finish(75f, 0f, 700))
+    }
+
+    @Test fun nonIncreasingEventTimeIsRejectedAndCleared() {
+        val state = readyState()
+        state.begin(0f, 0f, 100)
+        assertEquals(0, state.finish(200f, 0f, 100))
+        assertEquals(0, state.finish(200f, 0f, 200))
+    }
+
     @Test
     fun initialDensityDpiIsIntMinValue() {
         val state = LauncherGestureHooks.HotSeatGestureState()

@@ -14,6 +14,7 @@
 | `native_hook_ids.sql` | 最终 R8 DEX 的两个 A13 基础设施 ID；结合相同产物 mapping 归属安装器，不证明设备回读结果。 |
 | `telephony_contract.sql` / `telephony_callers.sql` | 同一 ROM 的 services.jar；API 33 监听记录、分发器及直接调用链。 |
 | `notification_channel_contract.sql` | 同一 ROM 的 SystemUI、Settings、boot framework；渠道设置 ABI 与公开入口，配合 Manifest 与 decode。 |
+| `maintenance_targets.sql` | 本轮 services、Home、SecurityCenter 与通知菜单的定义复查；按输入使用对应查询，证据范围见 `docs/A13_CORE_MAINTENANCE.md`。 |
 
 MCP 先 `list_tables` / `describe_table`，再 `open_dataset`；一次 `query.sql` 批量传入相关 SQL，
 复用 `dataset_id`。结果使用小 `limit` / `max_bytes`，页查询保持 `ORDER BY`，

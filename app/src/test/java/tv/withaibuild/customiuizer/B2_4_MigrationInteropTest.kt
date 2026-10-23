@@ -70,13 +70,12 @@ class B2_4_MigrationInteropTest {
     }
 
     @Test
-    fun `MainFragment exposes public preference and search fields`() {
+    fun `MainFragment preserves search fields without retaining child fragments`() {
         val clazz = MainFragment::class.java
 
-        arrayOf("prefSystem", "prefLauncher", "prefControls", "prefVarious").forEach { name ->
-            val field = clazz.getField(name)
-            assertNotNull(field)
-            assertTrue(java.lang.reflect.Modifier.isPublic(field.modifiers))
+        clazz.declaredFields.forEach { field ->
+            assertTrue("home must not retain child Fragment state: ${field.name}",
+                !androidx.fragment.app.Fragment::class.java.isAssignableFrom(field.type))
         }
 
         assertNotNull(clazz.getField("isSearchFocused"))

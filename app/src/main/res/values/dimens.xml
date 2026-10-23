@@ -1,6 +1,9 @@
 <resources>
 
 	<dimen name="preference_screen_padding_top">16dp</dimen>
+	<dimen name="preference_card_inset">12dp</dimen>
+	<dimen name="preference_card_gap">12dp</dimen>
+	<dimen name="preference_card_radius">12dp</dimen>
 	<dimen name="preference_screen_padding_bottom">16dp</dimen>
 	<dimen name="preference_item_padding_top">14dp</dimen>
 	<dimen name="preference_item_padding_bottom">14dp</dimen>

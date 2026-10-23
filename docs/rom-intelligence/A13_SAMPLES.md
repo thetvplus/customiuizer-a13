@@ -24,8 +24,9 @@ Home / plugin 的 DEX 也存在 SHA-1 头摘要不一致，因此不将其当作
   `android.settings.CHANNEL_NOTIFICATION_SETTINGS` 指向导出的 `ChannelPanelActivity`，
   由 Settings 自己选完整渠道页面；`UserHandle.getUserHandleForUid` 从通知 UID 选择用户。
   小程序、默认渠道、无效身份和启动失败保留系统行为；启动成功后折叠失败不会重复打开。
-- 老的 `VibratorService.doVibratorOn` 在两份 services 中均不存在。振幅调整继续安全跳过，
-  不以未经设备验证的 VibratorManager 新路径替代它。
+- 老的 `VibratorService.doVibratorOn` 在两份 services 中均不存在。振幅调整已在集中维护中退役，
+  移除唯一消费者和入口、保留历史偏好与备份，不用未经设备验证的新路径替代它；
+  其他按应用振动功能继续保留。详见 [维护记录](../A13_CORE_MAINTENANCE.md)。
 
 分类均为 `A13_COMPAT_VARIANT`，保留旧 preference key 和已有功能意图。
 核对顺序：MonwF 当前 `System.java` → A13 `c696d33` 初始实现 → 修改前 A13 →

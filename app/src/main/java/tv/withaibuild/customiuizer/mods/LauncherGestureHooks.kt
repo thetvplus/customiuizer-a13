@@ -39,6 +39,35 @@ object LauncherGestureHooks {
         var downX: Float = 0f
         var downY: Float = 0f
         var downTime: Long = 0L
+        private var tracking = false
+
+        fun begin(x: Float, y: Float, time: Long) {
+            downX = x
+            downY = y
+            downTime = time
+            tracking = true
+        }
+
+        fun cancel() {
+            tracking = false
+            downTime = 0L
+        }
+
+        /** Consume a completed single-pointer gesture exactly once. */
+        fun finish(x: Float, y: Float, time: Long): Int {
+            if (!tracking) return 0
+            val elapsed = time - downTime
+            val dx = x - downX
+            val dy = y - downY
+            cancel()
+            if (elapsed <= 0 || kotlin.math.abs(dy) > touchSlop) return 0
+            if (kotlin.math.abs(dx) * 1000 / elapsed <= velocityThreshold) return 0
+            return when {
+                dx > minDistance -> 1
+                -dx > minDistance -> -1
+                else -> 0
+            }
+        }
 
         fun updateThresholdsIfNeeded(
             newDensityDpi: Int,
@@ -192,25 +221,15 @@ object LauncherGestureHooks {
                 }
                 state.updateThresholdsIfNeeded(densityDpi, density, touchSlop)
 
-                when (ev.action) {
+                when (ev.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
-                        state.downX = ev.x
-                        state.downY = ev.y
-                        state.downTime = SystemClock.uptimeMillis()
+                        state.begin(ev.x, ev.y, ev.eventTime)
                     }
+                    MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_DOWN -> state.cancel()
                     MotionEvent.ACTION_UP -> {
-                        val ctx = hotSeat.context
-                        val dx = ev.x - state.downX
-                        val dy = ev.y - state.downY
-                        val dt = SystemClock.uptimeMillis() - state.downTime
-                        if (dt == 0L) return
-                        val velocity = kotlin.math.abs(dx) * 1000 / dt
-                        if (kotlin.math.abs(dy) <= state.touchSlop && velocity > state.velocityThreshold) {
-                            if (dx > state.minDistance) {
-                                GlobalActions.handleAction(ctx, "launcher_swiperight")
-                            } else if (-dx > state.minDistance) {
-                                GlobalActions.handleAction(ctx, "launcher_swipeleft")
-                            }
+                        when (state.finish(ev.x, ev.y, ev.eventTime)) {
+                            1 -> GlobalActions.handleAction(hotSeat.context, "launcher_swiperight")
+                            -1 -> GlobalActions.handleAction(hotSeat.context, "launcher_swipeleft")
                         }
                     }
                 }

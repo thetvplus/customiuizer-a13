@@ -176,35 +176,6 @@ object FeatureCatalog {
             activationRestartTarget = RestartTarget.REBOOT,
             configReloadMode = ConfigReloadMode.NONE
         ),
-        FeatureSpec(
-            compatibilityPolicy = CompatibilityPolicy.CONTRACT_REQUIRED,
-            contract = CanaryContracts.muffledVibration,
-            id = "muffledVibration",
-            diagnosticId = DiagnosticIds.MUFFLED_VIBRATION,
-            processScope = ProcessScope.SYSTEM_SERVER,
-            installPhase = InstallPhase.SYSTEM_SERVER_STARTING,
-            processTarget = ProcessTarget.SystemServer,
-            preferenceKeys = setOf("system_vibration_amp"),
-            condition = { prefs ->
-                prefs.getBoolean("system_vibration_amp", false)
-            },
-            installer = { runtime, compatResult ->
-                val session = HookInstaller.withSession(
-                    resolver = runtime.resolver,
-                    contract = compatResult.resolvedContract ?: CanaryContracts.muffledVibration,
-                    diagnosticId = DiagnosticIds.MUFFLED_VIBRATION,
-                    classLoader = runtime.classLoader,
-                    compatibilityResult = compatResult
-                ) {
-                    SystemAudioAndVisualAndMoreHooks.MuffledVibrationHook(
-                        runtime.lpparam as SystemServerStartingParam
-                    )
-                }
-                session.toFeatureInstallResult("muffledVibration session failed")
-            },
-            activationRestartTarget = RestartTarget.REBOOT,
-            configReloadMode = ConfigReloadMode.NONE
-        ),
         // Canary: SystemUI
         FeatureSpec(
             compatibilityPolicy = CompatibilityPolicy.CONTRACT_REQUIRED,
@@ -371,6 +342,7 @@ object FeatureCatalog {
                     runtime = runtime,
                     compatResult = compatResult,
                     contract = CatalogContracts.firstVolumePress,
+                    terminalFailure = true,
                     diagnosticId = DiagnosticIds.FIRST_VOLUME_PRESS
                 ) {
                     SystemAudioAndVisualAndMoreHooks.FirstVolumePressHook(
@@ -425,6 +397,7 @@ object FeatureCatalog {
                     runtime = runtime,
                     compatResult = compatResult,
                     contract = CatalogContracts.toastTime,
+                    terminalFailure = true,
                     diagnosticId = DiagnosticIds.TOAST_TIME
                 ) {
                     SystemAudioAndVisualAndMoreHooks.ToastTimeHook(
@@ -1256,6 +1229,7 @@ object FeatureCatalog {
                     runtime = runtime,
                     compatResult = compatResult,
                     contract = CatalogContracts.noDucking,
+                    terminalFailure = true,
                     diagnosticId = DiagnosticIds.NO_DUCKING
                 ) {
                     SystemNotificationMoreHooks.NoDuckingHook(
@@ -1637,6 +1611,7 @@ object FeatureCatalog {
                     runtime = runtime,
                     compatResult = compatResult,
                     contract = CatalogContracts.selectiveVibration,
+                    terminalFailure = true,
                     diagnosticId = DiagnosticIds.SELECTIVE_VIBRATION
                 ) {
                     SystemNotificationMoreHooks.SelectiveVibrationHook(
@@ -1992,6 +1967,7 @@ object FeatureCatalog {
         compatResult: HookInstallResult,
         contract: HookTargetContract,
         diagnosticId: String,
+        terminalFailure: Boolean = false,
         crossinline installer: () -> Unit
     ): FeatureInstallResult {
         val session = HookInstaller.withSession(
@@ -2004,11 +1980,11 @@ object FeatureCatalog {
             installer()
         }
 
-        return session.toFeatureInstallResult("$diagnosticId session failed")
+        return session.toFeatureInstallResult("$diagnosticId session failed", terminalFailure)
     }
 
     /** A failed session with live hooks is terminal; retrying would duplicate them. */
-    internal fun HookInstallResult.toFeatureInstallResult(failure: String): FeatureInstallResult =
+    internal fun HookInstallResult.toFeatureInstallResult(failure: String, terminalFailure: Boolean = false): FeatureInstallResult =
         when (installation) {
             InstallOutcome.INSTALLED, InstallOutcome.DEGRADED, InstallOutcome.DISPATCHED ->
                 FeatureInstallResult.Installed(
@@ -2017,7 +1993,7 @@ object FeatureCatalog {
                 )
             else -> {
                 val reason = detail ?: failure
-                if (records.any { it.installedCount > 0 }) FeatureInstallResult.FailedPermanent(reason)
+                if (terminalFailure || records.any { it.installedCount > 0 }) FeatureInstallResult.FailedPermanent(reason)
                 else FeatureInstallResult.FailedTransient(reason)
             }
         }

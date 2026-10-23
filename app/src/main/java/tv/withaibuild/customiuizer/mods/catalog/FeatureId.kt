@@ -12,7 +12,6 @@ enum class FeatureId(val canonicalId: String) {
     PACKAGE_PERMISSIONS("packagePermissions"),
     STATUS_BAR_CLOCK_TWEAK("statusBarClockTweak"),
     AUTO_BRIGHTNESS_RANGE("autoBrightnessRange"),
-    MUFFLED_VIBRATION("muffledVibration"),
     NO_MORE_ICON("noMoreIcon"),
     BATTERY_INDICATOR("batteryIndicator"),
     NO_CLOCK_HIDE("noClockHide"),

@@ -125,8 +125,8 @@
 	<style name="Widget.EditPreference.Padded">
 		<item name="android:layout_marginTop">@dimen/preference_screen_padding_top</item>
 		<item name="android:layout_marginBottom">@dimen/preference_screen_padding_bottom</item>
-		<item name="android:layout_marginStart">?attr/listPreferredItemPaddingLeft</item>
-		<item name="android:layout_marginEnd">?attr/listPreferredItemPaddingRight</item>
+		<item name="android:layout_marginStart">@dimen/preference_card_inset</item>
+		<item name="android:layout_marginEnd">@dimen/preference_card_inset</item>
 	</style>
 	<style name="Widget.InputField">
 		<item name="android:gravity">left|center_vertical</item>

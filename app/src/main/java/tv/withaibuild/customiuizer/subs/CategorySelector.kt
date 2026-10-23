@@ -39,11 +39,9 @@ class CategorySelector : SubFragment() {
                 Preference.OnPreferenceClickListener { preference ->
                     if (preference !is PreferenceEx) return@OnPreferenceClickListener false
                     val bundle = Bundle().apply { putString("sub", preference.key) }
-                    val mainFragment = targetFragment as? MainFragment
-                        ?: return@OnPreferenceClickListener false
                     when (cat) {
                         "pref_key_system" -> openSubFragment(
-                            mainFragment.prefSystem,
+                            System(),
                             bundle,
                             Helpers.SettingsType.Preference,
                             Helpers.ActionBarType.HomeUp,
@@ -51,7 +49,7 @@ class CategorySelector : SubFragment() {
                             R.xml.prefs_system
                         )
                         "pref_key_launcher" -> openSubFragment(
-                            mainFragment.prefLauncher,
+                            Launcher(),
                             bundle,
                             Helpers.SettingsType.Preference,
                             Helpers.ActionBarType.HomeUp,
@@ -59,7 +57,7 @@ class CategorySelector : SubFragment() {
                             R.xml.prefs_launcher
                         )
                         "pref_key_controls" -> openSubFragment(
-                            mainFragment.prefControls,
+                            Controls(),
                             bundle,
                             Helpers.SettingsType.Preference,
                             Helpers.ActionBarType.HomeUp,

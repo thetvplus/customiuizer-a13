@@ -21,7 +21,6 @@ import android.os.BatteryManager
 import android.os.Environment
 import android.os.FileObserver
 import android.os.Handler
-import android.os.Message
 import android.os.PowerManager
 import android.provider.MediaStore
 import android.provider.Settings
@@ -38,6 +37,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityManager
 import android.widget.AbsListView
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -45,6 +45,7 @@ import android.widget.SeekBar.OnSeekBarChangeListener
 import android.widget.TextView
 import androidx.core.content.res.ResourcesCompat
 import androidx.recyclerview.widget.RecyclerView
+import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import tv.withaibuild.customiuizer.MainModule
@@ -112,14 +113,17 @@ object SystemAudioAndVisualAndMoreHooks {
 
     @JvmStatic
     fun FirstVolumePressHook(lpparam: SystemServerStartingParam) {
-        ModuleHelper.findAndHookMethod("com.android.server.audio.AudioService\$VolumeController", lpparam.classLoader, "suppressAdjustment", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, object : MethodHook() {
+        val controller = XposedHelpers.findClass("com.android.server.audio.AudioService\$VolumeController", lpparam.classLoader)
+        val controllerField = XposedHelpers.findField(controller, "mController")
+        require(controllerField.type.name == "android.media.IVolumeController")
+        require(controller.getDeclaredMethod("suppressAdjustment", Int::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType).returnType == Boolean::class.javaPrimitiveType)
+        ModuleHelper.findAndHookMethod(controller, "suppressAdjustment", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                val streamType = param.args[0] as? Int ?: return
-                if (streamType != AudioManager.STREAM_MUSIC) return
-                val isMuteAdjust = param.args[2] as? Boolean ?: return
-                if (isMuteAdjust) return
-                val mController = XposedHelpers.getObjectField(param.thisObject, "mController")
-                if (mController == null) return
+                if (param.throwable != null || param.result !is Boolean) return
+                if (!MainModule.mPrefs.getBoolean("system_firstpress")) return
+                if (param.getArg(0) != AudioManager.STREAM_MUSIC || param.getArg(2) != false) return
+                if (controllerField.get(param.thisObject) == null) return
                 param.setResult(false)
             }
         })
@@ -256,65 +260,6 @@ object SystemAudioAndVisualAndMoreHooks {
                 val userActivityTimeout = XposedHelpers.getLongField(mLpChanged, "userActivityTimeout")
                 if (userActivityTimeout > 0)
                     XposedHelpers.setLongField(mLpChanged, "userActivityTimeout", MainModule.mPrefs.getInt("system_lstimeout", 3) * 1000L)
-            }
-        })
-    }
-
-    private val formatter = SimpleDateFormat("H:m", Locale.ENGLISH)
-
-    @JvmStatic
-    fun MuffledVibrationHook(lpparam: SystemServerStartingParam) {
-        ModuleHelper.hookAllMethods("com.android.server.VibratorService", lpparam.classLoader, "doVibratorOn", object : MethodHook() {
-            override fun before(param: BeforeHookCallback) {
-                val ratioRinger = MainModule.mPrefs.getInt("system_vibration_amp_ringer", 100) / 100f
-                val ratioNotif = MainModule.mPrefs.getInt("system_vibration_amp_notif", 100) / 100f
-                val ratioOther = MainModule.mPrefs.getInt("system_vibration_amp_other", 100) / 100f
-
-                var isRingtone = false
-                var isNotification = false
-                val mCurrentVibration = XposedHelpers.getObjectField(param.thisObject, "mCurrentVibration")
-                if (mCurrentVibration != null) try {
-                    isRingtone = XposedHelpers.callMethod(mCurrentVibration, "isRingtone") as? Boolean ?: false
-                    isNotification = XposedHelpers.callMethod(mCurrentVibration, "isNotification") as? Boolean ?: false
-                } catch (t: Throwable) {
-                    if (t is OutOfMemoryError) throw t
-                    val mUsageHint = XposedHelpers.getIntField(mCurrentVibration, "mUsageHint")
-                    isRingtone = mUsageHint == 6
-                    isNotification = mUsageHint == 5 || mUsageHint == 7 || mUsageHint == 8 || mUsageHint == 9
-                }
-
-                val ratio: Float
-                if (isRingtone) ratio = ratioRinger
-                else if (isNotification) ratio = ratioNotif
-                else ratio = ratioOther
-                if (ratio == 1.0f) return
-
-                val key = "system_vibration_amp_period"
-                val startHour = MainModule.mPrefs.getInt(key + "_start_hour", 0)
-                val startMinute = MainModule.mPrefs.getInt(key + "_start_minute", 0)
-                val endHour = MainModule.mPrefs.getInt(key + "_end_hour", 0)
-                val endMinute = MainModule.mPrefs.getInt(key + "_end_minute", 0)
-
-                formatter.timeZone = TimeZone.getDefault()
-                val start = formatter.parse("$startHour:$startMinute")
-                val end = formatter.parse("$endHour:$endMinute")
-                val now = formatter.parse(formatter.format(Date()))
-
-                val insidePeriod = if (start.before(end)) now.after(start) && now.before(end) else now.before(end) || now.after(start)
-                if (!insidePeriod) return
-
-                val mSupportsAmplitudeControl = try {
-                    XposedHelpers.getBooleanField(param.thisObject, "mSupportsAmplitudeControl")
-                } catch (t: Throwable) {
-                    if (t is OutOfMemoryError) throw t
-                    false
-                }
-
-                if (mSupportsAmplitudeControl) {
-                    param.args[1] = Math.round(((param.args[1] as? Int ?: -1).let { if (it == -1) XposedHelpers.getIntField(param.thisObject, "mDefaultVibrationAmplitude") else it } * ratio))
-                } else {
-                    param.args[0] = Math.max(3, Math.round((param.args[0] as? Long ?: 0L) * ratio))
-                }
             }
         })
     }
@@ -491,44 +436,95 @@ object SystemAudioAndVisualAndMoreHooks {
 
     @JvmStatic
     fun ToastTimeHook(lpparam: SystemServerStartingParam) {
-        ModuleHelper.findAndHookMethod("com.android.server.notification.NotificationManagerService", lpparam.classLoader, "showNextToastLocked", object : MethodHook() {
-            @Suppress("UNCHECKED_CAST")
-            override fun after(param: AfterHookCallback) {
-                val mContext = XposedHelpers.callMethod(param.thisObject, "getContext") as? Context ?: return
-                val mHandler = XposedHelpers.getObjectField(param.thisObject, "mHandler") as? Handler ?: return
-                val mToastQueue = XposedHelpers.getObjectField(param.thisObject, "mToastQueue") as? ArrayList<Any> ?: return
-                if (mToastQueue.size == 0) return
-                val mod = (MainModule.mPrefs.getInt("system_toasttime", 0) - 4) * 1000
-                for (record in mToastQueue) {
-                    if (record != null && mHandler.hasMessages(2, record)) {
-                        mHandler.removeCallbacksAndMessages(record)
-                        val duration = XposedHelpers.getIntField(record, "duration")
-                        val delay = Math.max(1000, (if (duration == 1) 3500 else 2000) + mod)
-                        mHandler.sendMessageDelayed(Message.obtain(mHandler, 2, record), delay.toLong())
-                    }
+        val serviceClass = "com.android.server.notification.NotificationManagerService"
+        val windowClass = "com.android.server.wm.DisplayPolicy"
+        val service = XposedHelpers.findClass(serviceClass, lpparam.classLoader)
+        val policy = XposedHelpers.findClass(windowClass, lpparam.classLoader)
+        // Hidden parameter classes cannot be expressed in the public-SDK contract. Reject
+        // added overloads or changed shapes before installing any member of this bundle.
+        val schedule = requireSingleToastMethod(service, "scheduleDurationReachedLocked",
+            "com.android.server.notification.toast.ToastRecord", "boolean")
+        val adjustWindow = requireSingleToastMethod(policy, "adjustWindowParamsLw",
+            "com.android.server.wm.WindowState", "android.view.WindowManager\$LayoutParams")
+        val serviceManager = XposedHelpers.findField(service, "mAccessibilityManager")
+        val policyManager = XposedHelpers.findField(policy, "mAccessibilityManager")
+        val hideTimeout = XposedHelpers.findField(WindowManager.LayoutParams::class.java, "hideTimeoutMilliseconds")
+        require(serviceManager.type == AccessibilityManager::class.java && policyManager.type == AccessibilityManager::class.java)
+        require(hideTimeout.type == Long::class.javaPrimitiveType)
+        val recommendation = AccessibilityManager::class.java.getDeclaredMethod(
+            "getRecommendedTimeoutMillis", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+        require(recommendation.returnType == Int::class.javaPrimitiveType)
+        // These are the two proven callers inside our scopes. Their compiled bodies
+        // must call the helper instead of executing an inlined copy of its calculation.
+        check(XposedHelpers.moduleInst.deoptimize(schedule)) { "Cannot deoptimize Toast scheduling" }
+        check(XposedHelpers.moduleInst.deoptimize(adjustWindow)) { "Cannot deoptimize Toast window policy" }
+
+        val timeoutScope = ThreadLocal<ToastTimeoutAdjustment?>()
+        ModuleHelper.findAndHookMethod("android.view.accessibility.AccessibilityManager", lpparam.classLoader,
+            "getRecommendedTimeoutMillis", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, object : MethodHook() {
+            override fun before(param: BeforeHookCallback) {
+                val adjustment = timeoutScope.get() ?: return
+                if (param.thisObject !== adjustment.manager || param.getArg(1) != AccessibilityManager.FLAG_CONTENT_TEXT) return
+                val base = param.getArg(0) as? Int ?: return
+                if (adjustment.windowBase != null) {
+                    if (base != adjustment.windowBase) return
+                    param.args[0] = maxOf(1000, 3500 + adjustment.deltaMillis)
+                } else if (base == 2000 || base == 3500) {
+                    param.args[0] = maxOf(1000, base + adjustment.deltaMillis)
                 }
             }
         })
-
-        val windowClass = "com.android.server.wm.DisplayPolicy"
-        ModuleHelper.hookAllMethods(windowClass, lpparam.classLoader, "adjustWindowParamsLw", object : MethodHook() {
-            override fun before(param: BeforeHookCallback) {
-                val lp = if (param.args.size == 1) param.args[0] else param.args[1]
-                XposedHelpers.setAdditionalInstanceField(param.thisObject, "mPrevHideTimeout", XposedHelpers.getLongField(lp, "hideTimeoutMilliseconds"))
-            }
-
-            override fun after(param: AfterHookCallback) {
-                val lp = if (param.args.size == 1) param.args[0] else param.args[1]
-                val mPrevHideTimeout = XposedHelpers.getAdditionalInstanceField(param.thisObject, "mPrevHideTimeout") as? Long ?: return
-                val mHideTimeout = XposedHelpers.getLongField(lp, "hideTimeoutMilliseconds")
-                if (mPrevHideTimeout == -1L || mHideTimeout == -1L) return
-
-                var dur = 0L
-                if (mPrevHideTimeout == 1000L || mPrevHideTimeout == 4000L || mPrevHideTimeout == 5000L || mPrevHideTimeout == 7000L || mPrevHideTimeout != mHideTimeout)
-                    dur = Math.max(1000, 3500 + (MainModule.mPrefs.getInt("system_toasttime", 0) - 4) * 1000).toLong()
-                if (dur != 0L) XposedHelpers.setLongField(lp, "hideTimeoutMilliseconds", dur)
+        ModuleHelper.hookAllMethods(serviceClass, lpparam.classLoader, "scheduleDurationReachedLocked", object : MethodHook() {
+            override fun intercept(chain: XposedInterface.Chain): Any? {
+                val adjustment = ModuleHelper.guarded<ToastTimeoutAdjustment?>("toastTime.schedule", null) {
+                    val option = MainModule.mPrefs.getInt("system_toasttime", 0).coerceIn(0, 19)
+                    if (option == 0) null else serviceManager.get(chain.thisObject)?.let {
+                        ToastTimeoutAdjustment(it, (option - 4) * 1000)
+                    }
+                }
+                return proceedWithToastTimeout(chain, timeoutScope, adjustment)
             }
         })
+        ModuleHelper.hookAllMethods(windowClass, lpparam.classLoader, "adjustWindowParamsLw", object : MethodHook() {
+            override fun intercept(chain: XposedInterface.Chain): Any? {
+                val adjustment = ModuleHelper.guarded<ToastTimeoutAdjustment?>("toastTime.window", null) {
+                    val lp = chain.args[1] as? WindowManager.LayoutParams ?: return@guarded null
+                    if (lp.type != WindowManager.LayoutParams.TYPE_TOAST) return@guarded null
+                    val previous = hideTimeout.getLong(lp)
+                    // Keep sentinel/custom windows native. The legacy standard buckets and
+                    // the ROM's 4100ms cap identify the windows that need our long-toast base.
+                    if (previous < 0 || previous != 1000L && previous != 4000L && previous != 5000L &&
+                        previous != 7000L && previous <= 4100L) return@guarded null
+                    val option = MainModule.mPrefs.getInt("system_toasttime", 0).coerceIn(0, 19)
+                    if (option == 0) null else policyManager.get(chain.thisObject)?.let {
+                        ToastTimeoutAdjustment(it, (option - 4) * 1000, minOf(previous, 4100L).toInt())
+                    }
+                }
+                return proceedWithToastTimeout(chain, timeoutScope, adjustment)
+            }
+        })
+    }
+
+    private class ToastTimeoutAdjustment(val manager: Any, val deltaMillis: Int, val windowBase: Int? = null)
+
+    private fun requireSingleToastMethod(owner: Class<*>, name: String, vararg parameters: String): Method {
+        val method = owner.declaredMethods.filter { it.name == name }.singleOrNull()
+        require(method != null && method.returnType == Void.TYPE &&
+            method.parameterTypes.map { it.name } == parameters.toList()) { "Unsupported A13 Toast target: ${owner.name}.$name" }
+        return method
+    }
+
+    private fun proceedWithToastTimeout(chain: XposedInterface.Chain, scope: ThreadLocal<ToastTimeoutAdjustment?>,
+        adjustment: ToastTimeoutAdjustment?): Any? {
+        val previous = scope.get()
+        if (adjustment == null && previous == null) return chain.proceed()
+        scope.set(adjustment)
+        try {
+            // Native scheduling, accessibility recommendation and animation allowances run once.
+            return chain.proceed()
+        } finally {
+            if (previous == null) scope.remove() else scope.set(previous)
+        }
     }
 
     @JvmStatic

@@ -111,6 +111,17 @@
 			miuizer:dynamic="true"
 			miuizer:indentLevel="1" />
 
+
+		<tv.withaibuild.customiuizer.prefs.SeekBarPreference
+			android:key="pref_key_launcher_iconscale"
+			android:title="@string/launcher_iconscale_title"
+			android:defaultValue="45"
+			miuizer:minValue="45"
+			miuizer:maxValue="200"
+			miuizer:stepValue="5"
+			miuizer:displayDividerValue="100"
+			miuizer:format="x%s"
+			miuizer:offtext="@string/array_default" />
 	</tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx>
 
 	<tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx
@@ -185,7 +196,7 @@
 	
 	<tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx
 		android:key="pref_key_launcher_cat_bugfixes"
-		android:title="@string/launcher_bugfixes">
+		android:title="@string/settings_launcher_animation">
 		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
 			android:key="pref_key_launcher_disable_log"
 			android:title="@string/launcher_disable_log_title"
@@ -203,35 +214,6 @@
 			android:summary="@string/launcher_fixlaunch_summ"
 			android:defaultValue="false" />
 
-	</tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx>
-
-	<tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx
-		android:key="pref_key_launcher_cat_other"
-		android:title="@string/system_mods_other">
-
-		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
-			android:key="pref_key_launcher_infinitescroll"
-			android:title="@string/launcher_infinitescroll_title"
-			android:summary="@string/launcher_infinitescroll_summ"
-			android:defaultValue="false" />
-
-		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
-			android:key="pref_key_launcher_noclockhide"
-			android:title="@string/launcher_noclockhide_title"
-			android:summary="@string/launcher_noclockhide_summ"
-			android:defaultValue="false" />
-
-		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
-			android:key="pref_key_launcher_nowidgetonly"
-			android:title="@string/launcher_nowidgetonly_title"
-			android:summary="@string/launcher_nowidgetonly_summ"
-			android:defaultValue="false" />
-
-		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
-			android:key="pref_key_system_resizablewidgets"
-			android:title="@string/system_resizablewidgets_title"
-			android:summary="@string/system_resizablewidgets_summ"
-			android:defaultValue="false" />
 
 		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
 			android:key="pref_key_launcher_nounlockanim"
@@ -254,6 +236,29 @@
 			android:key="pref_key_launcher_oldlaunchanim"
 			android:title="@string/launcher_oldlaunchanim_title"
 			android:summary="@string/launcher_oldlaunchanim_summ"
+			android:defaultValue="false" />
+	</tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx>
+
+	<tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx
+		android:key="pref_key_launcher_cat_layout"
+		android:title="@string/settings_launcher_layout">
+
+		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
+			android:key="pref_key_launcher_infinitescroll"
+			android:title="@string/launcher_infinitescroll_title"
+			android:summary="@string/launcher_infinitescroll_summ"
+			android:defaultValue="false" />
+
+		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
+			android:key="pref_key_launcher_nowidgetonly"
+			android:title="@string/launcher_nowidgetonly_title"
+			android:summary="@string/launcher_nowidgetonly_summ"
+			android:defaultValue="false" />
+
+		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
+			android:key="pref_key_system_resizablewidgets"
+			android:title="@string/system_resizablewidgets_title"
+			android:summary="@string/system_resizablewidgets_summ"
 			android:defaultValue="false" />
 
 		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
@@ -298,12 +303,6 @@
 			android:key="pref_key_launcher_unlockgrids"
 			android:title="@string/launcher_unlockgrids_title"
 			android:summary="@string/launcher_unlockgrids_summ"
-			android:defaultValue="false" />
-
-		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
-			android:key="pref_key_launcher_closedrawer"
-			android:title="@string/launcher_closedrawer_title"
-			android:summary="@string/launcher_closedrawer_summ"
 			android:defaultValue="false" />
 
 		<tv.withaibuild.customiuizer.prefs.SeekBarPreference
@@ -370,16 +369,23 @@
 			miuizer:format="%d dp"
 			miuizer:offtext="@string/array_default" />
 
-		<tv.withaibuild.customiuizer.prefs.SeekBarPreference
-			android:key="pref_key_launcher_iconscale"
-			android:title="@string/launcher_iconscale_title"
-			android:defaultValue="45"
-			miuizer:minValue="45"
-			miuizer:maxValue="200"
-			miuizer:stepValue="5"
-			miuizer:displayDividerValue="100"
-			miuizer:format="x%s"
-			miuizer:offtext="@string/array_default" />
+	</tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx>
+
+	<tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx
+		android:key="pref_key_launcher_cat_other"
+		android:title="@string/system_mods_other">
+
+		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
+			android:key="pref_key_launcher_noclockhide"
+			android:title="@string/launcher_noclockhide_title"
+			android:summary="@string/launcher_noclockhide_summ"
+			android:defaultValue="false" />
+
+		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
+			android:key="pref_key_launcher_closedrawer"
+			android:title="@string/launcher_closedrawer_title"
+			android:summary="@string/launcher_closedrawer_summ"
+			android:defaultValue="false" />
 
 	</tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx>
 

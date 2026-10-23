@@ -147,6 +147,10 @@ def compile_debug() -> int:
     return run([gradle, ":app:compileDebugKotlin"], "compileDebugKotlin")
 
 
+def check_settings_coverage() -> int:
+    return run([find_python(), str(REPO_ROOT / "tools" / "check_settings_coverage.py")], "check-settings-coverage")
+
+
 def compile_debug_java() -> int:
     gradle = gradle_cmd()
     return run([gradle, ":app:compileDebugJavaWithJavac"], "compileDebugJavaWithJavac")
@@ -172,6 +176,8 @@ def fast_mode(pattern: str | None, skip_android: bool) -> int:
         return 1
     if check_hook_contract_parity() != 0:
         return 1
+    if check_settings_coverage() != 0:
+        return 1
     if skip_android:
         print("[verify] no relevant source changes; skipping Android build tasks")
         return 0
@@ -190,6 +196,8 @@ def full_mode() -> int:
     if check_compat_contracts() != 0:
         return 1
     if check_hook_contract_parity() != 0:
+        return 1
+    if check_settings_coverage() != 0:
         return 1
     if check_text_encoding() != 0:
         return 1

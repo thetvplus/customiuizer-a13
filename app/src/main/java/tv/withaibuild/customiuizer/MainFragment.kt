@@ -37,16 +37,6 @@ import tv.withaibuild.customiuizer.utils.SearchStateMachine
 
 class MainFragment : PreferenceFragmentBase() {
 
-    private val catSelector = CategorySelector()
-    @JvmField
-    var prefSystem: System = System()
-    @JvmField
-    var prefLauncher: Launcher = Launcher()
-    @JvmField
-    var prefControls: Controls = Controls()
-    @JvmField
-    var prefVarious: Various = Various()
-
     private var listView: RecyclerView? = null
     private var resultView: ListView? = null
     private var mMainHandler: Handler? = null
@@ -79,7 +69,13 @@ class MainFragment : PreferenceFragmentBase() {
         tailLayoutId = R.layout.prefs_main12
         val act = activity as? AppCompatActivity
 
-        Thread { Helpers.getAllMods(act, savedInstanceState != null) }.start()
+        val appContext = act?.applicationContext
+        Thread {
+            Helpers.getAllMods(appContext, savedInstanceState != null)
+            Handler(Looper.getMainLooper()).post {
+                if (isAdded && view != null && !lastFilter.isNullOrEmpty()) findMod(lastFilter.orEmpty())
+            }
+        }.start()
 
         checkModuleIsActive()
     }
@@ -189,7 +185,7 @@ class MainFragment : PreferenceFragmentBase() {
             val mod = parent.adapter?.getItem(position) as? ModData ?: return@setOnItemClickListener
             val cat = mod.cat?.name ?: return@setOnItemClickListener
             val modKey = mod.key ?: return@setOnItemClickListener
-            if (openModCat(cat, mod.sub, modKey)) {
+            if (if (mod.pageResId != 0) openDetailResult(mod) else openModCat(cat, mod.sub, modKey)) {
                 inSearchView = SearchStateMachine.STATE_NAVIGATED
                 isSearchFocused = false
                 val a = activity as? AppCompatActivity
@@ -269,23 +265,41 @@ class MainFragment : PreferenceFragmentBase() {
     }
 
     @Suppress("DEPRECATION")
+    private fun openDetailResult(mod: ModData): Boolean {
+        if (!isAdded || parentFragmentManager.isStateSaved) return false
+        val page = SettingsPages.details.firstOrNull { it.xml == mod.pageResId } ?: return false
+        if (page.xml == R.xml.prefs_system_airplanemode && !Helpers.checkSettingsPerm(activity as? AppCompatActivity)) return false
+        val args = Bundle().apply {
+            putString("mod", mod.key)
+            if (page.standalone) {
+                putBoolean("isStandalone", true)
+                putString("sub", page.entry)
+                putBundle("catInfo", Bundle().apply { putBoolean("isDynamic", page.dynamic) })
+            }
+        }
+        openSubFragment(page.create(), args, Helpers.SettingsType.Preference,
+            Helpers.ActionBarType.HomeUp, mod.pageTitle.orEmpty(), page.xml)
+        return true
+    }
+
+    @Suppress("DEPRECATION")
     private fun openModCat(cat: String, sub: String?, mod: String): Boolean {
         val route = SearchRouteResolver.resolve(cat, sub, mod)
         if (route == null) return false
-        if (!isAdded) return false
+        if (!isAdded || parentFragmentManager.isStateSaved) return false
 
         val bundle = Bundle().apply {
             putString("cat", route.category)
             if (route.sub != null) putString("sub", route.sub)
             putString("mod", route.key)
         }
-        catSelector.setTargetFragment(this, 0)
+        val catSelector = CategorySelector().apply { setTargetFragment(this@MainFragment, 0) }
         return when (route.category) {
             "pref_key_system" -> {
                 if (route.isCategorySelector()) {
                     openSubFragment(catSelector, bundle, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.system_mods, R.xml.prefs_system_cat)
                 } else {
-                    openSubFragment(prefSystem, bundle, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.system_mods, R.xml.prefs_system)
+                    openSubFragment(System(), bundle, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.system_mods, R.xml.prefs_system)
                 }
                 true
             }
@@ -293,7 +307,7 @@ class MainFragment : PreferenceFragmentBase() {
                 if (route.isCategorySelector()) {
                     openSubFragment(catSelector, bundle, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.launcher_title, R.xml.prefs_launcher_cat)
                 } else {
-                    openSubFragment(prefLauncher, bundle, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.launcher_title, R.xml.prefs_launcher)
+                    openSubFragment(Launcher(), bundle, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.launcher_title, R.xml.prefs_launcher)
                 }
                 true
             }
@@ -301,12 +315,12 @@ class MainFragment : PreferenceFragmentBase() {
                 if (route.isCategorySelector()) {
                     openSubFragment(catSelector, bundle, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.controls_mods, R.xml.prefs_controls_cat)
                 } else {
-                    openSubFragment(prefControls, bundle, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.controls_mods, R.xml.prefs_controls)
+                    openSubFragment(Controls(), bundle, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.controls_mods, R.xml.prefs_controls)
                 }
                 true
             }
             "pref_key_various" -> {
-                openSubFragment(prefVarious, bundle, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.various_mods, R.xml.prefs_various)
+                openSubFragment(Various(), bundle, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.various_mods, R.xml.prefs_various)
                 true
             }
             else -> false

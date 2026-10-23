@@ -75,6 +75,8 @@ class LauncherGestureStateCacheTest(unittest.TestCase):
         cls.hot_seat_swipes = find_function_block(cls.source, "HotSeatSwipesHook")
         cls.fs_gestures = find_function_block(cls.source, "FSGesturesHook")
         cls.state_class = find_braced_block(cls.source, "internal class HotSeatGestureState")
+        cls.begin_block = find_function_block(cls.state_class, "begin")
+        cls.finish_block = find_function_block(cls.state_class, "finish")
         cls.dispatch_block = find_braced_block(
             cls.hot_seat_swipes, "override fun before(param: BeforeHookCallback)"
         )
@@ -166,30 +168,34 @@ class LauncherGestureStateCacheTest(unittest.TestCase):
         )
 
     def test_down_uses_instance_state(self):
-        self.assertIn("state.downX = ev.x", self.dispatch_block)
-        self.assertIn("state.downY = ev.y", self.dispatch_block)
-        self.assertIn("state.downTime = SystemClock.uptimeMillis()", self.dispatch_block)
+        self.assertIn("state.begin(ev.x, ev.y, ev.eventTime)", self.dispatch_block)
+        self.assertIn("downX = x", self.begin_block)
+        self.assertIn("downY = y", self.begin_block)
+        self.assertIn("downTime = time", self.begin_block)
 
     def test_up_uses_instance_state(self):
-        self.assertIn("val dx = ev.x - state.downX", self.dispatch_block)
-        self.assertIn("val dy = ev.y - state.downY", self.dispatch_block)
-        self.assertIn("val dt = SystemClock.uptimeMillis() - state.downTime", self.dispatch_block)
+        self.assertIn("state.finish(ev.x, ev.y, ev.eventTime)", self.dispatch_block)
+        self.assertIn("val dx = x - downX", self.finish_block)
+        self.assertIn("val dy = y - downY", self.finish_block)
+        self.assertIn("val elapsed = time - downTime", self.finish_block)
 
     def test_dt_zero_guard_kept(self):
-        self.assertIn("if (dt == 0L) return", self.dispatch_block)
+        self.assertIn("elapsed <= 0", self.finish_block)
+        self.assertIn("cancel()", self.finish_block)
 
     def test_velocity_formula_unchanged(self):
-        self.assertIn("kotlin.math.abs(dx) * 1000 / dt", self.dispatch_block)
+        self.assertIn("kotlin.math.abs(dx) * 1000 / elapsed", self.finish_block)
 
     def test_left_right_action_keys_unchanged(self):
         self.assertIn("\"launcher_swiperight\"", self.dispatch_block)
         self.assertIn("\"launcher_swipeleft\"", self.dispatch_block)
 
     def test_up_uses_state_thresholds(self):
-        self.assertIn("kotlin.math.abs(dy) <= state.touchSlop", self.dispatch_block)
-        self.assertIn("velocity > state.velocityThreshold", self.dispatch_block)
-        self.assertIn("dx > state.minDistance", self.dispatch_block)
-        self.assertIn("-dx > state.minDistance", self.dispatch_block)
+        self.assertIn("kotlin.math.abs(dy) > touchSlop", self.finish_block)
+        self.assertIn("<= velocityThreshold", self.finish_block)
+        self.assertIn("dx > minDistance", self.finish_block)
+        self.assertIn("-dx > minDistance", self.finish_block)
+        self.assertIn("MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_DOWN -> state.cancel()", self.dispatch_block)
 
     def test_base_recents_class_parsed_once(self):
         matches = re.findall(

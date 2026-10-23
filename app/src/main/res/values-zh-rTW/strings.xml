@@ -1057,4 +1057,13 @@
     <string name="system_cc_enable_style_switch_title">強制開啟控制中心樣式切換</string>
     <string name="system_cc_disable_bluetooth_restrict_title">禁用藍牙臨時關閉態</string>
     <string name="system_cc_collapse_after_clicked_title">單擊開關後自動收起</string>
+    <string name="restart_components">重新啟動…</string>
+    <string name="settings_group_interface">介面與通知</string>
+    <string name="settings_group_lock">鎖定畫面與安全</string>
+    <string name="settings_group_display">顯示與動畫</string>
+    <string name="settings_group_audio">音訊與震動</string>
+    <string name="settings_group_behavior">其他系統行為</string>
+    <string name="settings_group_apps">應用程式與系統行為</string>
+    <string name="settings_launcher_layout">版面配置</string>
+    <string name="settings_launcher_animation">動畫與修正</string>
 </resources>

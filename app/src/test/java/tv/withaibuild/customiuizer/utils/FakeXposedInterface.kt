@@ -38,12 +38,24 @@ object FakeXposedInterface {
     val interceptedExecutables = mutableListOf<java.lang.reflect.Executable>()
 
     @JvmField
+    val deoptimizedExecutables = mutableListOf<java.lang.reflect.Executable>()
+
+    @JvmField
+    var deoptimizationResult = true
+
+    @JvmField
+    var failedHookName: String? = null
+
+    @JvmField
     var remotePreferences: SharedPreferences? = null
 
     @JvmStatic
     fun reset() {
         recordedHooks.clear()
         interceptedExecutables.clear()
+        deoptimizedExecutables.clear()
+        deoptimizationResult = true
+        failedHookName = null
         remotePreferences = null
     }
 
@@ -120,6 +132,7 @@ object FakeXposedInterface {
             return when (method.name) {
                 "hook", "hookClassInitializer" -> {
                     val executable = args?.firstOrNull() as? java.lang.reflect.Executable
+                    if (executable != null && executable.name == failedHookName) throw IllegalStateException("synthetic hook failure")
                     if (executable != null) interceptedExecutables.add(executable)
                     BuilderProxy.create(classLoader)
                 }
@@ -128,7 +141,10 @@ object FakeXposedInterface {
                 "getFrameworkVersion" -> "0"
                 "getFrameworkVersionCode" -> 0L
                 "getFrameworkProperties" -> 0L
-                "deoptimize" -> true
+                "deoptimize" -> {
+                    (args?.firstOrNull() as? java.lang.reflect.Executable)?.let { deoptimizedExecutables.add(it) }
+                    deoptimizationResult
+                }
                 "getInvoker" -> null
                 "log" -> null
                 "getModuleApplicationInfo" -> null

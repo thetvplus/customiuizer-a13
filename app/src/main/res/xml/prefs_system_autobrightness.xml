@@ -20,6 +20,7 @@
 
 		<tv.withaibuild.customiuizer.prefs.SeekBarPreference
 			android:key="pref_key_system_autobrightness_min"
+			android:title="@string/system_minbrightness_title"
 			android:defaultValue="25"
 			android:dependency="pref_key_system_autobrightness_limitmin"
 			miuizer:minValue="0"
@@ -34,6 +35,7 @@
 
 		<tv.withaibuild.customiuizer.prefs.SeekBarPreference
 			android:key="pref_key_system_autobrightness_max"
+			android:title="@string/system_maxbrightness_title"
 			android:defaultValue="75"
 			android:dependency="pref_key_system_autobrightness_limitmax"
 			miuizer:minValue="0"

@@ -13,7 +13,6 @@ object DiagnosticIds {
 
     /** Canary batch diagnostic IDs. */
     const val AUTO_BRIGHTNESS_RANGE = "AUTO_BRIGHTNESS_RANGE"
-    const val MUFFLED_VIBRATION = "MUFFLED_VIBRATION"
     const val NO_MORE_ICON = "NO_MORE_ICON"
     const val BATTERY_INDICATOR = "BATTERY_INDICATOR"
     const val NO_CLOCK_HIDE = "NO_CLOCK_HIDE"

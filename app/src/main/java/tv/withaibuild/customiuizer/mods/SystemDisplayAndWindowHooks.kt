@@ -24,18 +24,24 @@ object SystemDisplayAndWindowHooks {
 
     @JvmStatic
     fun ScreenAnimHook(lpparam: SystemServerStartingParam) {
-        ModuleHelper.findAndHookMethod("com.android.server.display.DisplayPowerController", lpparam.classLoader, "initialize", object : MethodHook() {
+        val controllerClass = XposedHelpers.findClass("com.android.server.display.DisplayPowerController", lpparam.classLoader)
+        val fadeEnabled = XposedHelpers.findField(controllerClass, "mColorFadeEnabled")
+        val fadeConfig = XposedHelpers.findField(controllerClass, "mColorFadeFadesConfig")
+        val offAnimator = XposedHelpers.findField(controllerClass, "mColorFadeOffAnimator")
+        val initialize = XposedHelpers.findMethodExact(controllerClass, "initialize", Int::class.javaPrimitiveType)
+        // Resolve the complete A13 bundle before installing any callback.
+        check(fadeEnabled.type == Boolean::class.javaPrimitiveType && fadeConfig.type == Boolean::class.javaPrimitiveType)
+        check(offAnimator.type == ObjectAnimator::class.java && initialize.returnType == Void.TYPE)
+
+        ModuleHelper.findAndHookMethod(controllerClass, "initialize", Int::class.javaPrimitiveType, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                try {
-                    XposedHelpers.setObjectField(param.thisObject, "mColorFadeEnabled", true)
-                    XposedHelpers.setObjectField(param.thisObject, "mColorFadeFadesConfig", true)
-                } catch (ignore: Throwable) {
-                    if (ignore is OutOfMemoryError || ignore is ThreadDeath || ignore is VirtualMachineError) throw ignore
-}
+                fadeEnabled.setBoolean(param.thisObject, true)
+                fadeConfig.setBoolean(param.thisObject, true)
             }
 
             override fun after(param: AfterHookCallback) {
-                val mColorFadeOffAnimator = XposedHelpers.getObjectField(param.thisObject, "mColorFadeOffAnimator") as? ObjectAnimator
+                if (param.throwable != null) return
+                val mColorFadeOffAnimator = offAnimator.get(param.thisObject) as? ObjectAnimator
                 if (mColorFadeOffAnimator != null) {
                     var duration = MainModule.mPrefs.getInt("system_screenanim_duration", 0)
                     if (duration == 0) duration = 250
@@ -44,7 +50,7 @@ object SystemDisplayAndWindowHooks {
                 ModuleHelper.observeOwnedPreferenceChange("system.screenAnimation", param.thisObject) { owner, key ->
                     if (key.contains("system_screenanim_duration")) {
                         val animator =
-                            XposedHelpers.getObjectField(owner, "mColorFadeOffAnimator") as? ObjectAnimator
+                            offAnimator.get(owner) as? ObjectAnimator
                                 ?: return@observeOwnedPreferenceChange
                         var duration = MainModule.mPrefs.getInt("system_screenanim_duration", 0)
                         if (duration == 0) duration = 250

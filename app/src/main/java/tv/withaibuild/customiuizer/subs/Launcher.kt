@@ -89,12 +89,14 @@ class Launcher : SubFragment() {
             }
             "pref_key_launcher_cat_bugfixes" -> {
                 findPreference<Preference>("pref_key_launcher_fixanim")?.isEnabled = opt == 1
-            }
-            "pref_key_launcher_cat_other" -> {
-                findPreference<Preference>("pref_key_launcher_unlockgrids")?.isEnabled = opt == 1
-                findPreference<Preference>("pref_key_launcher_hideseekpoints")?.isEnabled = opt == 1
                 findPreference<Preference>("pref_key_launcher_nounlockanim")?.isEnabled = opt == 1
                 findPreference<Preference>("pref_key_launcher_oldlaunchanim")?.isEnabled = opt == 1
+            }
+            "pref_key_launcher_cat_layout" -> {
+                findPreference<Preference>("pref_key_launcher_unlockgrids")?.isEnabled = opt == 1
+                findPreference<Preference>("pref_key_launcher_hideseekpoints")?.isEnabled = opt == 1
+            }
+            "pref_key_launcher_cat_other" -> {
                 findPreference<Preference>("pref_key_launcher_closedrawer")?.isEnabled = opt == 1
             }
         }

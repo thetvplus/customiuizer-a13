@@ -1,0 +1,49 @@
+{
+  "base_sha": "09b63af9cc835137fab7d22899a1dfe51d218955",
+  "retired": [
+    "pref_key_system_vibration_amp_cat",
+    "pref_key_system_vibration_amp",
+    "pref_key_system_vibration_amp_period_start",
+    "pref_key_system_vibration_amp_period_end",
+    "pref_key_system_vibration_amp_ringer",
+    "pref_key_system_vibration_amp_notif",
+    "pref_key_system_vibration_amp_other"
+  ],
+  "pages": {
+    "prefs_about": "296330fbcf43423c1a6128864164a258e89b95a81c70af9e58380fe680e951e7",
+    "prefs_controls": "0c2399958a3fedeb043da6106997a6f2d9696c773111651f23bf83933a531946",
+    "prefs_launcher": "846b6db8a3f7667af1362d65e2c9721c7f70c66fb7d0a171265bc43b9ca720bf",
+    "prefs_main": "151e7f45abeeccbc20892ac80e238fab00288dcfc68601ae95ebabfb6d5b7c65",
+    "prefs_system": "183b94ec288ccb4a502f0c08121c7d63df4e175ef79c02bf44f428ac825f3580",
+    "prefs_system_airplanemode": "a887680613cc1d60573048dc4604759ad0935f914404a42ff7d684abd19a2e31",
+    "prefs_system_alarmonlock": "4bdd077a8665c460481bb57a64ab7a4d29cc983d48f064419f0c95e62625ac0e",
+    "prefs_system_albumartonlock": "2cc376296e816834e19d0d3aa66cb56897ee14e4be019a6f657391f64adbb1ba",
+    "prefs_system_autobrightness": "5f021cc08801a9d470061f9cbca10977e403f5c5cb8217741fca0a0c02f2bbbf",
+    "prefs_system_batteryindicator": "533ab6100394d5f0f7454f7bc322e75ba664ff8a5a52f081b4ebd0800cf45655",
+    "prefs_system_charginginfo": "a08d86d34350a2478ec6ccf9c0a481bb99e2af9d2fcfb5acc5b2b65f13ea09ea",
+    "prefs_system_controlcenter_clock": "7109955fbcd84645495a048cdd3a53c4d280bf5c178d77c052db91f66f88cc80",
+    "prefs_system_detailednetspeed": "2c88630795e0cb6d71805e81d16c56eea0f12d5a614b8beb55029aff6d3c7916",
+    "prefs_system_hideicons": "124bfaf9f5b985804cf87165ef050b30a48d93864310c373b24465222a12217f",
+    "prefs_system_lockscreenshortcuts": "47445cbe325d2e38f93955fb75a5bbcc7a60b0790e3e83d95f2534fe740643d7",
+    "prefs_system_noscreenlock": "f00603784d6d99149cf9f22198ffacd45eebd4a2943cc0daea97c377afab312d",
+    "prefs_system_screenshot": "e73d599cfa8cbfb42ecd80b5c50b77a4a10c8b36d2003205229f448da0d18c32",
+    "prefs_system_secureqs": "c2923e8805c3b00299c7af6640d57bcb8a34c7c6d3b20d17b8f2c6018e264d3c",
+    "prefs_system_statusbar_batterystyle": "9b4385c092d6bff96e332b861040291f17ed32e47626e1b9d6be08d696718a16",
+    "prefs_system_statusbar_batterytempandcurrent": "d126c3e543a3cab6bd3872ba08a53671a5e10701fc94c780a052cf4d9cd0002c",
+    "prefs_system_statusbar_clock": "034489e891e2128d4efc3aae58be220bdd8cd8d38804d9d0b68362f9ae5a0891",
+    "prefs_system_statusbar_mobilesignal": "b11a1df73247755e94dbacd6ff8f0c0dac69ad3d592ede7cb7fd2841ffb247fb",
+    "prefs_system_statusbar_righticons": "71668784e79227cf50e735635fdfbcc8437dd1e720dd6d4be3e7ca6eb0c60be0",
+    "prefs_system_statusbar_showdevicetemperature": "0a4ea42e1b32578e5b3451d00e57ef4df0b8884e696e266c93fbd8b34e2abf11",
+    "prefs_system_statusbarcontrols": "ff313a72f0f446951da80dc252e44ca7d19258df5e6480cefc01bba288efc71a",
+    "prefs_system_visualizer": "f14bba6ff0001ea8367cd02bfc6a0ea9a87145c0dde9d2c4fa4101efdaa03206",
+    "prefs_various": "872ba3f2717c043045b321c01aa855f10f8bbab3b07fcecf798f35db0f95e420",
+    "prefs_various_calluibright": "ce97e8d5eb4ba8e8f038922263133fdb0805e061fe17c0d15ce077fb44ca2f18",
+    "prefs_various_hiddenfeatures": "f189ca3714842fa4a34e22524cc74a8b6ffe6f56d15519e83331120805387199",
+    "prefs_system_cat": "e23aafa40211e85185bab743feeefb21ebdf9356cdc5f523b5ef931f515e7dc5",
+    "prefs_launcher_cat": "25b3d4d2c1b657e4687e0b0500449ec6ff5fb649165174270048273dad597b1a",
+    "prefs_controls_cat": "c3af7989a2c6f6fa7bb67526ea3bd6d299aaa6a9ba9f73b3f41794f7220aa3ff"
+  },
+  "added_navigation_keys": [
+    "pref_key_launcher_cat_layout"
+  ]
+}

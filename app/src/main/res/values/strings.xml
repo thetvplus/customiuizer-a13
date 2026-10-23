@@ -1186,4 +1186,13 @@
     <string name="system_show_step_count_title">Show step count</string>
     <string name="system_cc_switch_ccandnotification_title">Switch control center and notification drawer</string>
     <string name="system_cc_clock_topmargin_indrawer_title">Top margin of clock in notification drawer</string>
+    <string name="restart_components">Restart…</string>
+    <string name="settings_group_interface">Interface and notifications</string>
+    <string name="settings_group_lock">Lock screen and security</string>
+    <string name="settings_group_display">Display and animation</string>
+    <string name="settings_group_audio">Audio and vibration</string>
+    <string name="settings_group_behavior">Other system behavior</string>
+    <string name="settings_group_apps">Apps and system behavior</string>
+    <string name="settings_launcher_layout">Layout</string>
+    <string name="settings_launcher_animation">Animation and fixes</string>
 </resources>

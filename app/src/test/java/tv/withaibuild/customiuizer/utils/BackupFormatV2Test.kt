@@ -15,6 +15,26 @@ import tv.withaibuild.customiuizer.BuildConfig
 
 class BackupFormatV2Test {
 
+    @Test fun retiredAmplitudeAndMovedLauncherValuesSurviveExportAndRestore() {
+        val values = linkedMapOf<String, Any>(
+            "pref_key_system_vibration_amp" to true,
+            "pref_key_system_vibration_amp_ringer" to 37,
+            "pref_key_launcher_iconscale" to 135,
+            "pref_key_launcher_dock_height" to 82,
+            "pref_key_launcher_nounlockanim" to true,
+        )
+        val source = FakeSharedPreferences()
+        values.forEach { (key, value) -> source.put(key, value) }
+        val output = ByteArrayOutputStream()
+        assertTrue(BackupRestore.performBackup(source, output))
+        val decoded = BackupRestore.decodeBackup(output.toByteArray())
+        values.forEach { (key, value) -> assertEquals(value, decoded[key]) }
+        val target = FakeSharedPreferences()
+        assertEquals(BackupRestore.Status.SUCCESS, BackupRestore.performRestore(
+            ByteArrayInputStream(output.toByteArray()), target, emptySet(), null).status)
+        values.forEach { (key, value) -> assertEquals(value, target.all[key]) }
+    }
+
     @Test
     fun encodeDecodeRoundTripAllSupportedTypes() {
         val entries = linkedMapOf(

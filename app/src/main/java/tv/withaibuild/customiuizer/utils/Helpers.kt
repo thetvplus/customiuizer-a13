@@ -84,7 +84,7 @@ object Helpers {
     @JvmField
     var shareAppsList: ArrayList<AppData>? = null
     @JvmField
-    var allModsList: ArrayList<ModData> = ArrayList()
+    @Volatile var allModsList: ArrayList<ModData> = ArrayList()
 
     @JvmField
     var mWakeLock: WakeLock? = null
@@ -794,7 +794,7 @@ object Helpers {
     }
 
     @JvmStatic
-    fun parsePrefXml(context: Context, xmlResId: Int) {
+    fun parsePrefXml(context: Context, xmlResId: Int, destination: MutableList<ModData>, parent: ModData? = null) {
         val res = context.resources
         var lastPrefSub: String? = null
         var lastPrefSubTitle: String? = null
@@ -824,11 +824,22 @@ object Helpers {
         res.getXml(xmlResId).use { xml ->
             var eventType = xml.eventType
             var order = 0
+            var hiddenDepth = -1
             val prefCatExName = PreferenceCategoryEx::class.java.canonicalName
             while (eventType != XmlPullParser.END_DOCUMENT) {
+                if (hiddenDepth >= 0) {
+                    if (eventType == XmlPullParser.END_TAG && xml.depth == hiddenDepth) hiddenDepth = -1
+                    eventType = xml.next()
+                    continue
+                }
+                if (eventType == XmlPullParser.START_TAG && !xml.getAttributeBooleanValue(MIUIZER_NS, "isPreferenceVisible", true)) {
+                    hiddenDepth = xml.depth
+                    eventType = xml.next()
+                    continue
+                }
                 if (eventType == XmlPullParser.START_TAG && xml.name != PreferenceScreen::class.java.simpleName) try {
                     if (xml.name == prefCatExName) {
-                        if (xml.getAttributeValue(ANDROID_NS, "key") != null) {
+                        if (parent == null && xml.getAttributeValue(ANDROID_NS, "key") != null) {
                             lastPrefSub = xml.getAttributeValue(ANDROID_NS, "key")
                             lastPrefSubTitle = getModTitle(res, xml.getAttributeValue(ANDROID_NS, "title"))
                             lastPrefSubSubTitle = null
@@ -845,16 +856,21 @@ object Helpers {
                     if (!isChild) {
                         val modData = ModData()
                         modData.title = getModTitle(res, xml.getAttributeValue(ANDROID_NS, "title"))
-                        if (modData.title != null) {
-                            modData.breadcrumbs = res.getString(catResId) +
+                        val key = xml.getAttributeValue(ANDROID_NS, "key")
+                        if (modData.title != null && key != null) {
+                            modData.breadcrumbs = if (parent != null) parent.breadcrumbs + "/" + parent.title else res.getString(catResId) +
                                 (if (lastPrefSubTitle == null) "" else "/$lastPrefSubTitle" +
                                 (if (lastPrefSubSubTitle == null) "" else "/$lastPrefSubSubTitle"))
-                            modData.key = xml.getAttributeValue(ANDROID_NS, "key")
-                            modData.cat = catPrefKey
-                            modData.sub = lastPrefSub
+                            modData.key = key
+                            modData.cat = parent?.cat ?: catPrefKey
+                            modData.sub = parent?.sub ?: lastPrefSub
+                            if (parent != null) {
+                                modData.pageResId = xmlResId
+                                modData.pageTitle = parent.title
+                            }
                             modData.order = order
                             modData.prepareSearchKeys()
-                            allModsList.add(modData)
+                            destination.add(modData)
                         }
                     }
                     order++
@@ -868,15 +884,22 @@ object Helpers {
     }
 
     @JvmStatic
+    @Synchronized
     fun getAllMods(context: Context?, force: Boolean) {
         if (context == null) return
-        if (force) allModsList.clear()
-        else if (allModsList.size > 0) return
-        parsePrefXml(context, R.xml.prefs_system)
-        parsePrefXml(context, R.xml.prefs_launcher)
-        parsePrefXml(context, R.xml.prefs_controls)
-        parsePrefXml(context, R.xml.prefs_various)
-        allModsList.sortWith(MOD_DISPLAY_ORDER)
+        if (!force && allModsList.isNotEmpty()) return
+        val mods = ArrayList<ModData>()
+        parsePrefXml(context, R.xml.prefs_system, mods)
+        parsePrefXml(context, R.xml.prefs_launcher, mods)
+        parsePrefXml(context, R.xml.prefs_controls, mods)
+        parsePrefXml(context, R.xml.prefs_various, mods)
+        for (page in tv.withaibuild.customiuizer.SettingsPages.details) {
+            val parent = mods.firstOrNull { it.key == page.entry && it.pageResId == 0 } ?: continue
+            parsePrefXml(context, page.xml, mods, parent)
+        }
+        mods.sortWith(MOD_DISPLAY_ORDER)
+        // Readers retain a complete snapshot while a locale refresh builds the next one.
+        allModsList = mods
     }
 
     @JvmField

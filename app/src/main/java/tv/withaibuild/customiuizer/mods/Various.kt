@@ -847,7 +847,7 @@ object Various {
         val innerClasses = interceptBaseFragmentClass.declaredClasses
         var handlerClass: Class<*>? = null
         for (innerClass in innerClasses) {
-            if (WeakReference::class.java.isAssignableFrom(innerClass)) {
+            if (Handler::class.java.isAssignableFrom(innerClass)) {
                 handlerClass = innerClass
                 break
             }
@@ -862,15 +862,18 @@ object Various {
             }
         }
         if (fieldName == null) return
-        val finalFieldName = fieldName
+        val ownerField = XposedHelpers.findField(handlerClass, fieldName)
         ModuleHelper.findAndHookMethod(handlerClass, "handleMessage", Message::class.java, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
+                if (param.throwable != null) return
                 val msg = param.args[0] as? Message ?: return
                 if (msg.what != 1) return
-                val wk = XposedHelpers.getObjectField(param.thisObject, finalFieldName)
-                val frag = XposedHelpers.callMethod(wk, "get")
+                val frag = (ownerField.get(param.thisObject) as? WeakReference<*>)?.get() ?: return
                 val batteryView = XposedHelpers.callMethod(frag, "getActivity") as? Activity ?: return
-                val temp = (batteryView.registerReceiver(null, IntentFilter("android.intent.action.BATTERY_CHANGED"), Context.RECEIVER_NOT_EXPORTED)?.getIntExtra("temperature", 0) ?: 0) / 10
+                val battery = batteryView.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED), Context.RECEIVER_NOT_EXPORTED)
+                    ?: return
+                if (!battery.hasExtra("temperature")) return
+                val temp = battery.getIntExtra("temperature", 0) / 10
                 val symbolResId = batteryView.resources.getIdentifier("temp_symbol", "id", lpparam.packageName)
                 val stateResId = batteryView.resources.getIdentifier("current_temperature_state", "id", lpparam.packageName)
                 val stateTv = batteryView.findViewById<TextView>(stateResId)

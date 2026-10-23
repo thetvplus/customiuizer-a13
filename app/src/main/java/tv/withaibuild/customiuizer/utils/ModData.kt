@@ -17,6 +17,8 @@ class ModData {
     @JvmField var cat: ModCat? = null
     @JvmField var sub: String? = null
     @JvmField var order: Int = 0
+    @JvmField var pageResId: Int = 0
+    @JvmField var pageTitle: String? = null
     @JvmField var titleSearchKey: String = ""
     @JvmField var breadcrumbsSortKey: String = ""
 

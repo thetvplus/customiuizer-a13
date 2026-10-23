@@ -29,6 +29,10 @@ API 102 工程迁移参考 A14 `cb89042b0ff9e7ce1e9a8efe31ee696fa0694e06`：
 
 ## 当前证据
 
+2026-10-24 集中维护以 A14 `eae2529d1af5e513c8a58c8ce1d198d371e63516` 作页面交互参考，
+没有新增 A14 ROM 功能或导入其页面生成器。旧精修分支的 H03-H07、振幅退役、Dock 取消语义、
+安全中心温度与全量页面/搜索变更的分类和证据见 [维护记录](A13_CORE_MAINTENANCE.md)。
+
 当前 ROM 修正见 [A13 样本](rom-intelligence/A13_SAMPLES.md)：来电事件过滤、通知渠道设置均为
 `A13_COMPAT_VARIANT`，保留上游意图；A14 仅参考实现方法，不复用其 ROM ABI。
 

@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceManager
+import androidx.recyclerview.widget.RecyclerView
 import java.io.InputStream
 import java.io.OutputStream
 import tv.withaibuild.customiuizer.mods.GlobalActions
@@ -36,6 +37,9 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
     }
 
     private var actContext: Context? = null
+    private var cardList: RecyclerView? = null
+    private var cardDecoration: PreferenceCardDecoration? = null
+    private var navigationPending = false
 
     @JvmField
     protected var toolbarMenu = false
@@ -98,6 +102,7 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
                     menuKey != null && activeMenus.contains(menuKey) -> item.isVisible = true
                     else -> item.isVisible = false
                 }
+                if (menuId == R.id.restart_menu) item.isVisible = this is MainFragment
             }
         }
     }
@@ -266,6 +271,32 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
             if (renderView != null) fixStubLayout(renderView, 2)
         }
         initFragment()
+        if (preferenceScreen != null) {
+            listView?.let { list ->
+                setDivider(null)
+                setDividerHeight(0)
+                val decoration = PreferenceCardDecoration { preferenceScreen }
+                cardList = list
+                cardDecoration = decoration
+                list.addItemDecoration(decoration)
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        navigationPending = false
+    }
+
+    override fun onDestroyView() {
+        cardDecoration?.let { decoration ->
+            cardList?.removeItemDecoration(decoration)
+            decoration.dispose()
+        }
+        cardDecoration = null
+        cardList = null
+        navigationPending = false
+        super.onDestroyView()
     }
 
     fun openWebPage(url: String) {
@@ -278,6 +309,7 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
     }
 
     fun openSubFragment(fragment: Fragment, args: Bundle?, settingsType: Helpers.SettingsType, abType: Helpers.ActionBarType, title: String, contentResId: Int) {
+        if (!isAdded || parentFragmentManager.isStateSaved || navigationPending) return
         val bundle = args ?: Bundle()
         bundle.putInt("settingsType", settingsType.ordinal)
         bundle.putInt("abType", abType.ordinal)
@@ -296,6 +328,7 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
             fragment.arguments?.clear()
             fragment.arguments?.putAll(bundle)
         }
+        navigationPending = true
         parentFragmentManager.beginTransaction()
             .setReorderingAllowed(true)
             .setCustomAnimations(
@@ -306,7 +339,7 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
             )
             .replace(R.id.fragment_container, fragment)
             .addToBackStack(null)
-            .commitAllowingStateLoss()
+            .commit()
     }
 
     override fun onAttach(context: Context) {

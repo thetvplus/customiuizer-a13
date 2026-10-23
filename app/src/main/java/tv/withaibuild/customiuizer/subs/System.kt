@@ -89,10 +89,6 @@ class System : SubFragment() {
                     true
                 }
                 findPreference<Preference>("pref_key_system_vibration_apps")?.setOnPreferenceClickListener(openAppsEdit)
-                findPreference<Preference>("pref_key_system_vibration_amp_cat")?.setOnPreferenceClickListener {
-                    openSubFragment(System_VibrationAmp(), null, Helpers.SettingsType.Preference, Helpers.ActionBarType.HomeUp, R.string.system_vibration_amp_title, R.xml.prefs_system_vibration_amp)
-                    true
-                }
             }
 
             "pref_key_system_cat_toasts" -> {

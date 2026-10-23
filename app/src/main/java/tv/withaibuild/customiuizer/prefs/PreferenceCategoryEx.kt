@@ -42,8 +42,10 @@ class PreferenceCategoryEx @JvmOverloads constructor(
         title.text = (getTitle()?.toString() ?: "") + if (unsupported) " ⨯" else if (dynamic) " ⟲" else ""
         title.visibility = if (state == 2 || state == 1) View.GONE else View.VISIBLE
         val finalView = view.itemView
-        if (state == 2) {
-            finalView.setPadding(childpadding, 0, childpadding, 0)
+        finalView.minimumHeight = 0
+        finalView.layoutParams?.height = if (state == 0) android.view.ViewGroup.LayoutParams.WRAP_CONTENT else 0
+        if (state != 0) {
+            finalView.setPadding(0, 0, 0, 0)
         } else {
             val verticalPadding = context.resources.getDimensionPixelSize(R.dimen.preference_item_padding_top)
             finalView.setPadding(childpadding, verticalPadding, childpadding, verticalPadding)
@@ -56,6 +58,8 @@ class PreferenceCategoryEx @JvmOverloads constructor(
     }
 
     fun isDynamic(): Boolean = dynamic
+
+    fun isTitleVisible(): Boolean = state == 0
 
     fun hide() {
         state = 2

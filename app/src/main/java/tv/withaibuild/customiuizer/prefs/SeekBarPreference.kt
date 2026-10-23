@@ -119,6 +119,7 @@ class SeekBarPreference @JvmOverloads constructor(
         if (TextUtils.isEmpty(getSummary())) {
             summaryView?.visibility = View.GONE
         } else {
+            summaryView?.visibility = View.VISIBLE
             summaryView?.text = getSummary()
         }
 
@@ -126,11 +127,14 @@ class SeekBarPreference @JvmOverloads constructor(
         if (mNote.isNullOrEmpty()) {
             noteView?.visibility = View.GONE
         } else {
+            noteView?.visibility = View.VISIBLE
             noteView?.text = mNote
         }
 
         mValue = view.findViewById(R.id.seekbar_value) as? TextView
         mSeekBar = view.findViewById(R.id.seekbar) as? SeekBar
+        // A recycled row may still carry another preference's listener.
+        mSeekBar?.setOnSeekBarChangeListener(null)
         mSeekBar?.max = mSteppedMaxValue - mSteppedMinValue
 
         val key = getKey()

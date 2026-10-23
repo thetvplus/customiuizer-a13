@@ -1148,4 +1148,13 @@
     <string name="system_cc_switch_ccandnotification_title">对调控制中心与通知抽屉</string>
     <string name="system_cc_collapse_after_clicked_title">单击开关后自动收起</string>
     <string name="system_show_step_count_title">显示步数</string>
+    <string name="restart_components">重启…</string>
+    <string name="settings_group_interface">界面与通知</string>
+    <string name="settings_group_lock">锁屏与安全</string>
+    <string name="settings_group_display">显示与动画</string>
+    <string name="settings_group_audio">音频与振动</string>
+    <string name="settings_group_behavior">其他系统行为</string>
+    <string name="settings_group_apps">应用与系统行为</string>
+    <string name="settings_launcher_layout">布局</string>
+    <string name="settings_launcher_animation">动画与修正</string>
 </resources>

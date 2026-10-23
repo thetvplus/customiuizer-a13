@@ -10,7 +10,10 @@ import android.content.Intent
 import android.content.res.Resources
 import android.media.AudioManager
 import android.os.Handler
+import android.os.CombinedVibration
+import android.os.IBinder
 import android.os.UserHandle
+import android.os.VibrationAttributes
 import android.provider.Settings
 import android.util.TypedValue
 import android.view.View
@@ -431,7 +434,7 @@ object SystemNotificationMoreHooks {
             val isSelected = selectedApps != null && selectedApps.contains(pkgName)
             opt == 2 && !isSelected || opt == 3 && isSelected
         } catch (t: Throwable) {
-            if (t is OutOfMemoryError) throw t
+            rethrowFatal(t)
             XposedHelpers.log(t)
             false
         }
@@ -439,9 +442,15 @@ object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun SelectiveVibrationHook(lpparam: SystemServerStartingParam) {
-        ModuleHelper.findAndHookMethod("com.android.server.vibrator.VibratorManagerService", lpparam.classLoader, "systemReady", object : MethodHook() {
+        val serviceClass = "com.android.server.vibrator.VibratorManagerService"
+        val service = XposedHelpers.findClass(serviceClass, lpparam.classLoader)
+        require(service.getDeclaredMethod("systemReady").returnType == Void.TYPE)
+        require(service.getDeclaredMethod("vibrate", Int::class.javaPrimitiveType, String::class.java,
+            CombinedVibration::class.java, VibrationAttributes::class.java, String::class.java, IBinder::class.java).returnType == Void.TYPE)
+        ModuleHelper.findAndHookMethod(serviceClass, lpparam.classLoader, "systemReady", object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                XposedHelpers.setAdditionalInstanceField(param.thisObject, "mVibrationMode", MainModule.mPrefs.getString("system_vibration", "1").toInt())
+                if (param.throwable != null) return
+                XposedHelpers.setAdditionalInstanceField(param.thisObject, "mVibrationMode", MainModule.mPrefs.getStringAsInt("system_vibration", 1))
                 ModuleHelper.observeOwnedPreferenceChange("system.vibrationMode", param.thisObject) { owner, key ->
                     if (key.endsWith("system_vibration")) {
                         XposedHelpers.setAdditionalInstanceField(owner, "mVibrationMode", MainModule.mPrefs.getStringAsInt("system_vibration", 1))
@@ -457,7 +466,9 @@ object SystemNotificationMoreHooks {
             }
         })
 
-        ModuleHelper.hookAllMethods("com.android.server.vibrator.VibratorManagerService", lpparam.classLoader, "vibrate", object : MethodHook() {
+        ModuleHelper.findAndHookMethod(serviceClass, lpparam.classLoader, "vibrate", Int::class.javaPrimitiveType,
+            String::class.java, CombinedVibration::class.java, VibrationAttributes::class.java, String::class.java,
+            IBinder::class.java, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
                 val pkgName = param.getArg(1) as? String ?: return
                 if (checkVibration(pkgName, param.thisObject)) param.returnAndSkip(null)
@@ -467,11 +478,30 @@ object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun NoDuckingHook(lpparam: SystemServerStartingParam) {
-        ModuleHelper.hookAllMethods("com.android.server.audio.FocusRequester", lpparam.classLoader, "handleFocusLoss", object : MethodHook() {
+        val requester = XposedHelpers.findClass("com.android.server.audio.FocusRequester", lpparam.classLoader)
+        requireNoDuckingTarget(requester)
+        val parent = requester.getDeclaredMethod("handleFocusLoss", Int::class.javaPrimitiveType,
+            requester, Boolean::class.javaPrimitiveType)
+        require(parent.returnType == Void.TYPE)
+        // The parent must execute its bookkeeping and call the hooked helper even
+        // when its compiled implementation previously inlined that helper.
+        check(XposedHelpers.moduleInst.deoptimize(parent)) { "Cannot deoptimize audio focus loss caller" }
+        ModuleHelper.hookAllMethods(requester, "frameworkHandleFocusLoss", object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                if (param.getArg(0) == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) param.returnAndSkip(null)
+                if (MainModule.mPrefs.getBoolean("system_noducking") &&
+                    param.getArg(0) == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK && param.getArg(1) != null) {
+                    param.returnAndSkip(true)
+                }
             }
         })
+    }
+
+    private fun requireNoDuckingTarget(requester: Class<*>) {
+        val methods = requester.declaredMethods.filter { it.name == "frameworkHandleFocusLoss" }
+        require(methods.size == 1 && methods[0].returnType == Boolean::class.javaPrimitiveType &&
+            methods[0].parameterTypes.contentEquals(arrayOf(Int::class.javaPrimitiveType, requester, Boolean::class.javaPrimitiveType))) {
+            "Unsupported A13 frameworkHandleFocusLoss target"
+        }
     }
 
     @JvmStatic
@@ -682,8 +712,12 @@ object SystemNotificationMoreHooks {
             "com.android.systemui.statusbar.notification.ExpandedNotification", lpparam.classLoader
         ) ?: return
         val isHybrid = XposedHelpers.findMethodExactIfExists(notificationUtil, "isHybrid", notificationClass) ?: return
+        if (isHybrid.returnType != Boolean::class.javaPrimitiveType) return
 
-        ModuleHelper.hookAllMethods("com.android.systemui.statusbar.notification.row.MiuiNotificationMenuRow", lpparam.classLoader, "onClickInfoItem", object : MethodHook() {
+        ModuleHelper.findAndHookMethod(
+            "com.android.systemui.statusbar.notification.row.MiuiNotificationMenuRow", lpparam.classLoader,
+            "onClickInfoItem", Context::class.java,
+            "com.android.systemui.plugins.statusbar.NotificationMenuRowPlugin\$MenuItem", object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
                 val mContext = param.getArg(0) as? Context ?: return
                 val entry = XposedHelpers.callMethod(XposedHelpers.getObjectField(param.thisObject, "mParent"), "getEntry")
@@ -695,8 +729,7 @@ object SystemNotificationMoreHooks {
                 val uid = XposedHelpers.callMethod(notification, "getAppUid") as? Int ?: return
                 if (pkgName.isBlank() || uid < 0) return
 
-                // The API 33 Settings manifest owns this public route. Avoid a
-                // private fragment and launch in the notification's user/profile.
+                // Settings owns the public destination; use the notification profile.
                 val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
                     .setPackage("com.android.settings")
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -710,7 +743,7 @@ object SystemNotificationMoreHooks {
                     return
                 }
                 param.returnAndSkip(null)
-                // Once launched, a collapse failure must not open a second page.
+                // After a successful launch a collapse failure must not reopen settings.
                 try {
                     val modalController = XposedHelpers.callStaticMethod(
                         XposedHelpers.findClass("com.android.systemui.Dependency", lpparam.classLoader), "get",

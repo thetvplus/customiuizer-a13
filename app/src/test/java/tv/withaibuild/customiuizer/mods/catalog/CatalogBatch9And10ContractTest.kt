@@ -73,7 +73,7 @@ class CatalogBatch9And10ContractTest {
         )
         assertTrue("skipAppLock has no optional targets", optionalIds(skipAppLock).isEmpty())
 
-        // Two hooks; callingPackage is resolved before either hook is installed.
+        // A13 dispatch filtering: two hooks, no mutation of listener subscriptions.
         val noCallInterruption = contractFor("noCallInterruption")
         assertEquals(
             setOf(

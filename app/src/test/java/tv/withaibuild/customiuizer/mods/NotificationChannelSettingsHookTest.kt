@@ -74,6 +74,10 @@ class NotificationChannelSettingsHookTest {
         assertFalse(intent.hasExtra(":android:show_fragment"))
         assertEquals(0, originalCalls)
         assertTrue(modal.animExitCalled)
+        assertEquals("notification UID belongs to profile 10", 10, context.startedUsers.single()!!.identifier)
+        assertEquals(1, FakeXposedInterface.recordedHooks.count {
+            it.executable.declaringClass == MiuiNotificationMenuRow::class.java && it.executable.name == "onClickInfoItem"
+        })
     }
 
     @Test
@@ -134,10 +138,12 @@ class NotificationChannelSettingsHookTest {
     class Parent(private val entry: Entry) : BaseExpandableNotificationRow() { fun getEntry(): Entry = entry }
     class SettingsContext : FakeContext() {
         var launchFailure: Throwable? = null
+        val startedUsers = mutableListOf<UserHandle?>()
         @Suppress("UNUSED_PARAMETER")
         fun startActivityAsUser(intent: Intent, user: UserHandle?) {
             launchFailure?.let { throw it }
             startedActivities.add(intent)
+            startedUsers.add(user)
         }
     }
 }

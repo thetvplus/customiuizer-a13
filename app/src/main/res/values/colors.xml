@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+	<color name="preference_card_background">@android:color/system_neutral1_0</color>
+	<color name="preference_card_divider">#0C000000</color>
 	<color name="ic_launcher_background">#ff424a60</color>
 	<color name="color_window_background">@android:color/system_neutral1_10</color>
 	<color name="color_surface_variant">@android:color/system_neutral2_100</color>

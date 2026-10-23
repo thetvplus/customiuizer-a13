@@ -125,21 +125,6 @@ object CanaryContracts {
     )
     }
 
-    val muffledVibration: HookTargetContract by lazy(kotlin.LazyThreadSafetyMode.NONE) { HookTargetContract(
-        featureId = "muffledVibration",
-        requirements = listOf(
-            SingleTargetRequirement(
-                target = HookTargetSpec(
-                    id = "VibratorService.doVibratorOn",
-                    operation = HookOperation.ALL_METHODS_BY_NAME,
-                    className = "com.android.server.VibratorService",
-                    memberName = "doVibratorOn"
-                )
-            )
-        )
-    )
-    }
-
     val statusBarClockTweak: HookTargetContract by lazy(kotlin.LazyThreadSafetyMode.NONE) { HookTargetContract(
         featureId = "statusBarClockTweak",
         requirements = listOf(

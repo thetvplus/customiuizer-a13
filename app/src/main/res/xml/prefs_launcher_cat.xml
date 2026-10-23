@@ -13,6 +13,8 @@
 		android:entryValues="@array/launchers_val"
 		android:defaultValue="1" />
 
+	<tv.withaibuild.customiuizer.prefs.PreferenceEx android:title="@string/settings_launcher_layout" android:key="pref_key_launcher_cat_layout" />
+
 	<tv.withaibuild.customiuizer.prefs.PreferenceEx
 		android:title="@string/launcher_folders"
 		android:key="pref_key_launcher_cat_folders" />
@@ -26,7 +28,7 @@
 		android:title="@string/launcher_gestures"
 		android:key="pref_key_launcher_cat_gestures" />
 	<tv.withaibuild.customiuizer.prefs.PreferenceEx
-		android:title="@string/launcher_bugfixes"
+		android:title="@string/settings_launcher_animation"
 		android:key="pref_key_launcher_cat_bugfixes" />
 	<tv.withaibuild.customiuizer.prefs.PreferenceEx
 		android:title="@string/system_mods_other"

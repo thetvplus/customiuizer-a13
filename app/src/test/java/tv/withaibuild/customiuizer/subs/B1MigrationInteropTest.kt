@@ -4,6 +4,7 @@ import android.os.Bundle
 import tv.withaibuild.customiuizer.SubFragment
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -77,11 +78,16 @@ class B1MigrationInteropTest {
     }
 
     @Test
-    fun mainFragmentB1FieldsRetainFqcnTypes() {
-        val mainCls = Class.forName("tv.withaibuild.customiuizer.MainFragment", false, loader)
-        assertEquals("tv.withaibuild.customiuizer.subs.CategorySelector", mainCls.getDeclaredField("catSelector").type.name)
-        assertEquals("tv.withaibuild.customiuizer.subs.Controls", mainCls.getDeclaredField("prefControls").type.name)
-        assertEquals("tv.withaibuild.customiuizer.subs.Launcher", mainCls.getDeclaredField("prefLauncher").type.name)
+    fun detailPageFactoriesRetainControllerTypesAndCreateFreshPages() {
+        val pages = tv.withaibuild.customiuizer.SettingsPages.details
+        assertEquals(23, pages.size)
+        for (page in pages) {
+            val first = page.create()
+            val second = page.create()
+            assertNotSame("navigation must not reuse old Fragment state", first, second)
+            assertTrue(SubFragment::class.java.isAssignableFrom(first.javaClass))
+            assertTrue(first.javaClass.name.startsWith("tv.withaibuild.customiuizer."))
+        }
     }
 
     @Test
