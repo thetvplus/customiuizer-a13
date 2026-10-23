@@ -227,52 +227,6 @@ object FeatureCatalog {
             activationRestartTarget = RestartTarget.REBOOT,
             configReloadMode = ConfigReloadMode.NONE
         ),
-        FeatureSpec(
-            compatibilityPolicy = CompatibilityPolicy.CONTRACT_REQUIRED,
-            contract = CanaryContracts.muffledVibration,
-            id = "muffledVibration",
-            diagnosticId = DiagnosticIds.MUFFLED_VIBRATION,
-            processScope = ProcessScope.SYSTEM_SERVER,
-            installPhase = InstallPhase.SYSTEM_SERVER_STARTING,
-            processTarget = ProcessTarget.SystemServer,
-            preferenceKeys = setOf("system_vibration_amp"),
-            condition = { prefs ->
-                prefs.getBoolean("system_vibration_amp", false)
-            },
-            installer = { runtime, compatResult ->
-                val session = HookInstaller.withSession(
-                    resolver = runtime.resolver,
-                    contract = compatResult.resolvedContract ?: CanaryContracts.muffledVibration,
-                    diagnosticId = DiagnosticIds.MUFFLED_VIBRATION,
-                    classLoader = runtime.classLoader,
-                    compatibilityResult = compatResult
-                ) {
-                    SystemAudioAndVisualAndMoreHooks.MuffledVibrationHook(
-                        runtime.lpparam as SystemServerStartingParam
-                    )
-                }
-                when (session.installation) {
-                    InstallOutcome.INSTALLED,
-                    InstallOutcome.DEGRADED,
-                    InstallOutcome.DISPATCHED -> FeatureInstallResult.Installed(
-                        InstallSummary(
-                            requiredInstalled = session.requiredInstalled,
-                            requiredTotal = session.requiredTotal,
-                            optionalInstalled = session.optionalInstalled,
-                            optionalTotal = session.optionalTotal,
-                            fallbackUsed = session.fallbackUsed,
-                            installation = session.installation ?: InstallOutcome.FAILED,
-                            reasonCode = session.reasonCode
-                        )
-                    )
-                    else -> FeatureInstallResult.FailedTransient(
-                        session.detail ?: "muffledVibration session failed"
-                    )
-                }
-            },
-            activationRestartTarget = RestartTarget.REBOOT,
-            configReloadMode = ConfigReloadMode.NONE
-        ),
         // Canary: SystemUI
         FeatureSpec(
             compatibilityPolicy = CompatibilityPolicy.CONTRACT_REQUIRED,

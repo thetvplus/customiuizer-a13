@@ -30,9 +30,9 @@ class FeatureInventoryCompletenessTest(unittest.TestCase):
             re.DOTALL,
         )
         self.assertEqual(
-            68,
+            67,
             len(blocks),
-            "Expected 68 FeatureSpec declarations in FeatureCatalog.kt",
+            "Expected 67 active FeatureSpec declarations after amplitude retirement",
         )
 
         ids = set()
@@ -97,10 +97,25 @@ class FeatureInventoryCompletenessTest(unittest.TestCase):
             f"A13_PROCESS_MATRIX.md has ids not in FeatureCatalog: {extra_in_matrix}",
         )
         self.assertEqual(
-            68,
+            67,
             len(matrix_ids),
-            "A13_PROCESS_MATRIX.md must list exactly the 68 catalog feature ids",
+            "A13_PROCESS_MATRIX.md must list exactly the 67 active catalog feature ids",
         )
+
+    def test_amplitude_retirement_has_no_runtime_or_ui_consumers(self) -> None:
+        source = self.repo_root / "app/src/main/java"
+        for path in source.rglob("*"):
+            if path.suffix in (".java", ".kt"):
+                text = path.read_text(encoding="utf-8")
+                for token in ("MuffledVibrationHook", "muffledVibration", "system_vibration_amp"):
+                    self.assertNotIn(token, text, f"retired runtime consumer in {path}")
+        xml = self.repo_root / "app/src/main/res/xml"
+        for path in xml.glob("*.xml"):
+            self.assertNotIn("system_vibration_amp", path.read_text(encoding="utf-8"), str(path))
+        self.assertFalse((xml / "prefs_system_vibration_amp.xml").exists())
+        system = (xml / "prefs_system.xml").read_text(encoding="utf-8")
+        self.assertIn("pref_key_system_vibration_apps", system)
+        self.assertIn("pref_key_system_nosilentvibrate", system)
 
 
 if __name__ == "__main__":

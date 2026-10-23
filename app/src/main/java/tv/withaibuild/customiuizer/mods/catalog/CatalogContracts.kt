@@ -737,20 +737,11 @@ object CatalogContracts {
             ),
             SingleTargetRequirement(
                 target = HookTargetSpec(
-                    id = "TelephonyRegistry.notifyCallState",
+                    id = "TelephonyRegistry.Record.matchTelephonyCallbackEvent",
                     operation = HookOperation.EXACT_METHOD,
-                    className = "com.android.server.TelephonyRegistry",
-                    memberName = "notifyCallState",
-                    parameterTypes = listOf(INT, STRING)
-                )
-            ),
-            SingleTargetRequirement(
-                target = HookTargetSpec(
-                    id = "TelephonyRegistry.notifyCallStateForPhoneId",
-                    operation = HookOperation.EXACT_METHOD,
-                    className = "com.android.server.TelephonyRegistry",
-                    memberName = "notifyCallStateForPhoneId",
-                    parameterTypes = listOf(INT, INT, INT, STRING)
+                    className = "com.android.server.TelephonyRegistry\$Record",
+                    memberName = "matchTelephonyCallbackEvent",
+                    parameterTypes = listOf(INT)
                 )
             )
         )

@@ -356,7 +356,7 @@ class FeatureCatalogTest {
     @Test
     fun installerExceptionIsRecordedAsFailedAndDoesNotEscape() {
         val prefs = PrefMap<String, Any>()
-        prefs["pref_key_system_vibration_amp"] = true
+        prefs["pref_key_system_autobrightness"] = true
 
         val throwingLpparam = Proxy.newProxyInstance(
             SystemServerStartingParam::class.java.classLoader,
@@ -373,9 +373,9 @@ class FeatureCatalogTest {
         val classLoader = this.javaClass.classLoader!!
         val server = FeatureRuntime("android", throwingLpparam, classLoader, prefs)
 
-        assertFalse(FeatureDispatcher.installById("muffledVibration", server))
+        assertFalse(FeatureDispatcher.installById("autoBrightnessRange", server))
 
-        val snapshot = DiagnosticRecorder.summarize()[DiagnosticIds.MUFFLED_VIBRATION]
+        val snapshot = DiagnosticRecorder.summarize()[DiagnosticIds.AUTO_BRIGHTNESS_RANGE]
         assertEquals(CompatibilityState.COMPATIBLE, snapshot!!.compatibility)
         assertEquals(InstallOutcome.FAILED, snapshot.installation)
         assertTrue(logMessages.any { it.contains("INSTALLER_FAILED") })
@@ -384,9 +384,9 @@ class FeatureCatalogTest {
     @Test
     fun failedFeatureDoesNotBlockSubsequentInstallByIdCalls() {
         val prefs = PrefMap<String, Any>()
-        prefs["pref_key_system_vibration_amp"] = true
+        prefs["pref_key_system_autobrightness"] = true
 
-        // First: a failing runtime for muffledVibration.
+        // First: a failing runtime for autoBrightnessRange.
         val throwingLpparam = Proxy.newProxyInstance(
             SystemServerStartingParam::class.java.classLoader,
             arrayOf(SystemServerStartingParam::class.java)
@@ -400,13 +400,13 @@ class FeatureCatalogTest {
         MainModule.mPrefs = prefs as PrefMap<String, Any>
         val classLoader = this.javaClass.classLoader!!
         val server = FeatureRuntime("android", throwingLpparam, classLoader, prefs)
-        assertFalse(FeatureDispatcher.installById("muffledVibration", server))
+        assertFalse(FeatureDispatcher.installById("autoBrightnessRange", server))
 
         // Second: a fresh, working runtime for packagePermissions must still install.
         val goodServer = runtime("android")
         assertTrue(FeatureDispatcher.installById("packagePermissions", goodServer))
 
-        assertEquals(InstallOutcome.FAILED, DiagnosticRecorder.summarize()[DiagnosticIds.MUFFLED_VIBRATION]!!.installation)
+        assertEquals(InstallOutcome.FAILED, DiagnosticRecorder.summarize()[DiagnosticIds.AUTO_BRIGHTNESS_RANGE]!!.installation)
         assertEquals(InstallOutcome.INSTALLED, DiagnosticRecorder.summarize()[DiagnosticIds.PACKAGE_PERMISSIONS]!!.installation)
     }
 
@@ -432,12 +432,30 @@ class FeatureCatalogTest {
     }
 
     @Test
+    fun retiredAmplitudePreferencesCannotResolveOrInstallHooks() {
+        val prefs = PrefMap<String, Any>().apply {
+            put("pref_key_system_vibration_amp", true)
+            put("pref_key_system_vibration_amp_ringer", 50)
+        }
+        val server = runtime("android", prefs)
+        val hookCount = FakeXposedInterface.recordedHooks.size
+        assertEquals(null, FeatureId.fromString("muffledVibration"))
+        assertEquals(null, FeatureCatalog.specByCanonicalId("muffledVibration"))
+        assertFalse(FeatureDispatcher.installById("muffledVibration", server))
+        assertFalse(server.isResolverInitialized())
+        assertEquals(hookCount, FakeXposedInterface.recordedHooks.size)
+        assertTrue(prefs.getBoolean("system_vibration_amp"))
+        assertTrue(tv.withaibuild.customiuizer.prefs.PreferenceSchema.entries.none {
+            it.key.startsWith("system_vibration_amp") || it.ownerFeature == "muffledVibration"
+        })
+    }
+
+    @Test
     fun allCatalogFeaturesAreRegistered() {
         val ids = setOf(
             "packagePermissions",
             "statusBarClockTweak",
             "autoBrightnessRange",
-            "muffledVibration",
             "noMoreIcon",
             "batteryIndicator",
             "noClockHide",
@@ -513,7 +531,6 @@ class FeatureCatalogTest {
             "packagePermissions",
             "statusBarClockTweak",
             "autoBrightnessRange",
-            "muffledVibration",
             "noMoreIcon",
             "batteryIndicator",
             "noClockHide",
@@ -561,8 +578,8 @@ class FeatureCatalogTest {
     fun registrySpecsDoNotBuildLegacySpecs() {
         FeatureCatalog.CatalogBuildProbe.reset()
         val specs = FeatureCatalog.registrySpecs()
-        assertEquals(8, specs.size)
-        assertEquals("registrySpecs only builds the 8 migrated specs", 8, FeatureCatalog.CatalogBuildProbe.registrySpecsBuilt)
+        assertEquals(7, specs.size)
+        assertEquals("registrySpecs only builds the 7 active migrated specs", 7, FeatureCatalog.CatalogBuildProbe.registrySpecsBuilt)
         assertEquals("registrySpecs does not touch adapted specs", 0, FeatureCatalog.CatalogBuildProbe.adaptedSpecsBuilt)
     }
 
@@ -570,8 +587,8 @@ class FeatureCatalogTest {
     fun specsBuildsCompleteCatalogWithoutDoubleCounting() {
         FeatureCatalog.CatalogBuildProbe.reset()
         val specs = FeatureCatalog.specs()
-        assertEquals(68, specs.size)
-        assertEquals("specs builds the 8 registry specs once", 8, FeatureCatalog.CatalogBuildProbe.registrySpecsBuilt)
+        assertEquals(67, specs.size)
+        assertEquals("specs builds the 7 active registry specs once", 7, FeatureCatalog.CatalogBuildProbe.registrySpecsBuilt)
         assertEquals("specs builds the 60 adapted specs once", 60, FeatureCatalog.CatalogBuildProbe.adaptedSpecsBuilt)
     }
 
@@ -586,8 +603,8 @@ class FeatureCatalogTest {
         val registryMigrated = registryIds.size
         val dispatcherLegacy = legacyIds.size
 
-        assertEquals("catalog total", 68, catalogTotal)
-        assertEquals("registry migrated", 8, registryMigrated)
+        assertEquals("catalog total after amplitude retirement", 67, catalogTotal)
+        assertEquals("active registry migrated", 7, registryMigrated)
         assertEquals("dispatcher legacy", 60, dispatcherLegacy)
 
         assertTrue("registry ids are a subset of catalog ids", registryIds.all { it in catalogIds })

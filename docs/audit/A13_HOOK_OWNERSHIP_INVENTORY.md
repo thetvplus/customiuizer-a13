@@ -1,13 +1,13 @@
 # A13 Hook Ownership Inventory
 
-Total direct hook call sites: 634
+Total direct hook call sites: 632
 
 | Category | Files | Direct calls | Share |
 |---|---|---:|---:|
-| `REGISTRY_FEATURE` | 26 | 131 | 20.7 % |
+| `REGISTRY_FEATURE` | 26 | 129 | 20.4 % |
 | `INSTALLER_INFRASTRUCTURE` | 5 | 6 | 0.9 % |
 | `API_BRIDGE` | 0 | 0 | 0.0 % |
-| `LEGACY_EXCEPTION` | 31 | 497 | 78.4 % |
+| `LEGACY_EXCEPTION` | 31 | 497 | 78.6 % |
 | `UNKNOWN` | 0 | 0 | 0.0 % |
 
 ## Per-file summary
@@ -27,7 +27,7 @@ Total direct hook call sites: 634
 | `tv/withaibuild/customiuizer/mods/LauncherIconHooks.kt` | 19 | mixed | `LEGACY_EXCEPTION` | mixed: typed=2, legacy=17 |
 | `tv/withaibuild/customiuizer/mods/LauncherLayoutHooks.kt` | 28 | mixed | `LEGACY_EXCEPTION` | mixed: typed=1, legacy=27 |
 | `tv/withaibuild/customiuizer/mods/LauncherSystemHooks.kt` | 15 | mixed | `LEGACY_EXCEPTION` | mixed: typed=3, legacy=12 |
-| `tv/withaibuild/customiuizer/mods/SystemAudioAndVisualAndMoreHooks.kt` | 46 | mixed | `LEGACY_EXCEPTION` | mixed: typed=11, legacy=35 |
+| `tv/withaibuild/customiuizer/mods/SystemAudioAndVisualAndMoreHooks.kt` | 44 | mixed | `LEGACY_EXCEPTION` | mixed: typed=9, legacy=35 |
 | `tv/withaibuild/customiuizer/mods/SystemAudioAndVolumeHooks.kt` | 5 | mixed | `LEGACY_EXCEPTION` | mixed: typed=3, legacy=2 |
 | `tv/withaibuild/customiuizer/mods/SystemDisplayAndWindowHooks.kt` | 22 | mixed | `LEGACY_EXCEPTION` | mixed: typed=10, legacy=12 |
 | `tv/withaibuild/customiuizer/mods/SystemFreeformAndMultiWindowHooks.kt` | 27 | mixed | `LEGACY_EXCEPTION` | mixed: typed=15, legacy=12 |

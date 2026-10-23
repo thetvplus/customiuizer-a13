@@ -72,7 +72,6 @@ public final class SystemServerInstaller {
         if (MainModule.mPrefs.getBoolean("system_firstpress")) FeatureDispatcher.installById("firstVolumePress", serverRuntime);
         if (MainModule.mPrefs.getBoolean("system_apksign")) FeatureDispatcher.installById("noSignatureVerify", serverRuntime);
         if (MainModule.mPrefs.getBoolean("system_disableintegrity")) FeatureDispatcher.installById("disableSystemIntegrity", serverRuntime);
-        FeatureDispatcher.installById("muffledVibration", serverRuntime);
         if (MainModule.mPrefs.getBoolean("system_clearalltasks")) FeatureDispatcher.installById("clearAllTasks", serverRuntime);
         if (MainModule.mPrefs.getBoolean("system_nodarkforce")) FeatureDispatcher.installById("noDarkForce", serverRuntime);
         if (MainModule.mPrefs.getBoolean("system_fw_sticky")) FeatureDispatcher.installById("stickyFloatingWindows", serverRuntime);

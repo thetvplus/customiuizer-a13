@@ -217,11 +217,6 @@
 			android:summary="@string/system_nosilentvibrate_summ"
 			android:defaultValue="false" />
 
-		<tv.withaibuild.customiuizer.prefs.PreferenceEx
-			android:key="pref_key_system_vibration_amp_cat"
-			android:title="@string/system_vibration_amp_title"
-			android:summary="@string/system_vibration_amp_summ" />
-
 		<tv.withaibuild.customiuizer.prefs.ListPreferenceEx
 			android:key="pref_key_system_vibration"
 			android:summary="@string/system_vibration_summ"

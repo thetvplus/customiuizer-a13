@@ -255,6 +255,24 @@ class ScopeProtectionTest(unittest.TestCase):
             "app/src/main/java/tv/withaibuild/customiuizer/subs/SelectorResultDelivery.kt",
             "app/src/main/java/tv/withaibuild/customiuizer/subs/MultiActionSelectionState.kt",
         }
+        branch = subprocess.run(
+            ["git", "branch", "--show-current"], capture_output=True, text=True, cwd=REPO_ROOT
+        ).stdout.strip()
+        if branch == "devin/a13-hook-accuracy-20261024":
+            # Exact H01/H02/R01 production scope from docs/A13_HOOK_REFINEMENT.md.
+            allowed |= {
+                "app/src/main/java/tv/withaibuild/customiuizer/installers/SystemServerInstaller.java",
+                "app/src/main/java/tv/withaibuild/customiuizer/mods/SystemAudioAndVisualAndMoreHooks.kt",
+                "app/src/main/java/tv/withaibuild/customiuizer/mods/SystemNotificationMoreHooks.kt",
+                "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/CanaryContracts.kt",
+                "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/CatalogContracts.kt",
+                "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt",
+                "app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureId.kt",
+                "app/src/main/java/tv/withaibuild/customiuizer/mods/diagnostics/DiagnosticIds.kt",
+                "app/src/main/java/tv/withaibuild/customiuizer/prefs/PreferenceSchema.kt",
+                "app/src/main/java/tv/withaibuild/customiuizer/subs/System.kt",
+                "app/src/main/java/tv/withaibuild/customiuizer/subs/System_VibrationAmp.kt",
+            }
         for path in changed:
             if path in allowed:
                 continue

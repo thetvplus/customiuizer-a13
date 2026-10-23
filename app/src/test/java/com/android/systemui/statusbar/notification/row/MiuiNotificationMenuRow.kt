@@ -3,6 +3,7 @@ package com.android.systemui.statusbar.notification.row
 import android.content.Context
 import android.view.View
 import android.widget.LinearLayout
+import com.android.systemui.plugins.statusbar.NotificationMenuRowPlugin
 import tv.withaibuild.customiuizer.mods.BaseExpandableNotificationRow
 import tv.withaibuild.customiuizer.mods.BaseNotification
 import tv.withaibuild.customiuizer.mods.RecordingMenuContainer
@@ -18,6 +19,11 @@ open class MiuiNotificationMenuRow {
     var mMenuContainer: LinearLayout? = null
     var originalClearsAndAddsSystemItems: Boolean = true
     var failGetMenuView: Boolean = false
+
+    fun onClickInfoItem(context: Context, menuItem: NotificationMenuRowPlugin.MenuItem?) {}
+
+    // Deliberate extra overload: exact targeting must leave it alone.
+    fun onClickInfoItem(context: Context) {}
 
     fun createMenuViews(animate: Boolean, fromLeft: Boolean) {
         if (originalClearsAndAddsSystemItems) {

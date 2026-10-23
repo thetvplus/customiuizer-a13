@@ -12,7 +12,6 @@ class CanaryContractAuditTest {
     private val allCanaries = listOf(
         CanaryContracts.packagePermissions,
         CanaryContracts.autoBrightnessRange,
-        CanaryContracts.muffledVibration,
         CanaryContracts.statusBarClockTweak,
         CanaryContracts.noMoreIcon,
         CanaryContracts.batteryIndicator,

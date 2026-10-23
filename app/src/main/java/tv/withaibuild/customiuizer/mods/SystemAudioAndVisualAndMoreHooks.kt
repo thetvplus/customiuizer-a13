@@ -25,7 +25,6 @@ import android.os.Message
 import android.os.PowerManager
 import android.provider.MediaStore
 import android.provider.Settings
-import android.telephony.PhoneStateListener
 import android.text.SpannableString
 import android.view.Gravity
 import android.widget.FrameLayout
@@ -70,49 +69,42 @@ import java.util.*
 object SystemAudioAndVisualAndMoreHooks {
 
     private const val StatusBarCls = "com.android.systemui.statusbar.phone.CentralSurfacesImpl"
-    private var audioFocusPkg: String? = null
-
-    @Suppress("UNCHECKED_CAST")
-    private fun removeListener(thisObject: Any) {
-        val mRecords = XposedHelpers.getObjectField(thisObject, "mRecords") as? ArrayList<Any> ?: return
-        for (record in mRecords) {
-            val callingPackage = XposedHelpers.getObjectField(record, "callingPackage") as? String ?: continue
-            var events = XposedHelpers.getIntField(record, "events")
-            if ((events and PhoneStateListener.LISTEN_CALL_STATE) == PhoneStateListener.LISTEN_CALL_STATE &&
-                MainModule.mPrefs.getStringSet("system_ignorecalls_apps").contains(callingPackage)) {
-                events = events and PhoneStateListener.LISTEN_CALL_STATE.inv()
-                XposedHelpers.setIntField(record, "events", events)
-            }
-        }
-    }
+    @Volatile private var audioFocusPkg: String? = null
 
     @JvmStatic
     fun NoCallInterruptionHook(lpparam: SystemServerStartingParam) {
+        val recordClass = XposedHelpers.findClass("com.android.server.TelephonyRegistry\$Record", lpparam.classLoader)
+        // Resolve before installing either hook; a missing identity field must not
+        // leave the audio-focus half installed on an incompatible ROM.
+        val callingPackageField = XposedHelpers.findField(recordClass, "callingPackage")
+        check(callingPackageField.type == String::class.java)
+        ModuleHelper.findAndHookMethod(recordClass, "matchTelephonyCallbackEvent", Int::class.javaPrimitiveType, object : MethodHook() {
+            override fun before(param: BeforeHookCallback) {
+                val event = param.getArg(0) as? Int ?: return
+                // API 33 modern / legacy call-state event IDs.
+                if (event != 6 && event != 36) return
+                if (!MainModule.mPrefs.getBoolean("system_ignorecalls")) return
+                val callingPackage = callingPackageField.get(param.thisObject) as? String ?: return
+                if (MainModule.mPrefs.getStringSet("system_ignorecalls_apps").contains(callingPackage)) {
+                    param.returnAndSkip(false)
+                }
+            }
+        })
+
         ModuleHelper.hookAllMethods("com.android.server.audio.AudioService", lpparam.classLoader, "requestAudioFocus", object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                if (param.args.size <= 4) return
+                if (param.getArgsCount() <= 4) return
+                if (!MainModule.mPrefs.getBoolean("system_ignorecalls")) return
                 if ("AudioFocus_For_Phone_Ring_And_Calls" == param.args[4] && audioFocusPkg != null &&
                     MainModule.mPrefs.getStringSet("system_ignorecalls_apps").contains(audioFocusPkg))
                     param.returnAndSkip(1)
             }
 
             override fun after(param: AfterHookCallback) {
-                if (param.args.size <= 5) return
+                if (param.getArgsCount() <= 5) return
                 val res = param.result as? Int ?: return
                 if (res != AudioManager.AUDIOFOCUS_REQUEST_FAILED && "AudioFocus_For_Phone_Ring_And_Calls" != param.args[4])
                     audioFocusPkg = param.args[5] as? String
-            }
-        })
-
-        ModuleHelper.findAndHookMethod("com.android.server.TelephonyRegistry", lpparam.classLoader, "notifyCallState", Int::class.javaPrimitiveType, String::class.java, object : MethodHook() {
-            override fun before(param: BeforeHookCallback) {
-                removeListener(param.thisObject)
-            }
-        })
-
-        ModuleHelper.findAndHookMethod("com.android.server.TelephonyRegistry", lpparam.classLoader, "notifyCallStateForPhoneId", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, Int::class.javaPrimitiveType, String::class.java, object : MethodHook() {
-            override fun before(param: BeforeHookCallback) {
-                removeListener(param.thisObject)
             }
         })
     }
@@ -263,65 +255,6 @@ object SystemAudioAndVisualAndMoreHooks {
                 val userActivityTimeout = XposedHelpers.getLongField(mLpChanged, "userActivityTimeout")
                 if (userActivityTimeout > 0)
                     XposedHelpers.setLongField(mLpChanged, "userActivityTimeout", MainModule.mPrefs.getInt("system_lstimeout", 3) * 1000L)
-            }
-        })
-    }
-
-    private val formatter = SimpleDateFormat("H:m", Locale.ENGLISH)
-
-    @JvmStatic
-    fun MuffledVibrationHook(lpparam: SystemServerStartingParam) {
-        ModuleHelper.hookAllMethods("com.android.server.VibratorService", lpparam.classLoader, "doVibratorOn", object : MethodHook() {
-            override fun before(param: BeforeHookCallback) {
-                val ratioRinger = MainModule.mPrefs.getInt("system_vibration_amp_ringer", 100) / 100f
-                val ratioNotif = MainModule.mPrefs.getInt("system_vibration_amp_notif", 100) / 100f
-                val ratioOther = MainModule.mPrefs.getInt("system_vibration_amp_other", 100) / 100f
-
-                var isRingtone = false
-                var isNotification = false
-                val mCurrentVibration = XposedHelpers.getObjectField(param.thisObject, "mCurrentVibration")
-                if (mCurrentVibration != null) try {
-                    isRingtone = XposedHelpers.callMethod(mCurrentVibration, "isRingtone") as? Boolean ?: false
-                    isNotification = XposedHelpers.callMethod(mCurrentVibration, "isNotification") as? Boolean ?: false
-                } catch (t: Throwable) {
-                    if (t is OutOfMemoryError) throw t
-                    val mUsageHint = XposedHelpers.getIntField(mCurrentVibration, "mUsageHint")
-                    isRingtone = mUsageHint == 6
-                    isNotification = mUsageHint == 5 || mUsageHint == 7 || mUsageHint == 8 || mUsageHint == 9
-                }
-
-                val ratio: Float
-                if (isRingtone) ratio = ratioRinger
-                else if (isNotification) ratio = ratioNotif
-                else ratio = ratioOther
-                if (ratio == 1.0f) return
-
-                val key = "system_vibration_amp_period"
-                val startHour = MainModule.mPrefs.getInt(key + "_start_hour", 0)
-                val startMinute = MainModule.mPrefs.getInt(key + "_start_minute", 0)
-                val endHour = MainModule.mPrefs.getInt(key + "_end_hour", 0)
-                val endMinute = MainModule.mPrefs.getInt(key + "_end_minute", 0)
-
-                formatter.timeZone = TimeZone.getDefault()
-                val start = formatter.parse("$startHour:$startMinute")
-                val end = formatter.parse("$endHour:$endMinute")
-                val now = formatter.parse(formatter.format(Date()))
-
-                val insidePeriod = if (start.before(end)) now.after(start) && now.before(end) else now.before(end) || now.after(start)
-                if (!insidePeriod) return
-
-                val mSupportsAmplitudeControl = try {
-                    XposedHelpers.getBooleanField(param.thisObject, "mSupportsAmplitudeControl")
-                } catch (t: Throwable) {
-                    if (t is OutOfMemoryError) throw t
-                    false
-                }
-
-                if (mSupportsAmplitudeControl) {
-                    param.args[1] = Math.round(((param.args[1] as? Int ?: -1).let { if (it == -1) XposedHelpers.getIntField(param.thisObject, "mDefaultVibrationAmplitude") else it } * ratio))
-                } else {
-                    param.args[0] = Math.max(3, Math.round((param.args[0] as? Long ?: 0L) * ratio))
-                }
             }
         })
     }

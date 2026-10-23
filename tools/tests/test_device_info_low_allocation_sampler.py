@@ -425,6 +425,9 @@ class ScopeProtectionTest(unittest.TestCase):
         elif branch == "devin/a13-r13.13.0":
             # This task updates release metadata and verification hashes for Kotlin 2.4.
             allowed = {"README.md", "README_EN.md", "gradle/verification-metadata.xml"}
+        elif branch == "devin/a13-hook-accuracy-20261024":
+            # Current user-authorized H01/R01 scope; sampler and runtime infrastructure stay protected.
+            allowed = {"app/src/main/java/tv/withaibuild/customiuizer/mods/SystemAudioAndVisualAndMoreHooks.kt"}
         else:
             allowed = set()
         for path in changed_files():

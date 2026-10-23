@@ -1,6 +1,7 @@
 package tv.withaibuild.customiuizer.mods
 
 import android.media.AudioManager
+import com.android.server.TelephonyRegistry
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface
 import org.junit.After
@@ -188,6 +189,80 @@ class NoCallInterruptionCallbackTest {
         val beforeCallback = fakeBeforeCallback(beforeArgs)
         hook.beforeHook(beforeCallback)
         assertFalse("different client should not skip", isSkipped(beforeCallback))
+    }
+
+    private fun matches(record: TelephonyRegistry.Record, event: Int): Pair<Boolean, Int> {
+        val recorded = FakeXposedInterface.findHook(TelephonyRegistry.Record::class.java.name, "matchTelephonyCallbackEvent")!!
+        var originalCalls = 0
+        val chain = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(XposedInterface.Chain::class.java)) { _, method, _ ->
+            when (method.name) {
+                "getExecutable" -> recorded.executable
+                "getThisObject" -> record
+                "getArgs" -> listOf(event)
+                "proceed" -> { originalCalls++; record.matchTelephonyCallbackEvent(event) }
+                else -> null
+            }
+        } as XposedInterface.Chain
+        return (recorded.hook.intercept(chain) as Boolean) to originalCalls
+    }
+
+    @Test
+    fun filtersOnlyCallStateEventsAndPreservesSubscriptions() {
+        val prefs = PrefMap<String, Any>().apply {
+            put("system_ignorecalls", true)
+            put("system_ignorecalls_apps", setOf("com.caller"))
+        }
+        installAndFindHook(prefs)
+        val events = setOf(6, 36, 1)
+        val record = TelephonyRegistry.Record("com.caller", events)
+        assertEquals(false to 0, matches(record, 6))
+        assertEquals(false to 0, matches(record, 36))
+        assertEquals(true to 1, matches(record, 1))
+        assertEquals(events, record.eventList)
+    }
+
+    @Test
+    fun removingAppOrDisablingFeatureRestoresDispatchWithoutReregistration() {
+        val prefs = PrefMap<String, Any>().apply {
+            put("system_ignorecalls", true)
+            put("system_ignorecalls_apps", setOf("com.caller"))
+        }
+        installAndFindHook(prefs)
+        val record = TelephonyRegistry.Record("com.caller", setOf(6, 36))
+        assertEquals(false to 0, matches(record, 6))
+        prefs["system_ignorecalls_apps"] = emptySet<String>()
+        assertEquals(true to 1, matches(record, 6))
+        prefs["system_ignorecalls_apps"] = setOf("com.caller")
+        prefs["system_ignorecalls"] = false
+        assertEquals(true to 1, matches(record, 36))
+    }
+
+    @Test
+    fun unselectedAppsAndNativeNonmatchesKeepOriginalResult() {
+        val prefs = PrefMap<String, Any>().apply {
+            put("system_ignorecalls", true)
+            put("system_ignorecalls_apps", setOf("com.caller"))
+        }
+        installAndFindHook(prefs)
+        assertEquals(true to 1, matches(TelephonyRegistry.Record("other", setOf(6)), 6))
+        assertEquals(false to 1, matches(TelephonyRegistry.Record("other", setOf(36)), 6))
+        assertEquals(false to 1, matches(TelephonyRegistry.Record("other", setOf(6), false), 6))
+        assertEquals(true to 1, matches(TelephonyRegistry.Record(null, setOf(6)), 6))
+    }
+
+    @Test
+    fun disablingFeatureAlsoRestoresPhoneAudioFocus() {
+        val prefs = PrefMap<String, Any>().apply {
+            put("system_ignorecalls", true)
+            put("system_ignorecalls_apps", setOf("com.caller"))
+        }
+        resetAudioFocusPkg()
+        val (hook, _) = installAndFindHook(prefs)
+        hook.afterHook(fakeAfterCallback(arrayListOf(Any(), Any(), 0, 0, "client", "com.caller"), 1))
+        prefs["system_ignorecalls"] = false
+        val before = fakeBeforeCallback(arrayListOf(Any(), Any(), 0, 0, "AudioFocus_For_Phone_Ring_And_Calls", "phone"))
+        hook.beforeHook(before)
+        assertFalse(isSkipped(before))
     }
 
     private fun currentAudioFocusPkg(): String? {

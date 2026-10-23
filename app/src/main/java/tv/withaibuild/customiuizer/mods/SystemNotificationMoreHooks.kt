@@ -9,10 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
 import android.media.AudioManager
-import android.os.Bundle
 import android.os.Handler
-import android.os.Process
 import android.os.UserHandle
+import android.provider.Settings
 import android.util.TypedValue
 import android.view.View
 import android.widget.LinearLayout
@@ -676,40 +675,54 @@ object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun NotificationChannelSettingsHook(lpparam: PackageReadyParam) {
-        ModuleHelper.hookAllMethods("com.android.systemui.statusbar.notification.row.MiuiNotificationMenuRow", lpparam.classLoader, "onClickInfoItem", object : MethodHook() {
+        val notificationUtil = XposedHelpers.findClassIfExists(
+            "com.android.systemui.statusbar.notification.NotificationUtil", lpparam.classLoader
+        ) ?: return
+        val notificationClass = XposedHelpers.findClassIfExists(
+            "com.android.systemui.statusbar.notification.ExpandedNotification", lpparam.classLoader
+        ) ?: return
+        val isHybrid = XposedHelpers.findMethodExactIfExists(notificationUtil, "isHybrid", notificationClass) ?: return
+        if (isHybrid.returnType != Boolean::class.javaPrimitiveType) return
+
+        ModuleHelper.findAndHookMethod(
+            "com.android.systemui.statusbar.notification.row.MiuiNotificationMenuRow", lpparam.classLoader,
+            "onClickInfoItem", Context::class.java,
+            "com.android.systemui.plugins.statusbar.NotificationMenuRowPlugin\$MenuItem", object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
                 val mContext = param.getArg(0) as? Context ?: return
                 val entry = XposedHelpers.callMethod(XposedHelpers.getObjectField(param.thisObject, "mParent"), "getEntry")
                 val id = XposedHelpers.callMethod(XposedHelpers.callMethod(entry, "getChannel"), "getId") as? String ?: return
-                if ("miscellaneous" == id) return
+                if (id.isBlank() || NotificationChannel.DEFAULT_CHANNEL_ID == id) return
                 val notification = XposedHelpers.callMethod(entry, "getSbn")
-                val nuCls = XposedHelpers.findClassIfExists("com.android.systemui.miui.statusbar.notification.NotificationUtil", lpparam.classLoader)
-                if (nuCls != null) {
-                    val isHybrid = XposedHelpers.callStaticMethod(nuCls, "isHybrid", notification) as? Boolean ?: false
-                    if (isHybrid) return
-                }
+                if (isHybrid.invoke(null, notification) as? Boolean != false) return
                 val pkgName = XposedHelpers.callMethod(notification, "getPackageName") as? String ?: return
-                val user = XposedHelpers.callMethod(notification, "getAppUid") as? Int ?: 0
+                val uid = XposedHelpers.callMethod(notification, "getAppUid") as? Int ?: return
+                if (pkgName.isBlank() || uid < 0) return
 
-                val bundle = Bundle()
-                bundle.putString("android.provider.extra.CHANNEL_ID", id)
-                bundle.putString("package", pkgName)
-                bundle.putInt("uid", user)
-                bundle.putString("miui.targetPkg", pkgName)
-                val intent = Intent("android.intent.action.MAIN")
-                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                intent.putExtra(":android:show_fragment", "com.android.settings.notification.ChannelNotificationSettings")
-                intent.putExtra(":android:show_fragment_args", bundle)
-                intent.setClassName("com.android.settings", "com.android.settings.SubSettings")
+                // Settings owns the public destination; use the notification profile.
+                val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                    .setPackage("com.android.settings")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, pkgName)
+                    .putExtra(Settings.EXTRA_CHANNEL_ID, id)
                 try {
-                    XposedHelpers.callMethod(mContext, "startActivityAsUser", intent, Process.myUserHandle())
-                    param.returnAndSkip(null)
-                    val ModalController = XposedHelpers.callStaticMethod(XposedHelpers.findClass("com.android.systemui.Dependency", mContext.classLoader), "get", XposedHelpers.findClass("com.android.systemui.statusbar.notification.modal.ModalController", mContext.classLoader))
-                    XposedHelpers.callMethod(ModalController, "animExitModelCollapsePanels")
-                } catch (ignore: Throwable) {
-                    if (ignore is OutOfMemoryError) throw ignore
-                    XposedHelpers.log(ignore)
+                    XposedHelpers.callMethod(mContext, "startActivityAsUser", intent, UserHandle.getUserHandleForUid(uid))
+                } catch (t: Throwable) {
+                    rethrowFatal(t)
+                    XposedHelpers.log(t)
+                    return
+                }
+                param.returnAndSkip(null)
+                // After a successful launch a collapse failure must not reopen settings.
+                try {
+                    val modalController = XposedHelpers.callStaticMethod(
+                        XposedHelpers.findClass("com.android.systemui.Dependency", lpparam.classLoader), "get",
+                        XposedHelpers.findClass("com.android.systemui.statusbar.notification.modal.ModalController", lpparam.classLoader)
+                    )
+                    XposedHelpers.callMethod(modalController, "animExitModelCollapsePanels")
+                } catch (t: Throwable) {
+                    rethrowFatal(t)
+                    XposedHelpers.log(t)
                 }
             }
         })

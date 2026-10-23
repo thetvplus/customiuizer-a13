@@ -9,6 +9,17 @@ A14 reference SHA:  d20d96b543a49a584970e312da7d704958a155aa
 
 不使用移动 A14 `main` 做 parity 决策。A14 参考刷新必须显式更新本文件并记录新 SHA。
 
+## 2026-10-24 A13 精修更正
+
+本轮按用户要求先修复明显 Hook 失配并退役失效功能。以下当前源码结论优先于旧 parity/audit 快照，
+没有新增 A14 移植；证据、样本哈希和验证状态见 [精修台账](A13_HOOK_REFINEMENT.md)。
+
+| 功能 | 当前分类与处理 |
+| --- | --- |
+| 来电不中断应用 | `A13_COMPAT_VARIANT`；API 33 `Record.matchTelephonyCallbackEvent(int)` 过滤事件 6/36，不改写订阅，移除旧 notify/`events:int` 路径 |
+| 直达通知渠道设置 | `A13_COMPAT_VARIANT`；精确点击签名，正确 `NotificationUtil`，公开 Settings action，按通知 UID 选用户，失败保留原行为 |
+| 旧振幅/定时调节 | `DEAD_UPSTREAM_PATH`（已核验两份 A13 services 样本）；退役 UI、调度、合同与实现，旧偏好不再消费，其他振动功能独立保留 |
+
 ## 平台边界
 
 - A13 主支持：MIUI 14 / Android 13。

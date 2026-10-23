@@ -89,16 +89,6 @@ object PreferenceSchema {
             hotReloadable = false,
             legacyAliases = emptySet()
         ),
-        PreferenceEntry(
-            key = "system_vibration_amp",
-            type = PreferenceType.BOOLEAN,
-            defaultValue = false,
-            constraint = PreferenceConstraint.BooleanValue(expected = false),
-            ownerFeature = "muffledVibration",
-            restartTarget = RestartTarget.REBOOT,
-            hotReloadable = false,
-            legacyAliases = emptySet()
-        ),
         // Canary: SystemUI
         PreferenceEntry(
             key = "system_hidemoreicon",
