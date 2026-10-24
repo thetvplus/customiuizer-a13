@@ -163,13 +163,47 @@ class EnvironmentAndSigningTest(unittest.TestCase):
             folder.mkdir()
             config = folder / "keystore.properties"
             config.write_text("test-only")
-            with patch.dict(os.environ, {"RUNNER_TEMP": td, **{key: "test-only" for key in release.SECRETS}}), patch.object(release, "preflight", return_value=SOURCE), patch.object(release, "prepare_signing", return_value=config), patch.object(release, "command", side_effect=ValueError("build stopped")) as command:
+            with patch.dict(os.environ, {"RUNNER_TEMP": td, "GH_TOKEN": "test-only", "GITHUB_TOKEN": "test-only", **{key: "test-only" for key in release.SECRETS}}), patch.object(release, "preflight", return_value=SOURCE), patch.object(release, "prepare_signing", return_value=config), patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as bootstrap, patch.object(release, "command", side_effect=ValueError("build stopped")) as command:
                 with self.assertRaises(ValueError):
                     release.build()
                 child_env = command.call_args.kwargs["env"]
                 self.assertFalse(set(release.SECRETS) & set(child_env))
+                self.assertNotIn("GH_TOKEN", child_env)
+                self.assertNotIn("GITHUB_TOKEN", child_env)
                 self.assertIn("--no-configuration-cache", command.call_args.args)
+                unsigned_env = bootstrap.call_args.kwargs["env"]
+                self.assertEqual(":app:help", bootstrap.call_args.args[0][-1])
+                self.assertFalse((set(release.SECRETS) | {"GH_TOKEN", "GITHUB_TOKEN", "CUSTOMIUIZER_A13_KEYSTORE_PROPERTIES"}) & set(unsigned_env))
+                self.assertFalse(Path(child_env["GRADLE_USER_HOME"]).parent.exists())
                 self.assertFalse(folder.exists())
+
+    def test_failed_unsigned_bootstrap_never_loads_the_signing_material(self):
+        with tempfile.TemporaryDirectory() as td, patch.dict(os.environ, {"RUNNER_TEMP": td}), patch.object(release, "preflight", return_value=SOURCE), patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess([], 1)) as bootstrap, patch.object(release, "prepare_signing") as signing, patch.object(release, "command") as command:
+            with self.assertRaisesRegex(ValueError, "Unsigned Gradle bootstrap failed"):
+                release.build()
+            signing.assert_not_called()
+            command.assert_not_called()
+            self.assertFalse(Path(bootstrap.call_args.kwargs["env"]["GRADLE_USER_HOME"]).parent.exists())
+
+    def test_bootstrap_completes_before_any_signing_file_is_prepared(self):
+        with tempfile.TemporaryDirectory() as td, patch.dict(os.environ, {"RUNNER_TEMP": td}), patch.object(release, "preflight", return_value=SOURCE):
+            events = []
+            def unsigned(*args, **kwargs):
+                self.assertFalse(release.signing_directory().exists())
+                events.append("unsigned")
+                return subprocess.CompletedProcess([], 0)
+            def signing():
+                events.append("signing")
+                return Path(td) / "test-only.properties"
+            with patch.object(release.subprocess, "run", side_effect=unsigned), patch.object(release, "prepare_signing", side_effect=signing), patch.object(release, "command", side_effect=lambda *args, **kwargs: events.append("official")):
+                release.build()
+            self.assertEqual(["unsigned", "signing", "official"], events)
+
+    def test_main_must_still_pass_after_the_cold_bootstrap(self):
+        with tempfile.TemporaryDirectory() as td, patch.dict(os.environ, {"RUNNER_TEMP": td}), patch.object(release, "preflight", side_effect=[SOURCE, ValueError("main moved")]), patch.object(release.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)), patch.object(release, "prepare_signing") as signing:
+            with self.assertRaisesRegex(ValueError, "main moved"):
+                release.build()
+            signing.assert_not_called()
 
 
 class ArtifactAndProvenanceTest(unittest.TestCase):

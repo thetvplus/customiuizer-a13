@@ -17,6 +17,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 from urllib.parse import quote
@@ -189,7 +190,7 @@ def preflight() -> str:
             "Version already has a release/tag; recover its original signed candidate instead of rebuilding")
     current_main(sha)
     output(source_sha=sha)
-    summary(f"Signing request: {name} ({code}), exact main `{sha}`. Native Fast/Full CI and release-signing protection verified; human Environment approval is required.")
+    summary(f"Signing request: {name} ({code}), exact main `{sha}`. Native Fast/Full CI and release-signing protection verified; native Environment approval is required.")
     return sha
 
 
@@ -254,16 +255,23 @@ def build() -> None:
     # Revalidate after approval, immediately before touching any signing secret.
     sha = preflight()
     try:
-        config = prepare_signing()
-        build_env = {key: value for key, value in os.environ.items() if key not in SECRETS}
-        build_env["CUSTOMIUIZER_A13_KEYSTORE_PROPERTIES"] = str(config)
-        # Never save Gradle caches containing signing task inputs/configuration.
-        build_env["GRADLE_USER_HOME"] = str(signing_directory() / "gradle-home")
-        gradlew = str(ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew"))
-        command(gradlew, "--no-daemon", "--no-configuration-cache", "--no-build-cache", "--no-scan",
-                "--project-cache-dir", str(signing_directory() / "project-cache"),
-                ":app:assembleRelease", ":app:lintVitalRelease", "-PofficialRelease=true",
-                f"-PreleaseSourceSha={sha}", env=build_env)
+        # Bootstrap the cold toolchain before any signing file exists. Its output
+        # is safe to show and diagnoses download/configuration failures directly.
+        private_env = set(SECRETS) | {"GH_TOKEN", "GITHUB_TOKEN", "CUSTOMIUIZER_A13_KEYSTORE_PROPERTIES"}
+        build_env = {key: value for key, value in os.environ.items() if key not in private_env}
+        with tempfile.TemporaryDirectory(prefix="a13-build-", dir=os.environ["RUNNER_TEMP"]) as temporary:
+            build_env["GRADLE_USER_HOME"] = str(Path(temporary) / "gradle-home")
+            gradlew = str(ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew"))
+            args = (gradlew, "--no-daemon", "--no-configuration-cache", "--no-build-cache", "--no-scan",
+                    "--project-cache-dir", str(Path(temporary) / "project-cache"))
+            bootstrap = subprocess.run([*args, "-PofficialRelease=false", ":app:help"], cwd=ROOT, env=dict(build_env))
+            require(bootstrap.returncode == 0, "Unsigned Gradle bootstrap failed; signing was not started")
+            preflight()  # Cold downloads may outlive the original main/CI check.
+            config = prepare_signing()
+            build_env["CUSTOMIUIZER_A13_KEYSTORE_PROPERTIES"] = str(config)
+            # Official output stays private, and all inputs/caches are temporary.
+            command(*args, ":app:assembleRelease", ":app:lintVitalRelease", "-PofficialRelease=true",
+                    f"-PreleaseSourceSha={sha}", env=build_env)
     finally:
         cleanup()
 

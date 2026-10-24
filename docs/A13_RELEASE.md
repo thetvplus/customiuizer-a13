@@ -9,6 +9,11 @@
 Agent 连续完成最终 main 验证、签名候选、晋升与双仓核验，无需聊天逐步确认。
 GitHub 原生 `release-signing` / `release-publishing` 人工审批继续生效，等待审批不得记为已发布。
 
+维护者随后明确授权：本版所需的原生审批由 Agent 代为执行，无需维护者持续点击页面。
+可使用当前受权账号的 GitHub 原生 pending-deployments 审批接口；保留 required reviewer、
+精确 main 限定与禁止管理员绕过，仍逐项验证 CI、证书、Artifact 和来源。
+这不是取消保护或每次 main push 自动发行；本版授权范围仍限定为 r13.14.1、Stable、双仓和同一 APK。
+
 参考 A14 main `eae2529d1af5e513c8a58c8ce1d198d371e63516` 的签名、APK 检查、来源证明和双仓恢复架构。
 A13 仅使用手动触发的两条独立流程，无 workflow_run、自动发布、签名回退或双仓分别构建。
 
@@ -47,9 +52,11 @@ main branch。四个签名 Secret 名称齐全；首次复核时 release-publish
    不接受 PR Merge SHA、历史 SHA、Fork、取消、失败或 skipped job。
 3. 在 main 手动运行 **A13 Signed Build**，`source_sha` 输入最终 main 的完整 40 位 SHA。
    无密钥 validate 先检查，然后人工审批 `release-signing`；build 步骤再次检查 main 和 CI。
-4. 工作流将 Base64 严格还原到临时 `release.p12`，用 PKCS12 导出公开证书并核验指纹，
+4. 先在临时 Gradle home/project cache 运行无密钥 `:app:help -PofficialRelease=false`，
+   公开其下载/配置诊断；子进程不继承签名 Secret、GitHub Token 或签名配置路径，预检失败不加载密钥。
+   之后才将 Base64 严格还原到临时 `release.p12`，用 PKCS12 导出公开证书并核验指纹，
    生成正确 Java Properties 转义的临时配置。密码不进入命令行；Gradle 子进程不继承四个 Secret，
-   禁用构建/配置缓存、后台 daemon 和 scan，使用临时 Gradle 目录。
+   禁用构建/配置缓存、后台 daemon 和 scan，复用同一次预检的临时 Gradle 目录，退出时全部清理。
    构建输出被捕获，失败只显示操作失败，避免诊断泄露签名值。
 5. 只执行一次正式 `assembleRelease` 与 `lintVitalRelease`。finally 和 always 清理临时材料。
    runner 被强制终止时依赖 GitHub 托管临时 runner 的销毁，不使用自托管 runner。
@@ -118,6 +125,11 @@ with an exact SHA, successful native Fast/Full runs and human `release-signing` 
 require reviewers, no admin bypass and exactly the main branch. The four A13 signing secrets are confined to
 the build step, decoded as PKCS#12, certificate-checked and erased afterwards. Official Gradle output is not
 printed or uploaded; private signing inputs never become artifacts or saved caches.
+
+For r13.14.1, the maintainer explicitly authorized the Agent to submit native required-reviewer approvals
+on their behalf. Keep all Environment protections and exact-source checks. An unsigned cold Gradle bootstrap
+now runs before loading signing files, with private variables removed and public diagnostics visible;
+main/CI protection is checked again afterwards. Official signing output remains private and temporary caches are erased.
 
 The successful signed candidate is attested and retained for 30 days. Promotion is a separate manual workflow;
 `actions-only` is the default. For publication select `source` or `both`, type
