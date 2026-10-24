@@ -2,6 +2,7 @@ package tv.withaibuild.customiuizer.mods
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Rect
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.KeyEvent
@@ -25,6 +26,28 @@ object LauncherGestureHooks {
 
     private const val HOTSEAT_GESTURE_STATE_KEY =
         "customiuizer.hotseatGestureState"
+    private const val ASSISTANT_TOUCH_REGION_KEY = "customiuizer.assistantTouchRegion"
+
+    /** A gesture snapshot, owned by one assistant controller, with no View references. */
+    internal class AssistantTouchRegion {
+        var downTime = Long.MIN_VALUE
+            private set
+        private var left = 0
+        private var top = 0
+        private var right = 0
+        private var bottom = 0
+
+        fun reset(time: Long) {
+            downTime = time
+            left = 0; top = 0; right = 0; bottom = 0
+        }
+
+        fun update(left: Int, top: Int, right: Int, bottom: Int) {
+            this.left = left; this.top = top; this.right = right; this.bottom = bottom
+        }
+
+        fun contains(x: Int, y: Int): Boolean = x >= left && x < right && y >= top && y < bottom
+    }
 
     internal class HotSeatGestureState {
         var densityDpi: Int = Int.MIN_VALUE
@@ -181,24 +204,24 @@ object LauncherGestureHooks {
     @JvmStatic
     fun HotSeatSwipesHook(lpparam: PackageReadyParam) {
         ModuleHelper.findAndHookMethod("com.miui.home.launcher.overlay.assistant.AssistantOverlaySwipeController", lpparam.classLoader, "canInterceptTouch", MotionEvent::class.java, object : MethodHook() {
-            private var mHotHeatTouchRect: android.graphics.Rect? = null
             override fun after(param: AfterHookCallback) {
-                val canInterceptTouch = param.getResult() as? Boolean ?: false
-                if (canInterceptTouch) {
-                    if (mHotHeatTouchRect == null) {
-                        val mLauncher = XposedHelpers.getObjectField(param.getThisObject(), "mLauncher")
-                        val mHotSeats = XposedHelpers.callMethod(mLauncher, "getHotSeats") as? FrameLayout
-                        if (mHotSeats != null) {
-                            mHotHeatTouchRect = android.graphics.Rect()
-                            mHotSeats.getHitRect(mHotHeatTouchRect)
-                        }
-                    }
-                    val motionEvent = param.getArg(0) as? MotionEvent ?: return
-                    val rect = mHotHeatTouchRect ?: return
-                    if (rect.contains(motionEvent.x.toInt(), motionEvent.y.toInt())) {
-                        param.setResult(false)
-                    }
+                if (param.getResult() != true) return
+                val motionEvent = param.getArg(0) as? MotionEvent ?: return
+                val controller = param.getThisObject()
+                val region = (XposedHelpers.getAdditionalInstanceField(controller, ASSISTANT_TOUCH_REGION_KEY)
+                    as? AssistantTouchRegion) ?: AssistantTouchRegion().also {
+                    XposedHelpers.setAdditionalInstanceField(controller, ASSISTANT_TOUCH_REGION_KEY, it)
                 }
+                if (region.downTime != motionEvent.downTime) {
+                    // Refresh on the first eligible event of every gesture, even if DOWN was native-disabled.
+                    region.reset(motionEvent.downTime)
+                    val launcher = XposedHelpers.getObjectField(controller, "mLauncher")
+                    val hotSeats = XposedHelpers.callMethod(launcher, "getHotSeats") as? FrameLayout ?: return
+                    val rect = Rect()
+                    hotSeats.getHitRect(rect)
+                    region.update(rect.left, rect.top, rect.right, rect.bottom)
+                }
+                if (region.contains(motionEvent.x.toInt(), motionEvent.y.toInt())) param.setResult(false)
             }
         })
         ModuleHelper.findAndHookMethod("com.miui.home.launcher.hotseats.HotSeats", lpparam.classLoader, "dispatchTouchEvent", MotionEvent::class.java, object : MethodHook() {

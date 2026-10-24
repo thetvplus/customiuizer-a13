@@ -103,6 +103,22 @@ class BackupFormatV2Test {
 
 class BackupRestoreTest {
 
+    @Test fun invalidOrTruncatedBackupsNeverClearExistingValues() {
+        val valid = BackupFormatV2.encode(linkedMapOf("pref_key_new" to true))
+        val corrupt = valid.copyOf().apply { this[lastIndex] = (this[lastIndex].toInt() xor 1).toByte() }
+        for (bytes in listOf(byteArrayOf(), valid.copyOf(8), corrupt, "not a backup".toByteArray())) {
+            val prefs = FakeSharedPreferences().apply {
+                put("pref_key_keep", "existing")
+                put("pref_key_retired", 42)
+            }
+            val before = prefs.all
+            val result = BackupRestore.performRestore(ByteArrayInputStream(bytes), prefs, emptySet())
+            assertEquals(BackupRestore.Status.FAILURE, result.status)
+            assertFalse(result.commitSucceeded)
+            assertEquals(before, prefs.all)
+        }
+    }
+
     @Test
     fun generateBackupFilenameHasR13Prefix() {
         val filename = BackupRestore.generateBackupFilename()

@@ -20,12 +20,11 @@ import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.AfterHookCallbac
 import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.BeforeHookCallback
 import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.MethodHook
 import tv.withaibuild.customiuizer.mods.utils.ModuleHelper
+import tv.withaibuild.customiuizer.mods.utils.PowerMenuResource
 import tv.withaibuild.customiuizer.mods.utils.XposedHelpers
 import tv.withaibuild.customiuizer.utils.HookUtils
 import tv.withaibuild.customiuizer.utils.PrefPair
 import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
 import java.lang.reflect.Field
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
@@ -356,52 +355,13 @@ object SystemUINotificationHooks {
 
     @JvmStatic
     fun ExtendedPowerMenuHook(lpparam: PackageReadyParam) {
-        ModuleHelper.findAndHookMethod("com.android.systemui.SystemUIApplication", lpparam.classLoader, "onCreate", object : MethodHook() {
-            private var isListened = false
-
-            override fun after(param: AfterHookCallback) {
-                if (!isListened) {
-                    isListened = true
-                    val mContext = XposedHelpers.callMethod(param.getThisObject(), "getApplicationContext") as? Context ?: return
-                    val powermenu = File(mContext.cacheDir, "extended_power_menu")
-                    if (powermenu == null) {
-                        XposedHelpers.log("ExtendedPowerMenuHook", "No writable path found!")
-                        return
-                    }
-                    if (powermenu.exists()) powermenu.delete()
-
-                    val resources = ModuleHelper.getModuleRes(mContext)
-                    val inputStream: InputStream
-                    val outputStream: FileOutputStream
-                    val fileBytes: ByteArray
-                    inputStream = resources.openRawResource(resources.getIdentifier("extended_power_menu", "raw", HookUtils.modulePkg))
-                    fileBytes = ByteArray(inputStream.available())
-                    inputStream.read(fileBytes)
-                    outputStream = FileOutputStream(powermenu)
-                    outputStream.write(fileBytes)
-                    outputStream.close()
-                    inputStream.close()
-
-                    if (!powermenu.exists()) {
-                        XposedHelpers.log("ExtendedPowerMenuHook", "MAML file not found in cache")
-                    } else {
-                        ModuleHelper.findAndHookConstructor("com.miui.maml.util.ZipResourceLoader", lpparam.classLoader, String::class.java, object : MethodHook() {
-                            override fun before(param: BeforeHookCallback) {
-                                val res = param.getArg(0) as? String ?: return
-                                if ("/system/media/theme/default/powermenu" == res) {
-                                    param.getArgs()[0] = powermenu.path
-                                }
-                            }
-                        })
-                    }
-                }
-            }
-        })
-
-        ModuleHelper.findAndHookMethod("com.miui.maml.ScreenElementRoot", lpparam.classLoader, "issueExternCommand", String::class.java, java.lang.Double::class.java, String::class.java, object : MethodHook() {
+        val resource = PowerMenuResource()
+        if (ModuleHelper.findAndHookMethod("com.miui.maml.ScreenElementRoot", lpparam.classLoader, "issueExternCommand", String::class.java, java.lang.Double::class.java, String::class.java, object : MethodHook() {
             @SuppressLint("MissingPermission")
             override fun before(param: BeforeHookCallback) {
+                if (resource.path == null || !MainModule.mPrefs.getBoolean("system_epm")) return
                 val cmd = param.getArg(0) as? String ?: return
+                if (cmd != "recovery" && cmd != "bootloader" && cmd != "softreboot") return
                 val scrContext = XposedHelpers.getObjectField(param.getThisObject(), "mContext")
                 val mContext = XposedHelpers.getObjectField(scrContext, "mContext") as? Context ?: return
                 val pm = mContext.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
@@ -426,18 +386,44 @@ object SystemUINotificationHooks {
 
                 if (custom) {
                     mSystemExternCommandListener?.let {
-                        XposedHelpers.callMethod(it, "onCommand", param.getArg(0), param.getArg(1), param.getArg(2))
+                        try {
+                            XposedHelpers.callMethod(it, "onCommand", param.getArg(0), param.getArg(1), param.getArg(2))
+                        } catch (t: Throwable) {
+                            rethrowNotificationFatal(t)
+                            XposedHelpers.log(t)
+                        }
                     }
                     param.returnAndSkip(null)
                 }
             }
-        })
+        }) == null) return
 
-        ModuleHelper.findAndHookMethod("com.android.systemui.plugins.PluginEnablerImpl", lpparam.classLoader, "isEnabled", ComponentName::class.java, object : MethodHook() {
+        if (ModuleHelper.findAndHookMethod("com.android.systemui.plugins.PluginEnablerImpl", lpparam.classLoader, "isEnabled", ComponentName::class.java, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
+                if (resource.path == null || !MainModule.mPrefs.getBoolean("system_epm")) return
                 val componentName = param.getArg(0) as? ComponentName ?: return
                 if (componentName.className.contains("GlobalActions")) {
                     param.returnAndSkip(false)
+                }
+            }
+        }) == null) return
+
+        ModuleHelper.findAndHookMethod("com.android.systemui.SystemUIApplication", lpparam.classLoader, "onCreate", object : MethodHook() {
+            override fun after(param: AfterHookCallback) {
+                if (param.getThrowable() != null) return
+                val context = param.getThisObject() as? Context ?: return
+                resource.prepare(File(context.cacheDir, "extended_power_menu"), {
+                    val resources = ModuleHelper.getModuleRes(context)
+                    resources.openRawResource(resources.getIdentifier("extended_power_menu", "raw", HookUtils.modulePkg))
+                }) { file ->
+                    ModuleHelper.findAndHookConstructor("com.miui.maml.util.ZipResourceLoader", lpparam.classLoader, String::class.java, object : MethodHook() {
+                        override fun before(param: BeforeHookCallback) {
+                            if (!MainModule.mPrefs.getBoolean("system_epm") ||
+                                param.getArg(0) != "/system/media/theme/default/powermenu") return
+                            val path = resource.pathForLoader() ?: return
+                            param.getArgs()[0] = path
+                        }
+                    }) != null
                 }
             }
         })
