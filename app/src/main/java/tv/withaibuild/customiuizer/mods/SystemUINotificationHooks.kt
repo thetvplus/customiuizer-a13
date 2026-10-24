@@ -400,9 +400,11 @@ object SystemUINotificationHooks {
 
         if (ModuleHelper.findAndHookMethod("com.android.systemui.plugins.PluginEnablerImpl", lpparam.classLoader, "isEnabled", ComponentName::class.java, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                if (resource.path == null || !MainModule.mPrefs.getBoolean("system_epm")) return
+                if (!MainModule.mPrefs.getBoolean("system_epm")) return
                 val componentName = param.getArg(0) as? ComponentName ?: return
-                if (componentName.className.contains("GlobalActions")) {
+                // Plugin activation is a cold path. Check before suppressing native UI,
+                // not only later when constructing its resource loader.
+                if (componentName.className.contains("GlobalActions") && resource.pathForLoader() != null) {
                     param.returnAndSkip(false)
                 }
             }
@@ -412,7 +414,9 @@ object SystemUINotificationHooks {
             override fun after(param: AfterHookCallback) {
                 if (param.getThrowable() != null) return
                 val context = param.getThisObject() as? Context ?: return
-                resource.prepare(File(context.cacheDir, "extended_power_menu"), {
+                // Once the native plugin is suppressed, ordinary cache eviction must
+                // not remove the replacement before its resource loader is created.
+                resource.prepare(File(context.filesDir, "extended_power_menu"), {
                     val resources = ModuleHelper.getModuleRes(context)
                     resources.openRawResource(resources.getIdentifier("extended_power_menu", "raw", HookUtils.modulePkg))
                 }) { file ->

@@ -102,6 +102,17 @@ class PowerMenuResourceTest {
         assertFalse(state.prepare(target, { error("must not retry after cache eviction") }) { true })
     }
 
+    @Test fun truncatedResourceCannotSuppressNativeBeforeAnyLoaderIsConstructed() {
+        val state = PowerMenuResource()
+        val target = target()
+        assertTrue(state.prepare(target, { ByteArrayInputStream(archive()) }) { true })
+        target.writeBytes(byteArrayOf())
+        // This is also the gate used by PluginEnablerImpl, before loader construction.
+        assertNull(state.pathForLoader())
+        assertNull(state.path)
+        assertFalse(state.prepare(target, { error("terminal failure must not retry") }) { true })
+    }
+
     @Test fun packagedA13ResourcePassesTheSameIntegrityGate() {
         val source = listOf(File("src/main/res/raw/extended_power_menu"),
             File("app/src/main/res/raw/extended_power_menu")).first { it.isFile }

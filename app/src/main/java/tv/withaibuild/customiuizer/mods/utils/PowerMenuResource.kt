@@ -10,7 +10,7 @@ internal class PowerMenuResource {
         private set
     private var attempted = false
 
-    /** Resource-loader construction is cold; a cleared cache must keep the native path. */
+    /** Resource loading and native plugin activation are cold; both must reject a cleared cache. */
     fun pathForLoader(): String? {
         val current = path ?: return null
         val file = File(current)
