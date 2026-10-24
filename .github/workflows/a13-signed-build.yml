@@ -1,0 +1,111 @@
+name: A13 Signed Build
+run-name: A13 Signed Build / ${{ inputs.source_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full current main SHA with successful Fast and Full CI
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a13-signed-build
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check exact main and CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/signed_release.py preflight
+
+  sign:
+    needs: validate
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    environment: release-signing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          packages: ''
+          log-accepted-android-sdk-licenses: false
+      - name: Install pinned SDK
+        run: bash tools/ci_install_android_sdk.sh
+      - name: Build official APK once
+        env:
+          GH_TOKEN: ${{ github.token }}
+          A13_KEYSTORE_BASE64: ${{ secrets.A13_KEYSTORE_BASE64 }}
+          A13_STORE_PASSWORD: ${{ secrets.A13_STORE_PASSWORD }}
+          A13_KEY_ALIAS: ${{ secrets.A13_KEY_ALIAS }}
+          A13_KEY_PASSWORD: ${{ secrets.A13_KEY_PASSWORD }}
+        run: python tools/signed_release.py build
+      - name: Remove signing material
+        if: always()
+        run: python tools/signed_release.py cleanup
+      - name: Verify signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/signed_release.py candidate --directory "$RUNNER_TEMP/candidate"
+      - name: Attest APK and metadata
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: |
+            ${{ runner.temp }}/candidate/*.apk
+            ${{ runner.temp }}/candidate/build-metadata.json
+          create-storage-record: false
+      - name: Verify attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ATTESTATION_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+        run: |
+          cp "$ATTESTATION_BUNDLE" "$RUNNER_TEMP/candidate/attestation.sigstore.json"
+          python tools/signed_release.py attest --directory "$RUNNER_TEMP/candidate"
+      - name: Upload signed candidate
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4.6.2
+        with:
+          name: a13-signed-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/candidate/*.apk
+            ${{ runner.temp }}/candidate/SHA256SUMS
+            ${{ runner.temp }}/candidate/build-metadata.json
+            ${{ runner.temp }}/candidate/release-notes.md
+            ${{ runner.temp }}/candidate/attestation.sigstore.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

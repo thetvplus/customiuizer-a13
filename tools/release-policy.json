@@ -1,0 +1,9 @@
+{
+  "repository": "thetvplus/customiuizer-a13",
+  "repository_id": 1309123724,
+  "download_repository": "Xposed-Modules-Repo/tv.withaibuild.customiuizer.r13",
+  "certificate_sha256": "c0eff2dc4e662717195490da78b12a984c6f2e6bd38acf4edad14d53e3d22e70",
+  "baseline_version": "r13.13.0",
+  "baseline_version_code": 141,
+  "baseline_apk_sha256": "b064712965098b9013a27dc448478afdf208c150aea00654960834b87a5dc47c"
+}

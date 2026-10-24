@@ -2,6 +2,20 @@
 
 [简体中文](CHANGELOG.md) | English
 
+## r13.14.0
+
+`versionCode 142`, a maintenance update from `r13.13.0`.
+
+- Refine Toast duration, per-app vibration, audio focus, immediate volume adjustment and screen-off animation against Android 13 interfaces, preserving native call order and failure recovery.
+- Fix Launcher gesture state after cancellation, multiple pointers and repeated completion.
+- Unify settings groups and extend detail-page search/navigation while preserving preference keys, defaults and old backups; regress the existing long-key backup and rollback fixes (Issue #12).
+- Correct battery-temperature type detection in SecurityCenter. Verified samples do not establish compatibility with SecurityCenter 11.1.6.
+- Remove confirmed ineffective amplitude/scheduled-vibration controls and implementation while retaining historical configuration backup compatibility.
+- Add separate protected A13 signing and dual-repository promotion: require complete CI on final main, certificate continuity, APK validation and provenance; recover with the original artifact without rebuilding or re-signing.
+
+Primary target: MIUI 14 / Android 13. HyperOS 1 / Android 13 remains experimental. Requires libxposed API 102 and `arm64-v8a`.
+No A13 logs or device acceptance were obtained for this work; static and build evidence are recorded separately in the engineering handoff. Issue #14 remains partially unresolved. Music visualization and the extended power menu remain `RETIRE_CANDIDATE`; SecurityCenter 11.1.6 still needs an actual sample.
+
 ## r13.13.0 — 2026-10-19
 
 `versionCode 141`, a maintenance update based on `r13.12.2`.

@@ -52,6 +52,9 @@ jobs:
         with:
           cache-cleanup: on-success
 
+      - name: Install workflow parser
+        run: python -m pip install --disable-pip-version-check -r tools/requirements-ci.txt
+
       - name: CI portability
         run: python tools/check_ci_portability.py
 

@@ -1,0 +1,2 @@
+# Used only for structural workflow governance; never packaged in the APK.
+PyYAML==6.0.3

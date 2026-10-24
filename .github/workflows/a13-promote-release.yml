@@ -1,0 +1,101 @@
+name: A13 Promote Release
+run-name: A13 Promote Release / build ${{ inputs.build_run_id }} / ${{ inputs.destination }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful A13 Signed Build run ID (original artifact required)
+        type: string
+        required: true
+      destination:
+        description: Verify only, publish source, or publish source then Xposed
+        type: choice
+        required: true
+        default: actions-only
+        options: [actions-only, source, both]
+      authorization:
+        description: 'To publish, type: publish <versionName> from <build_run_id>'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a13-release-publish
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
+    outputs:
+      source_sha: ${{ steps.candidate.outputs.source_sha }}
+      apk_sha256: ${{ steps.candidate.outputs.apk_sha256 }}
+      run_attempt: ${{ steps.candidate.outputs.run_attempt }}
+      artifact_id: ${{ steps.candidate.outputs.artifact_id }}
+    steps:
+      - name: Checkout trusted tools
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          packages: ''
+          log-accepted-android-sdk-licenses: false
+      - name: Install pinned SDK
+        run: bash tools/ci_install_android_sdk.sh
+      - name: Verify original candidate
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          RELEASE_DESTINATION: ${{ inputs.destination }}
+          RELEASE_AUTHORIZATION: ${{ inputs.authorization }}
+        run: python tools/signed_release.py fetch --directory "$RUNNER_TEMP/original-candidate"
+
+  publish:
+    needs: verify
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.destination != 'actions-only' && inputs.authorization != ''
+    environment: release-publishing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+      attestations: read
+    steps:
+      - name: Checkout trusted tools
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          packages: ''
+          log-accepted-android-sdk-licenses: false
+      - name: Install pinned SDK
+        run: bash tools/ci_install_android_sdk.sh
+      - name: Publish verified original candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          A13_XPOSED_RELEASE_TOKEN: ${{ secrets.A13_XPOSED_RELEASE_TOKEN }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          RELEASE_DESTINATION: ${{ inputs.destination }}
+          RELEASE_AUTHORIZATION: ${{ inputs.authorization }}
+          VERIFIED_SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+          VERIFIED_APK_SHA256: ${{ needs.verify.outputs.apk_sha256 }}
+          VERIFIED_RUN_ATTEMPT: ${{ needs.verify.outputs.run_attempt }}
+          VERIFIED_ARTIFACT_ID: ${{ needs.verify.outputs.artifact_id }}
+        run: python tools/signed_release.py publish --directory "$RUNNER_TEMP/original-candidate"

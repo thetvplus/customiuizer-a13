@@ -6,6 +6,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+try:
+    from .release_workflow_contract import FILES, protected_workflow_errors
+except ImportError:
+    from release_workflow_contract import FILES, protected_workflow_errors
+
 REPO = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO / ".github" / "workflows"
 
@@ -25,6 +30,9 @@ def main() -> int:
     for wf in workflows:
         text = wf.read_text(encoding="utf-8", errors="replace")
         rel = wf.relative_to(REPO).as_posix()
+        protected_errors = protected_workflow_errors(wf, text)
+        errors.extend(f"{rel}: {error}" for error in protected_errors)
+        protected = wf.name in FILES and not protected_errors
         if "fetch-depth: 0" not in text:
             fail(f"{rel}: missing fetch-depth: 0", errors)
         if "persist-credentials: false" not in text:
@@ -35,9 +43,9 @@ def main() -> int:
             fail(f"{rel}: PowerShell shell is forbidden in Ubuntu Actions", errors)
         if re.search(r"[A-Za-z]:\\\\", text):
             fail(f"{rel}: hardcoded Windows path found", errors)
-        if re.search(r"CUSTOMIUIZER_A13_KEYSTORE_PROPERTIES|customiuizerA13KeystoreProperties", text):
+        if not protected and re.search(r"CUSTOMIUIZER_A13_KEYSTORE_PROPERTIES|customiuizerA13KeystoreProperties", text):
             fail(f"{rel}: signing properties must not be referenced in CI", errors)
-        if re.search(r"storePassword|keyPassword|keyAlias|storeFile", text):
+        if not protected and re.search(r"storePassword|keyPassword|keyAlias|storeFile", text):
             fail(f"{rel}: keystore fields must not appear in workflow", errors)
         uses_lines = re.findall(r"^\s*uses:\s*([^\n]+)$", text, re.M)
         for line in uses_lines:

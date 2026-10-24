@@ -57,5 +57,7 @@ DexSQL 只作按需开发工具，不增加 APK 或默认 CI 依赖。
 文档任务不编译 Android。最终报告 Base SHA、Final SHA、验证范围和遗留风险。
 
 正式发布只在明确授权时使用仓库外 A13 签名；普通验证不加载正式签名。
-不得提交 APK、keystore、密码或本地配置，CI 不使用正式 keystore。
+不得提交 APK、keystore、密码或本地配置。Fast / Full CI 不使用正式 keystore；
+只有 main 精确 SHA、完整 CI 与 release-signing 审批通过的独立 A13 Signed Build 可临时加载正式签名。
+公开发布另经 release-publishing 审批和版本确认，恢复发布复用原始 Artifact。详见 `docs/A13_RELEASE.md`。
 不主动递增版本或伪造发行记录；如任务授权改版本，版本名、code、CHANGELOG 必须一致。

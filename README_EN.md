@@ -4,13 +4,13 @@
 
 CustoMIUIzer A13 customizes the system UI and interactions on **MIUI 14 / Android 13**, with capability-based compatibility paths for **HyperOS 1 / Android 13**. It uses an independent package, release line, and modern libxposed API.
 
-> **r13.13.0 uses a different signing certificate and cannot directly update older releases.** Export settings, uninstall the old app, install this version, restore settings and re-enable the module. See the [compatibility notes](COMPATIBILITY.md#签名与升级).
+> Official publishing enforces continuity with the r13.13.0 signing certificate. When migrating from r13.12.2 or earlier, export settings, uninstall the old app, install and restore. See the [compatibility notes](COMPATIBILITY.md#签名与升级).
 
 > **Maintenance status**
 >
 > Actively maintained, with correctness, compatibility and stability on Android 13 taking priority.
 
-- Current version: `r13.13.0` (versionCode `141`)
+- Source version: `r13.14.0` (versionCode `142`, unreleased); current official release: `r13.13.0`
 - Application ID: `tv.withaibuild.customiuizer.r13`
 - Source repository: <https://github.com/thetvplus/customiuizer-a13>
 - User downloads: <https://github.com/thetvplus/customiuizer-a13/releases>
@@ -36,7 +36,7 @@ CustoMIUIzer A13 customizes the system UI and interactions on **MIUI 14 / Androi
 
 Requires a framework providing libxposed API 102. Android 14 and later are not supported. Do not enable this module together with upstream or another CustoMIUIzer-derived module.
 
-Historical deployed baseline: Redmi Note 11T Pro (`xaga`), MIUI `V14.0.10.0.TLOINXM`. This is not device acceptance for `r13.13.0`.
+Historical deployed baseline: Redmi Note 11T Pro (`xaga`), MIUI `V14.0.10.0.TLOINXM`. This is not device acceptance for `r13.14.0`.
 
 ## Runtime Architecture
 
@@ -49,7 +49,7 @@ Historical deployed baseline: Redmi Note 11T Pro (`xaga`), MIUI `V14.0.10.0.TLOI
 
 See [CHANGELOG_EN.md](CHANGELOG_EN.md) for release changes and [AGENTS.md](AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), [COMPATIBILITY.md](COMPATIBILITY.md), and [docs/A13_PARITY.md](docs/A13_PARITY.md) for engineering rules, architecture, and compatibility.
 
-`r13.13.0` fixes call filtering and notification settings, consolidates installation and service lifecycles, and adopts API 102 and the current build toolchain. See [CHANGELOG_EN.md](CHANGELOG_EN.md).
+`r13.14.0` prepares core Hook, Launcher gesture, settings grouping/search refinements and separate protected signing/publishing. See [CHANGELOG_EN.md](CHANGELOG_EN.md) and the [release/recovery guide](docs/A13_RELEASE.md#english-operations).
 
 ## Build and verification
 

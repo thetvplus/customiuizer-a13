@@ -12,6 +12,11 @@ import re
 import sys
 from pathlib import Path
 
+try:
+    from .release_workflow_contract import FILES, protected_workflow_errors
+except ImportError:
+    from release_workflow_contract import FILES, protected_workflow_errors
+
 
 def line_of(text: str, offset: int) -> int:
     return text[:offset].count("\n") + 1
@@ -21,6 +26,9 @@ def scan_workflow(path: Path, expected_branch: str, default_branch: str) -> list
     text = path.read_text(encoding="utf-8")
     errors: list[str] = []
     rel = path.as_posix()
+    protected_errors = protected_workflow_errors(path, text)
+    errors.extend(f"{rel}: {error}" for error in protected_errors)
+    protected = path.name in FILES and not protected_errors
 
     def add(rule: str, message: str, offset: int = 0) -> None:
         errors.append(f"{rel}:{line_of(text, offset)}: {rule}: {message}")
@@ -32,11 +40,11 @@ def scan_workflow(path: Path, expected_branch: str, default_branch: str) -> list
         add("CI_LINUX_SHELL", "Ubuntu workflow invokes PowerShell")
     if re.search(r"\bgradlew\.bat\b", text, re.I):
         add("CI_LINUX_GRADLE", "Ubuntu workflow invokes gradlew.bat")
-    if re.search(r"(?:-P)?officialRelease\s*=\s*true\b", text):
+    if not protected and re.search(r"(?:-P)?officialRelease\s*=\s*true\b", text):
         add("CI_SIGNING", "officialRelease=true is forbidden in CI")
-    if re.search(
+    if not protected and re.search(
         r"customiuizerA1[34]KeystoreProperties|CUSTOMIUIZER_A1[34]_KEYSTORE_PROPERTIES|"
-        r"secrets\.[A-Z0-9_]*(?:KEYSTORE|SIGN|PASSWORD|KEY)",
+        r"secrets\.|signed_release\.py\s+(?:build|publish|prepare-signing)",
         text,
         re.I,
     ):
@@ -94,7 +102,7 @@ def scan_workflow(path: Path, expected_branch: str, default_branch: str) -> list
     if not re.search(r"concurrency\s*:", text):
         add("CI_CONCURRENCY", "workflow must define concurrency")
 
-    if re.search(r"\b(?:gh\s+release|softprops/action-gh-release|create-release)\b", text, re.I):
+    if not protected and re.search(r"\b(?:gh\s+release|softprops/action-gh-release|create-release)\b", text, re.I):
         add("CI_RELEASE", "workflow must not create a public release")
 
     return errors
