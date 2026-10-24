@@ -74,5 +74,8 @@ jobs:
           python tools/ci_contract_scan.py --expected-branch main --default-branch main
           python tools/audit_hook_ownership.py --check
 
+      - name: Release graph without signing or APK assembly
+        run: python tools/check_release_build_graph.py
+
       - name: Full local verifier
         run: python tools/verify.py full

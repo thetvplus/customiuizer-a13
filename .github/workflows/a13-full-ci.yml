@@ -80,6 +80,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/r13.')
         run: python tools/check_release_metadata.py --require-tag
 
+      - name: Release graph without signing or APK assembly
+        run: python tools/check_release_build_graph.py
+
       - name: Full verifier
         run: python tools/verify.py full
 

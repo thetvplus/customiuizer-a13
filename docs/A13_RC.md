@@ -86,6 +86,12 @@ APK 均为 `CustoMIUIzer-A13-r13.14.1.apk`。公开只附 APK 与 build-metadata
 SIGNED_VERIFIED、SOURCE_RELEASED、XPOSED_RELEASED、DUAL_RELEASE_VERIFIED、DEVICE_VERIFIED。
 成功双仓发行后停止本阶段集中开发，进入稳定维护，不追加新一轮精修或版本。
 
+维护者在首次签名失败后追加要求调整发行流程，并明确授权 Agent 代执行本版原生审批。
+原 RC 的额外两个提交已由 PR #16 收口；随后单独修复发行流程：PR #17 增加无密钥冷启动预检，
+正式配置下的来源目录 Provider 问题改用 AGP Variant API，Fast/Full 增加无密钥正式任务图检查。
+本地 Full、944 项 Python（4 既有 skipped）、正式图配置和实际来源文件生成已通过；
+最终新 main、正式候选和双仓结果仍以交接回执的真实 SHA/Run ID 为准。
+
 ## 尚未完成
 
 本轮未取得 A13 实机或日志证据。SecurityCenter 11.1.6 仍缺实际目标样本；Issue #14 的外部兼容问题

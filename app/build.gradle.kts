@@ -1,4 +1,30 @@
 import java.util.Properties
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.TaskAction
+
+abstract class GenerateA13ReleaseProvenance : DefaultTask() {
+    @get:Input abstract val sourceCommit: Property<String>
+    @get:Input abstract val versionName: Property<String>
+    @get:Input abstract val versionCode: Property<Int>
+    @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun generate() {
+        val sha = sourceCommit.get()
+        check(sha.matches(Regex("[0-9a-f]{40}"))) { "A13 provenance requires a full source SHA" }
+        val folder = outputDirectory.get().asFile
+        folder.mkdirs()
+        folder.resolve("build-provenance.properties").writeText(
+            "sourceCommit=$sha\nversionName=${versionName.get()}\nversionCode=${versionCode.get()}\n" +
+                "buildType=release\napplicationId=tv.withaibuild.customiuizer.r13\n",
+            Charsets.US_ASCII
+        )
+    }
+}
 
 plugins {
     alias(libs.plugins.android.application)
@@ -181,29 +207,17 @@ androidComponents {
 // The full commit is part of the signed APK, independently checked at promotion.
 // Ordinary unsigned CI neither reads signing properties nor generates this asset.
 val provenanceDirectory = layout.buildDirectory.dir("generated/a13ReleaseProvenance")
-val generateReleaseProvenance = tasks.register("generateA13ReleaseProvenance") {
-    inputs.property("sourceCommit", releaseSourceSha)
-    inputs.property("versionName", lastVersionName)
-    inputs.property("versionCode", lastVersion)
-    outputs.dir(provenanceDirectory)
-    doLast {
-        check(releaseSourceSha.get().matches(Regex("[0-9a-f]{40}"))) {
-            "A13 provenance requires a full source SHA"
-        }
-        val folder = provenanceDirectory.get().asFile
-        folder.mkdirs()
-        folder.resolve("build-provenance.properties").writeText(
-            "sourceCommit=${releaseSourceSha.get()}\n" +
-                "versionName=$lastVersionName\nversionCode=$lastVersion\n" +
-                "buildType=release\napplicationId=tv.withaibuild.customiuizer.r13\n",
-            Charsets.US_ASCII
-        )
-    }
+val generateReleaseProvenance = tasks.register<GenerateA13ReleaseProvenance>("generateA13ReleaseProvenance") {
+    sourceCommit.set(releaseSourceSha)
+    versionName.set(lastVersionName)
+    versionCode.set(lastVersion)
+    outputDirectory.set(provenanceDirectory)
 }
 if (officialRelease) {
-    android.sourceSets.getByName("release").assets.srcDir(provenanceDirectory)
-    tasks.matching { it.name == "preReleaseBuild" }.configureEach {
-        dependsOn(generateReleaseProvenance)
+    androidComponents.onVariants(androidComponents.selector().withBuildType("release")) { variant ->
+        checkNotNull(variant.sources.assets).addGeneratedSourceDirectory(
+            generateReleaseProvenance, GenerateA13ReleaseProvenance::outputDirectory
+        )
     }
 }
 

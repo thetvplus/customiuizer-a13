@@ -154,3 +154,16 @@ Implementation references: [GitHub Environment security](https://docs.github.com
 已读回为 Active：main 禁止删除/force push、必须经 PR 且只允许 Squash、bypass 为空，
 要求 GitHub Actions（15368）的 `fast` 并保持最新 main；不要求 PR 运行 main-only Full。
 规则只匹配 `refs/heads/main`，不限制发行 tag，也不改变两个 Environment 的人工审批。
+
+## 正式构建图回归
+
+首次 Signed Build 的两个失败 attempt 均无候选 Artifact。随后用不存在的占位 keystore、
+`officialRelease=true` 与 `--dry-run` 复现：AGP 9.4 拒绝 SourceSet API 的 Provider 目录。
+来源证明改为有声明输入/输出的任务，通过 Variant API `assets.addGeneratedSourceDirectory` 接入，
+自动建立生成任务到资源合并的依赖；来源文件格式、版本和证书门禁保持。
+官方接口见 [SourceDirectories](https://developer.android.com/reference/tools/gradle-api/9.4/com/android/build/api/variant/SourceDirectories.Flat)。
+
+Fast/Full 均运行 `python tools/check_release_build_graph.py`：只配置真实正式任务图，
+使用占位配置和强制 `--dry-run`，不读取真实密钥、不执行打包；断言来源生成先于 assets 合并与 APK 打包，
+并包含 lint。签名预检还必须读回这一步 success。来源生成任务另在本地实际执行，核对完整 SHA、
+versionName/code、包名和 release 标志；该测试同样不使用真实私钥或生成 APK。

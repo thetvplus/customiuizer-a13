@@ -147,8 +147,8 @@ def successful_jobs(record: dict, expected: dict[str, set[str]]) -> None:
 def main_ci(sha: str) -> dict:
     receipts = {}
     for filename, job, required_steps in (
-        ("a13-fast-ci.yml", "fast", {"Full local verifier", "Python tool tests", "Static governance checks"}),
-        ("a13-full-ci.yml", "full", {"Full verifier", "R8 without APK assembly or signing", "Python tool tests"}),
+        ("a13-fast-ci.yml", "fast", {"Full local verifier", "Python tool tests", "Static governance checks", "Release graph without signing or APK assembly"}),
+        ("a13-full-ci.yml", "full", {"Full verifier", "R8 without APK assembly or signing", "Python tool tests", "Release graph without signing or APK assembly"}),
     ):
         workflow = api(f"repos/{REPO}/actions/workflows/{filename}")
         require(workflow["path"] == f".github/workflows/{filename}" and workflow.get("state") == "active", "Wrong CI workflow")
