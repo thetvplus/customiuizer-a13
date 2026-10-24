@@ -48,7 +48,12 @@ DexSQL 只作按需开发工具，不增加 APK 或默认 CI 依赖。
 
 开始核对工作区和远端，保护未知修改。Agent 分支使用 `devin/a13-*`，从 exact SHA 创建。
 不 force push、不破坏性 reset、不改写公开历史、不无差别 clean。
-普通任务可提交；push / 合并 main / tag / release 需用户当前任务明确授权。
+接受开发任务后，默认自动完成该任务所需的修改、验证、commit、Agent 分支 push、PR 创建/更新和
+Fast / Full CI 的触发、跟进及失败修复，无需逐项向用户重复申请授权。工程检查由 Agent 自行执行、
+核对真实结果并收口，不把例行核对转交用户。
+用户要求合并 main 时，在 PR 和必要 CI 通过后自主完成，不再追加确认；未要求合并时保持专项分支。
+当前任务明确的只读、本地保留或停止点优先。正式签名、tag 和公开 release 仍遵循当前发行任务合同
+及既有受保护流水线；自动化不得跳过失败门禁或把未执行的检查写成通过。
 
 开发中按改动运行 `python tools/verify.py fast --changed`，必要时加 `--tests <TestClassName>`。
 收口一次运行 `python tools/verify.py full`、`python -m compileall tools`、

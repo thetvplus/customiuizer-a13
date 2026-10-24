@@ -4,10 +4,11 @@
 Base：`d017f4fbdeb23c40a446ee64444726be0e2d4030`（已合并 PR #15）。
 分支：`devin/a13-rc-polish-20261024`。
 代码及发布合同候选：`69753b03e003ad6f81e15e29f3535e13b361fd6e`。
-最终 RC 含本记录共 3 个提交；最终完整 SHA、提交清单及本地证据路径由交接回执记录。
+RC 精校原为 3 个提交，追加自动化规则更新后共 4 个提交；最终完整 SHA、提交清单及证据由交接回执记录。
 
 **结论：本地工程门禁通过，停在送审/准备发布阶段。已确认且尚未修复的 P0 = 0、P1 = 0。**
-这不是 A13 实机验收或发行批准。当前任务未授权 push/合并；新候选尚无远端 CI。
+这不是 A13 实机验收或发行批准。用户追加要求自动完成分支推送、PR 和 CI，常规步骤不再逐项确认。
+候选分支的远端结果由 PR / Actions 及交接回执记录；当前仍停止在 main 合并、正式签名和公开发布之前。
 没有触发 Signed Build、创建正式 Tag、公开 Release 或同步 Xposed。main 保持 Base。
 
 ## 实际修复与边界
@@ -58,7 +59,7 @@ SystemUI SHA-256：`c0d9bf1d5b985ca84846cd9e597b2ed694289890c227d8c15100b6168d4e
 | 无密钥 R8 | PASS；只优化，没有组装 APK；DEX 1,517,036 字节，SHA-256 `68713f6e33da3b9ee60b040c3a02181550e763e77fd4f3cda6a5605f89213989` |
 | 静态治理 | UTF-8、页面/保存、catalog 67、兼容合同、CI 可移植性、4 工作流合同、source hazard 及 diff-check PASS；633 Hook 点，UNKNOWN 0 |
 | 已合并 Base 的远端 CI | [Fast 40048688551](https://github.com/thetvplus/customiuizer-a13/actions/runs/40048688551)、[Full 40048688603](https://github.com/thetvplus/customiuizer-a13/actions/runs/40048688603) 均 success；原生 main SHA 与 Base 一致 |
-| 新 RC 的远端 CI | 尚未推送；本地 Full 不能冒充 GitHub CI。获得推送/送审授权后可在候选分支运行；合并后必须重新取得最终 main 的原生 Fast/Full |
+| 新 RC 的远端 CI | 专项分支通过 PR 触发 Fast，手动触发 Full，由 Agent 自主跟进实际结果；本地 Full 不能冒充 GitHub CI，分支 CI 也不能替代合并后最终 main 的原生 Fast/Full |
 
 STATIC_VERIFIED = YES（限以上源码、单元测试及样本）；BUILD_VERIFIED = YES。
 LOG_VERIFIED / DEVICE_VERIFIED 未取得。
@@ -88,7 +89,7 @@ GateWayLauncher 定义仍在。此检查不证明传递类加载或设置进程�
 
 后续维护者步骤：
 
-1. 授权推送 RC 分支/创建草稿 PR，并运行候选 Fast/Full；获得明确合并指令后再通过 PR 合并。
+1. 自动推送 RC 分支、创建草稿 PR、运行并跟进候选 Fast/Full。用户要求合并 main 时，在必要检查通过后自主通过 PR 合并，无需逐步追加确认；本次 RC 停止点仍保留。
 2. 在仓库 Settings → Rules → Rulesets 审阅/导入提案，启用 Active，确认 bypass 为空及 `fast` 来源；或以 Administration write 权限 POST 该 JSON 到 `repos/thetvplus/customiuizer-a13/rulesets`。完成后读回验证。
 3. 在 `release-publishing` 配置跨仓 Token（目标 Xposed 仓库 Contents/Workflows write），不复制未知旧 Secret。
 4. 对最终 main 的完整 SHA 等待原生 Fast/Full success。当前 RC 尚不满足这个条件，**现在不启动正式 Signed Build**。
