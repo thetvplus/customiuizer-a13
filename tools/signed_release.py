@@ -35,7 +35,8 @@ WORKFLOW = ".github/workflows/a13-signed-build.yml"
 SHA = re.compile(r"[0-9a-f]{40}")
 VERSION = re.compile(r"r13\.(\d+)\.(\d+)")
 SECRETS = ("A13_KEYSTORE_BASE64", "A13_STORE_PASSWORD", "A13_KEY_ALIAS", "A13_KEY_PASSWORD")
-PUBLIC_FILES = {"build-metadata.json", "SHA256SUMS", "release-notes.md", "attestation.sigstore.json"}
+CANDIDATE_FILES = {"build-metadata.json", "SHA256SUMS", "release-notes.md", "attestation.sigstore.json"}
+RELEASE_FILES = {"build-metadata.json"}
 
 
 def require(condition: bool, message: str) -> None:
@@ -317,10 +318,10 @@ def changelog_section(text: str, version: str) -> str:
 def release_notes(metadata: dict, chinese: str, english: str) -> str:
     return (f"## 简体中文\n\n{changelog_section(chinese, metadata['version_name'])}\n\n"
             f"## English\n\n{changelog_section(english, metadata['version_name'])}\n\n"
-            f"## APK / Provenance\n\nSource: `{metadata['source_sha']}`\n\n"
+            f"## Build / 构建\n\n[Source / 源码](https://github.com/{REPO}/commit/{metadata['source_sha']}) · "
             f"[Signed build](https://github.com/{REPO}/actions/runs/{metadata['run_id']}/attempts/{metadata['run_attempt']})\n\n"
-            f"APK: `{metadata['apk']}`\n\nSHA-256: `{metadata['apk_sha256']}`\n\n"
-            f"Certificate SHA-256: `{CERT}`\n")
+            "APK checksums and attestation are retained in the original build artifact.\n"
+            "APK 校验和及来源证明保留于原始构建产物。\n")
 
 
 def candidate(folder: Path) -> None:
@@ -332,10 +333,10 @@ def candidate(folder: Path) -> None:
         require((ROOT / "app/build/outputs/mapping/release" / name).is_file(), "Missing R8 output")
     version, code = source_version((ROOT / "app/build.gradle.kts").read_text(encoding="utf-8"))
     folder.mkdir(exist_ok=False)
-    apk = folder / f"CustoMIUIzer-A13-{version}-{sha[:6]}.apk"
+    apk = folder / f"CustoMIUIzer-A13-{version}.apk"
     shutil.copyfile(apks[0], apk)
     metadata = verify_apk(apk, sha, version, code)
-    metadata.update(schema=1, repository=REPO, repository_id=POLICY["repository_id"], source_sha=sha,
+    metadata.update(schema=2, repository=REPO, repository_id=POLICY["repository_id"], source_sha=sha,
                     source_ref="refs/heads/main", workflow=WORKFLOW, run_id=int(os.environ["GITHUB_RUN_ID"]),
                     run_attempt=int(os.environ["GITHUB_RUN_ATTEMPT"]), ci=main_ci(sha))
     notes = folder / "release-notes.md"
@@ -384,20 +385,20 @@ def source_file(path: str, sha: str) -> str:
 
 
 def check_metadata(metadata: dict, record: dict) -> None:
-    expected = {"schema": 1, "repository": REPO, "repository_id": POLICY["repository_id"], "source_sha": record["head_sha"],
+    expected = {"schema": 2, "repository": REPO, "repository_id": POLICY["repository_id"], "source_sha": record["head_sha"],
                 "source_ref": "refs/heads/main", "workflow": WORKFLOW, "run_id": record["id"],
                 "run_attempt": record["run_attempt"], "certificate_sha256": CERT}
     require(all(metadata.get(key) == value for key, value in expected.items()), "Candidate metadata differs from selected build")
     require(VERSION.fullmatch(metadata.get("version_name", "")) is not None, "Invalid A13 version")
-    require(metadata.get("apk") == f"CustoMIUIzer-A13-{metadata['version_name']}-{record['head_sha'][:6]}.apk", "Wrong candidate APK name")
+    require(metadata.get("apk") == f"CustoMIUIzer-A13-{metadata['version_name']}.apk", "Wrong candidate APK name")
 
 
 def extract_candidate(data: bytes, folder: Path) -> None:
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         entries = archive.infolist()
         names = [entry.filename for entry in entries]
-        apk_names = [name for name in names if re.fullmatch(r"CustoMIUIzer-A13-r13\.\d+\.\d+-[0-9a-f]{6}\.apk", name)]
-        require(len(apk_names) == 1 and len(names) == 5 and set(names) == PUBLIC_FILES | set(apk_names), "Unexpected candidate files")
+        apk_names = [name for name in names if re.fullmatch(r"CustoMIUIzer-A13-r13\.\d+\.\d+\.apk", name)]
+        require(len(apk_names) == 1 and len(names) == 5 and set(names) == CANDIDATE_FILES | set(apk_names), "Unexpected candidate files")
         require(sum(entry.file_size for entry in entries) < 64 * 1024 * 1024
                 and all((entry.external_attr >> 16) & 0o170000 != 0o120000 for entry in entries), "Unsafe candidate archive")
         folder.mkdir(exist_ok=False)
@@ -489,10 +490,10 @@ def find_release(repository: str, tag: str, metadata: dict, env: dict):
 
 def check_release(record: dict, repository: str, tag: str, metadata: dict, folder: Path, env: dict, *, partial: bool = False) -> None:
     require(record.get("tag_name") == tag and record.get("target_commitish") == metadata["source_sha"]
-            and record.get("name") == f"CustoMIUIzer A13 · {metadata['version_name']}"
+            and record.get("name") == metadata["version_name"]
             and record.get("body") == (folder / "release-notes.md").read_text(encoding="utf-8")
             and record.get("prerelease") is False, "Existing release source/title/notes/state differ")
-    files = PUBLIC_FILES | {metadata["apk"]}
+    files = RELEASE_FILES | {metadata["apk"]}
     assets = record.get("assets", [])
     names = [asset["name"] for asset in assets]
     require(len(names) == len(set(names)) and set(names) <= files
@@ -520,12 +521,12 @@ def publish_one(repository: str, tag: str, metadata: dict, folder: Path, env: di
                     "push", f"https://github.com/{repository}.git", f"{sha}:refs/tags/{tag}", env=env)
     check_tag(repository, tag, sha, env, must_exist=True)
     record = existing or api(f"repos/{repository}/releases", env=env, method="POST", body={
-        "tag_name": tag, "target_commitish": sha, "name": f"CustoMIUIzer A13 · {metadata['version_name']}",
+        "tag_name": tag, "target_commitish": sha, "name": metadata["version_name"],
         "body": (folder / "release-notes.md").read_text(encoding="utf-8"), "draft": True, "prerelease": False})
     require(record.get("draft") is True, "Expected a draft release")
     check_release(record, repository, tag, metadata, folder, env, partial=True)
     present = {asset["name"] for asset in record.get("assets", [])}
-    for name in sorted((PUBLIC_FILES | {metadata["apk"]}) - present):
+    for name in sorted((RELEASE_FILES | {metadata["apk"]}) - present):
         command("gh", "api", f"https://uploads.github.com/repos/{repository}/releases/{record['id']}/assets?name={quote(name)}",
                 "--method", "POST", "-H", "Content-Type: application/octet-stream", "--input", str(folder / name), env=env)
     ready = api(f"repos/{repository}/releases/{record['id']}", env=env)

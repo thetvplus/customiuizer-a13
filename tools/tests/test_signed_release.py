@@ -24,10 +24,10 @@ BUILD_RUN = {"id": 123, "run_attempt": 2, "workflow_id": 9, "path": release.WORK
 
 
 def metadata():
-    return {"schema": 1, "repository": release.REPO, "repository_id": release.POLICY["repository_id"],
+    return {"schema": 2, "repository": release.REPO, "repository_id": release.POLICY["repository_id"],
             "source_sha": SOURCE, "source_ref": "refs/heads/main", "workflow": release.WORKFLOW,
             "run_id": 123, "run_attempt": 2, "version_name": "r13.14.0", "version_code": 142,
-            "certificate_sha256": release.CERT, "apk": "CustoMIUIzer-A13-r13.14.0-aaaaaa.apk",
+            "certificate_sha256": release.CERT, "apk": "CustoMIUIzer-A13-r13.14.0.apk",
             "apk_sha256": "b" * 64, "apk_size": 7, "artifact_id": 45}
 
 
@@ -176,7 +176,8 @@ class ArtifactAndProvenanceTest(unittest.TestCase):
     def test_metadata_rejects_wrong_source_version_name_attempt_and_certificate(self):
         release.check_metadata(metadata(), BUILD_RUN)
         for key, value in (("source_sha", "b" * 40), ("run_attempt", 3), ("certificate_sha256", "0" * 64),
-                           ("version_name", "r14.1.0"), ("apk", "other.apk"), ("repository_id", 1)):
+                           ("version_name", "r14.1.0"), ("apk", "other.apk"), ("repository_id", 1),
+                           ("schema", 1), ("apk", "CustoMIUIzer-A13-r13.14.0-aaaaaa.apk")):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 release.check_metadata(metadata() | {key: value}, BUILD_RUN)
 
@@ -210,7 +211,7 @@ class ArtifactAndProvenanceTest(unittest.TestCase):
                 release.check_badging(text, "r13.14.0", 142)
 
     def test_archive_rejects_added_private_file_traversal_duplicate_and_corruption(self):
-        names = sorted(release.PUBLIC_FILES | {metadata()["apk"]})
+        names = sorted(release.CANDIDATE_FILES | {metadata()["apk"]})
         for extra in ("release.p12", "../outside", names[0]):
             with tempfile.TemporaryDirectory() as td, self.assertRaises(ValueError):
                 archive = io.BytesIO()
@@ -228,6 +229,17 @@ class ArtifactAndProvenanceTest(unittest.TestCase):
         with patch.object(release, "native_source"), patch.object(release, "successful_jobs"), patch.object(release, "api", side_effect=[workflow, BUILD_RUN, records]), patch.object(release, "command", return_value=b"replaced archive"), patch.object(release, "extract_candidate") as extract, self.assertRaisesRegex(ValueError, "digest mismatch"):
             release.fetch_candidate("123", Path("unused"))
         extract.assert_not_called()
+
+    def test_candidate_still_requires_all_original_integrity_material(self):
+        names = release.CANDIDATE_FILES | {metadata()["apk"]}
+        for missing in names:
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as td:
+                archive = io.BytesIO()
+                with zipfile.ZipFile(archive, "w") as z:
+                    for name in names - {missing}:
+                        z.writestr(name, "test-only")
+                with self.assertRaisesRegex(ValueError, "Unexpected candidate files"):
+                    release.extract_candidate(archive.getvalue(), Path(td) / "candidate")
 
     def test_fetch_success_verifies_original_archive_and_emits_immutable_receipt(self):
         meta = metadata()
@@ -287,12 +299,13 @@ class PublishingTest(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.folder = Path(self.temp.name)
         self.meta = metadata()
-        for name in release.PUBLIC_FILES | {self.meta["apk"]}:
+        for name in release.CANDIDATE_FILES | {self.meta["apk"]}:
             (self.folder / name).write_bytes(("original-" + name).encode())
         self.record = {"id": 10, "tag_name": "r13.14.0", "target_commitish": SOURCE, "draft": False,
-                       "prerelease": False, "name": "CustoMIUIzer A13 · r13.14.0", "html_url": "https://example.test/release",
+                       "prerelease": False, "name": "r13.14.0", "html_url": "https://example.test/release",
                        "body": (self.folder / "release-notes.md").read_text(), "assets": []}
-        for index, path in enumerate(sorted(self.folder.iterdir())):
+        for index, name in enumerate(sorted(release.RELEASE_FILES | {self.meta["apk"]})):
+            path = self.folder / name
             self.record["assets"].append({"id": index, "name": path.name, "size": path.stat().st_size,
                                           "digest": "sha256:" + release.digest(path)})
 
@@ -325,8 +338,17 @@ class PublishingTest(unittest.TestCase):
             api.assert_not_called()
             command.assert_not_called()
 
+    def test_public_release_has_exact_title_apk_and_metadata_while_evidence_stays_in_artifact(self):
+        self.assertEqual({"CustoMIUIzer-A13-r13.14.0.apk", "build-metadata.json"},
+                         {asset["name"] for asset in self.record["assets"]})
+        with patch.object(release, "command", side_effect=self.asset_download):
+            for bad in (self.record | {"name": "CustoMIUIzer A13 · r13.14.0"},
+                        self.record | {"assets": self.record["assets"] + [{"name": "SHA256SUMS"}]}):
+                with self.assertRaises(ValueError):
+                    release.check_release(bad, release.REPO, "r13.14.0", self.meta, self.folder, {})
+
     def test_draft_recovery_uploads_only_missing_assets_and_checks_before_publication(self):
-        draft = self.record | {"draft": True, "assets": self.record["assets"][:2]}
+        draft = self.record | {"draft": True, "assets": self.record["assets"][:1]}
         complete = self.record | {"draft": True}
         mutation_order = []
 
@@ -344,8 +366,8 @@ class PublishingTest(unittest.TestCase):
 
         with patch.object(release, "check_tag", return_value=True), patch.object(release, "check_release") as check, patch.object(release, "current_main"), patch.object(release, "api", side_effect=api), patch.object(release, "command", side_effect=command) as upload, patch.object(release, "summary"):
             release.publish_one(release.REPO, "r13.14.0", self.meta, self.folder, {}, draft)
-            self.assertEqual(3, upload.call_count)
-            self.assertEqual(["upload"] * 3 + ["publish"], mutation_order)
+            self.assertEqual(1, upload.call_count)
+            self.assertEqual(["upload", "publish"], mutation_order)
             self.assertEqual(3, check.call_count)
             for call in upload.call_args_list:
                 name = call.args[2].split("?name=")[1]

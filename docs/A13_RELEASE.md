@@ -2,9 +2,9 @@
 
 ## 范围与基线
 
-本轮以 PR #15 的 `61267076b3d218156d4f1163e68039780e5b1432` 为工作基线，main 基线为
-`09b63af9cc835137fab7d22899a1dfe51d218955`。不再开发已有精修功能，只处理可证明的发布阻塞。
-本轮准备 `r13.14.0` / versionCode 142，**不触发正式签名、不创建 tag、不实际发布**。
+本轮 RC 从已合并 PR #15 的 main `d017f4fbdeb23c40a446ee64444726be0e2d4030` 开始。
+版本保持 `r13.14.0` / versionCode 142；验收范围与当前结果见 [RC 记录](A13_RC.md)。
+当前只完成候选精校与流程预演，**不创建正式 tag 或公开 Release**。
 
 参考 A14 main `eae2529d1af5e513c8a58c8ce1d198d371e63516` 的签名、APK 检查、来源证明和双仓恢复架构。
 A13 仅使用手动触发的两条独立流程，无 workflow_run、自动发布、签名回退或双仓分别构建。
@@ -52,13 +52,17 @@ main branch。四个签名 Secret 名称已存在于 release-signing；release-p
    runner 被强制终止时依赖 GitHub 托管临时 runner 的销毁，不使用自托管 runner。
 6. 校验正式标志、applicationId、版本、SDK、arm64-v8a、zipalign、v2 签名、证书、libxposed 入口、
    R8 输出，以及 APK 内完整 `sourceCommit`。APK 和元数据共同生成并验证 GitHub SLSA 来源证明。
-7. Artifact 名为 `a13-signed-<run_id>-<attempt>`，保留 30 天。仅含以下五个公开文件：
+7. Artifact 名为 `a13-signed-<run_id>-<attempt>`，保留 30 天。严格保留以下五个文件：
 
-   - `CustoMIUIzer-A13-r13.14.0-<sha6>.apk`
+   - `CustoMIUIzer-A13-r13.14.0.apk`
    - `SHA256SUMS`
    - `build-metadata.json`
    - `release-notes.md`（双语、摘要和来源）
    - `attestation.sigstore.json`
+
+   构建元数据使用 schema 2，仍绑定完整 source SHA、原始 Run ID/attempt、APK 大小、hash、证书
+   以及双语说明 hash。改名不放宽来源校验；旧 schema / SHA 后缀文件名会被拒绝。
+   2026-10-24 复核时 Signed Build 无运行记录，没有需要迁移的旧格式候选。
 
 8. 需要发布时，在 main 手动运行 **A13 Promote Release**，选择原始 `build_run_id`。
    默认 `actions-only` 仅验证 Artifact。选择 `source` 或 `both` 时输入精确确认语句
@@ -72,8 +76,10 @@ main branch。四个签名 Secret 名称已存在于 release-signing；release-p
 
 - 源码 tag：`r13.14.0`；Xposed tag：`142-r13.14.0`，均指向相同 source SHA。
 - `both` 始终先发布源码仓库，再同步 Xposed；两仓上传原始 Artifact 的完全相同字节。
-- 新 Release 先创建 draft、上传并下载核验全部文件，最后发布为 `draft=false`、`prerelease=false`、Latest。
-  双仓使用相同标题、双语说明、版本、来源、大小、hash、证书和来源证明。
+- 新 Release 标题为 `r13.14.0`。先创建 draft，严格上传并下载核验 APK 和 `build-metadata.json`
+  两个附件，最后发布为 `draft=false`、`prerelease=false`、Latest。完整 SHA256SUMS、双语说明文件及
+  attestation 保留于原始 Actions Artifact；发布前仍必须验证全部五个文件和来源证明。
+  双仓使用相同标题、双语正文和完全相同的 APK/元数据；恢复时也只接受这个精确附件集合。
 - 已存在的 tag 指向不同 SHA，或同名资源内容不同，立即终止；绝不 force push、覆盖资源或删除正式 Release。
 - 该版本已有源码 tag 或 Release 时，拒绝新的 Signed Build，转为恢复原始候选产物。
 - 已有完全一致的正式 Release 只读验证；已有一致的 draft 仅补上传缺失文件，下载全部核验后发布。
@@ -87,7 +93,9 @@ main branch。四个签名 Secret 名称已存在于 release-signing；release-p
 本轮未取得 A13 设备/日志；SecurityCenter 11.1.6 缺实际样本，音乐可视化及扩展电源菜单仍为
 RETIRE_CANDIDATE。以上为发布工程和静态/构建门禁，不构成 DEVICE_VERIFIED。
 
-## 本轮验证
+## PR #15 已有验证（历史）
+
+以下为 PR #15 的记录，不代表后续候选 SHA 的验证。当前 RC 结果见 [RC 记录](A13_RC.md)。
 
 - 现有核心精修差异及既有回归复核后，没有新增可证明的功能发布阻塞，不重复改写 Hook。
 - Android JVM：150 类、1325 项，0 failures / errors、1 skipped；Lint：0 errors、696 warnings。
@@ -110,7 +118,8 @@ printed or uploaded; private signing inputs never become artifacts or saved cach
 The successful signed candidate is attested and retained for 30 days. Promotion is a separate manual workflow;
 `actions-only` is the default. For publication select `source` or `both`, type
 `publish <versionName> from <build_run_id>` and approve `release-publishing`. Both repositories receive the same
-binary, metadata, notes and proof. Promotion re-verifies the immutable Artifact ID/attempt and all content after
+binary and metadata, titled `r13.14.0`, with identical bilingual notes. Checksums and attestation remain in the
+original five-file artifact. Promotion re-verifies the immutable Artifact ID/attempt and all content after
 approval, uploads to a draft, downloads assets to verify their bytes, then publishes a stable release.
 
 If Xposed fails after source publication, keep the source Release and retry promotion of the original successful
