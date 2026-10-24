@@ -26,8 +26,8 @@ BUILD_RUN = {"id": 123, "run_attempt": 2, "workflow_id": 9, "path": release.WORK
 def metadata():
     return {"schema": 2, "repository": release.REPO, "repository_id": release.POLICY["repository_id"],
             "source_sha": SOURCE, "source_ref": "refs/heads/main", "workflow": release.WORKFLOW,
-            "run_id": 123, "run_attempt": 2, "version_name": "r13.14.0", "version_code": 142,
-            "certificate_sha256": release.CERT, "apk": "CustoMIUIzer-A13-r13.14.0.apk",
+            "run_id": 123, "run_attempt": 2, "version_name": "r13.14.1", "version_code": 142,
+            "certificate_sha256": release.CERT, "apk": "CustoMIUIzer-A13-r13.14.1.apk",
             "apk_sha256": "b" * 64, "apk_size": 7, "artifact_id": 45}
 
 
@@ -38,7 +38,7 @@ class SourceAndCITest(unittest.TestCase):
         with patch.object(release, "command", side_effect=[SOURCE.encode(), b""]):
             self.assertEqual(SOURCE, release.native_source(env))
         for key, bad in (("GITHUB_REPOSITORY", "fork/a13"), ("GITHUB_REPOSITORY_ID", "99"),
-                         ("GITHUB_EVENT_NAME", "workflow_run"), ("GITHUB_REF", "refs/tags/r13.14.0"),
+                         ("GITHUB_EVENT_NAME", "workflow_run"), ("GITHUB_REF", "refs/tags/r13.14.1"),
                          ("GITHUB_SHA", "abc")):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 release.native_source(env | {key: bad})
@@ -177,23 +177,23 @@ class ArtifactAndProvenanceTest(unittest.TestCase):
         release.check_metadata(metadata(), BUILD_RUN)
         for key, value in (("source_sha", "b" * 40), ("run_attempt", 3), ("certificate_sha256", "0" * 64),
                            ("version_name", "r14.1.0"), ("apk", "other.apk"), ("repository_id", 1),
-                           ("schema", 1), ("apk", "CustoMIUIzer-A13-r13.14.0-aaaaaa.apk")):
+                           ("schema", 1), ("apk", "CustoMIUIzer-A13-r13.14.1-aaaaaa.apk")):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 release.check_metadata(metadata() | {key: value}, BUILD_RUN)
 
     def test_apk_provenance_rejects_wrong_full_sha_version_and_build_type(self):
-        props = f"sourceCommit={SOURCE}\nversionName=r13.14.0\nversionCode=142\nbuildType=release\napplicationId=tv.withaibuild.customiuizer.r13\n"
+        props = f"sourceCommit={SOURCE}\nversionName=r13.14.1\nversionCode=142\nbuildType=release\napplicationId=tv.withaibuild.customiuizer.r13\n"
         with tempfile.TemporaryDirectory() as td:
             apk = Path(td) / "test.apk"
-            for original, changed in ((props, props), (SOURCE, "b" * 40), ("142", "143"), ("release", "debug"), ("r13.14.0", "r13.13.0")):
+            for original, changed in ((props, props), (SOURCE, "b" * 40), ("142", "143"), ("release", "debug"), ("r13.14.1", "r13.13.0")):
                 data = changed if original == props else props.replace(original, changed)
                 with zipfile.ZipFile(apk, "w") as archive:
                     archive.writestr("assets/build-provenance.properties", data)
                 if data == props:
-                    verify_apk_provenance(apk, SOURCE, "r13.14.0", 142)
+                    verify_apk_provenance(apk, SOURCE, "r13.14.1", 142)
                 else:
                     with self.assertRaises(ValueError):
-                        verify_apk_provenance(apk, SOURCE, "r13.14.0", 142)
+                        verify_apk_provenance(apk, SOURCE, "r13.14.1", 142)
 
     def test_signature_rejects_wrong_or_additional_signers(self):
         valid = f"Verified using v2 scheme (APK Signature Scheme v2): true\nSigner #1 certificate SHA-256 digest: {release.CERT}"
@@ -203,12 +203,12 @@ class ArtifactAndProvenanceTest(unittest.TestCase):
                 release.check_signature(text)
 
     def test_badging_rejects_wrong_version_package_sdk_abi_or_debug(self):
-        valid = "package: name='tv.withaibuild.customiuizer.r13' versionCode='142' versionName='r13.14.0'\nsdkVersion:'33'\ntargetSdkVersion:'34'\nnative-code: 'arm64-v8a'"
-        release.check_badging(valid, "r13.14.0", 142)
-        release.check_badging(valid.replace("sdkVersion:", "minSdkVersion:").replace("\nnative-code: 'arm64-v8a'", ""), "r13.14.0", 142)
+        valid = "package: name='tv.withaibuild.customiuizer.r13' versionCode='142' versionName='r13.14.1'\nsdkVersion:'33'\ntargetSdkVersion:'34'\nnative-code: 'arm64-v8a'"
+        release.check_badging(valid, "r13.14.1", 142)
+        release.check_badging(valid.replace("sdkVersion:", "minSdkVersion:").replace("\nnative-code: 'arm64-v8a'", ""), "r13.14.1", 142)
         for text in (valid.replace("142", "141"), valid.replace(".r13", ".r14"), valid.replace("'33'", "'34'"), valid.replace("'arm64-v8a'", "'x86'"), valid + "\napplication-debuggable"):
             with self.assertRaises(ValueError):
-                release.check_badging(text, "r13.14.0", 142)
+                release.check_badging(text, "r13.14.1", 142)
 
     def test_archive_rejects_added_private_file_traversal_duplicate_and_corruption(self):
         names = sorted(release.CANDIDATE_FILES | {metadata()["apk"]})
@@ -250,7 +250,7 @@ class ArtifactAndProvenanceTest(unittest.TestCase):
             (source / meta["apk"]).write_bytes(b"test-apk")
             meta["apk_size"] = 8
             meta["apk_sha256"] = release.digest(source / meta["apk"])
-            chinese, english = "## r13.14.0\n\n简体更新。\n", "## r13.14.0\n\nChanges.\n"
+            chinese, english = "## r13.14.1\n\n简体更新。\n", "## r13.14.1\n\nChanges.\n"
             (source / "release-notes.md").write_text(release.release_notes(meta, chinese, english), encoding="utf-8")
             meta["notes_sha256"] = release.digest(source / "release-notes.md")
             release.write_json(source / "build-metadata.json", meta)
@@ -264,7 +264,7 @@ class ArtifactAndProvenanceTest(unittest.TestCase):
             artifacts = {"total_count": 1, "artifacts": [{"id": 45, "name": "a13-signed-123-2", "expired": False,
                                                           "digest": "sha256:" + hashlib.sha256(data).hexdigest()}]}
             verified = {key: meta[key] for key in ("apk", "apk_sha256", "apk_size", "certificate_sha256", "version_name", "version_code")}
-            with patch.object(release, "native_source"), patch.object(release, "api", side_effect=[{"id": 9, "path": release.WORKFLOW}, BUILD_RUN, artifacts]), patch.object(release, "successful_jobs"), patch.object(release, "command", return_value=data), patch.object(release, "attest") as attest, patch.object(release, "source_file", side_effect=['val lastVersion = 142\nval lastVersionName = "r13.14.0"', chinese, english]), patch.object(release, "verify_apk", return_value=verified), patch.object(release, "output") as output:
+            with patch.object(release, "native_source"), patch.object(release, "api", side_effect=[{"id": 9, "path": release.WORKFLOW}, BUILD_RUN, artifacts]), patch.object(release, "successful_jobs"), patch.object(release, "command", return_value=data), patch.object(release, "attest") as attest, patch.object(release, "source_file", side_effect=['val lastVersion = 142\nval lastVersionName = "r13.14.1"', chinese, english]), patch.object(release, "verify_apk", return_value=verified), patch.object(release, "output") as output:
                 result = release.fetch_candidate("123", Path(td) / "download")
                 self.assertEqual(45, result["artifact_id"])
                 self.assertEqual(2, result["run_attempt"])
@@ -301,8 +301,8 @@ class PublishingTest(unittest.TestCase):
         self.meta = metadata()
         for name in release.CANDIDATE_FILES | {self.meta["apk"]}:
             (self.folder / name).write_bytes(("original-" + name).encode())
-        self.record = {"id": 10, "tag_name": "r13.14.0", "target_commitish": SOURCE, "draft": False,
-                       "prerelease": False, "name": "r13.14.0", "html_url": "https://example.test/release",
+        self.record = {"id": 10, "tag_name": "r13.14.1", "target_commitish": SOURCE, "draft": False,
+                       "prerelease": False, "name": "r13.14.1", "html_url": "https://example.test/release",
                        "body": (self.folder / "release-notes.md").read_text(), "assets": []}
         for index, name in enumerate(sorted(release.RELEASE_FILES | {self.meta["apk"]})):
             path = self.folder / name
@@ -315,37 +315,37 @@ class PublishingTest(unittest.TestCase):
 
     def test_requires_explicit_matching_version_authorization(self):
         release.authorize(self.meta, "actions-only", "")
-        release.authorize(self.meta, "both", "publish r13.14.0 from 123")
-        for text in ("", "publish r13.13.0 from 123", "publish r13.14.0 from 124"):
+        release.authorize(self.meta, "both", "publish r13.14.1 from 123")
+        for text in ("", "publish r13.13.0 from 123", "publish r13.14.1 from 124"):
             with self.assertRaises(ValueError):
                 release.authorize(self.meta, "source", text)
 
     def test_same_name_different_content_rejected_and_draft_only_allows_missing_assets(self):
         with patch.object(release, "command", side_effect=self.asset_download):
-            release.check_release(self.record, release.REPO, "r13.14.0", self.meta, self.folder, {})
+            release.check_release(self.record, release.REPO, "r13.14.1", self.meta, self.folder, {})
             corrupt = copy.deepcopy(self.record)
             corrupt["assets"][0]["digest"] = "sha256:" + "0" * 64
             with self.assertRaises(ValueError):
-                release.check_release(corrupt, release.REPO, "r13.14.0", self.meta, self.folder, {})
+                release.check_release(corrupt, release.REPO, "r13.14.1", self.meta, self.folder, {})
             partial = self.record | {"draft": True, "assets": self.record["assets"][:1]}
-            release.check_release(partial, release.REPO, "r13.14.0", self.meta, self.folder, {}, partial=True)
+            release.check_release(partial, release.REPO, "r13.14.1", self.meta, self.folder, {}, partial=True)
             with self.assertRaises(ValueError):
-                release.check_release(partial | {"draft": False}, release.REPO, "r13.14.0", self.meta, self.folder, {}, partial=True)
+                release.check_release(partial | {"draft": False}, release.REPO, "r13.14.1", self.meta, self.folder, {}, partial=True)
 
     def test_published_identical_release_is_read_only(self):
         with patch.object(release, "check_tag"), patch.object(release, "summary"), patch.object(release, "api") as api, patch.object(release, "command") as command:
-            release.publish_one(release.REPO, "r13.14.0", self.meta, self.folder, {}, self.record)
+            release.publish_one(release.REPO, "r13.14.1", self.meta, self.folder, {}, self.record)
             api.assert_not_called()
             command.assert_not_called()
 
     def test_public_release_has_exact_title_apk_and_metadata_while_evidence_stays_in_artifact(self):
-        self.assertEqual({"CustoMIUIzer-A13-r13.14.0.apk", "build-metadata.json"},
+        self.assertEqual({"CustoMIUIzer-A13-r13.14.1.apk", "build-metadata.json"},
                          {asset["name"] for asset in self.record["assets"]})
         with patch.object(release, "command", side_effect=self.asset_download):
-            for bad in (self.record | {"name": "CustoMIUIzer A13 · r13.14.0"},
+            for bad in (self.record | {"name": "CustoMIUIzer A13 · r13.14.1"},
                         self.record | {"assets": self.record["assets"] + [{"name": "SHA256SUMS"}]}):
                 with self.assertRaises(ValueError):
-                    release.check_release(bad, release.REPO, "r13.14.0", self.meta, self.folder, {})
+                    release.check_release(bad, release.REPO, "r13.14.1", self.meta, self.folder, {})
 
     def test_draft_recovery_uploads_only_missing_assets_and_checks_before_publication(self):
         draft = self.record | {"draft": True, "assets": self.record["assets"][:1]}
@@ -365,7 +365,7 @@ class PublishingTest(unittest.TestCase):
             return b"{}"
 
         with patch.object(release, "check_tag", return_value=True), patch.object(release, "check_release") as check, patch.object(release, "current_main"), patch.object(release, "api", side_effect=api), patch.object(release, "command", side_effect=command) as upload, patch.object(release, "summary"):
-            release.publish_one(release.REPO, "r13.14.0", self.meta, self.folder, {}, draft)
+            release.publish_one(release.REPO, "r13.14.1", self.meta, self.folder, {}, draft)
             self.assertEqual(1, upload.call_count)
             self.assertEqual(["upload", "publish"], mutation_order)
             self.assertEqual(3, check.call_count)
@@ -375,20 +375,20 @@ class PublishingTest(unittest.TestCase):
 
     def test_existing_tag_never_moves(self):
         with patch.object(release, "optional_api", return_value={"object": {"type": "commit", "sha": "b" * 40}}), self.assertRaisesRegex(ValueError, "never move"):
-            release.check_tag(release.REPO, "r13.14.0", SOURCE, {})
+            release.check_tag(release.REPO, "r13.14.1", SOURCE, {})
 
     def test_duplicate_release_and_newer_version_are_rejected(self):
         for records in ([self.record, self.record], [self.record | {"tag_name": "r13.15.0"}]):
             with patch.object(release, "api", return_value=records), self.assertRaises(ValueError):
-                release.find_release(release.REPO, "r13.14.0", self.meta, {})
+                release.find_release(release.REPO, "r13.14.1", self.meta, {})
 
     def test_missing_cross_token_blocks_before_source_mutation(self):
-        with patch.dict(os.environ, {"RELEASE_AUTHORIZATION": "publish r13.14.0 from 123"}, clear=True), patch.object(release, "check_receipt"), patch.object(release, "environment_policy"), patch.object(release, "publish_one") as publish, self.assertRaisesRegex(ValueError, "A13_XPOSED_RELEASE_TOKEN"):
+        with patch.dict(os.environ, {"RELEASE_AUTHORIZATION": "publish r13.14.1 from 123"}, clear=True), patch.object(release, "check_receipt"), patch.object(release, "environment_policy"), patch.object(release, "publish_one") as publish, self.assertRaisesRegex(ValueError, "A13_XPOSED_RELEASE_TOKEN"):
             release.publish(self.meta, self.folder, "both")
         publish.assert_not_called()
 
     def test_xposed_failure_retains_source_and_retry_uses_original_candidate_after_main_moves(self):
-        env = {"RELEASE_AUTHORIZATION": "publish r13.14.0 from 123", "A13_XPOSED_RELEASE_TOKEN": "test-only"}
+        env = {"RELEASE_AUTHORIZATION": "publish r13.14.1 from 123", "A13_XPOSED_RELEASE_TOKEN": "test-only"}
         order = []
 
         def publish(repository, *args):

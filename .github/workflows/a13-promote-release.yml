@@ -1,5 +1,5 @@
-name: A13 Promote Release
-run-name: A13 Promote Release / build ${{ inputs.build_run_id }} / ${{ inputs.destination }}
+name: A13 Stable Release
+run-name: A13 Stable Release / build ${{ inputs.build_run_id }} / ${{ inputs.destination }}
 
 on:
   workflow_dispatch:

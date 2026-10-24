@@ -30,7 +30,7 @@ val hasReleaseSigning = if (officialRelease && keystorePropertiesFile != null &&
 }
 
 val lastVersion = 142
-val lastVersionName = "r13.14.0"
+val lastVersionName = "r13.14.1"
 val releaseSourceSha = providers.gradleProperty("releaseSourceSha").orElse("")
 if (officialRelease) {
     check(hasReleaseSigning) { "Official A13 build requires complete external signing properties" }

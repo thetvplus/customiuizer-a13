@@ -2,14 +2,14 @@
 
 [简体中文](CHANGELOG.md) | English
 
-## r13.14.0
+## r13.14.1
 
 `versionCode 142`, a maintenance update from `r13.13.0`.
 
 - Refine Toast duration, per-app vibration, audio focus, immediate volume adjustment and screen-off animation against Android 13 interfaces, preserving native call order and failure recovery.
 - Fix Launcher gesture state after cancellation, multiple pointers and repeated completion; refresh Dock assistant bounds per gesture and isolate controllers.
-- Unify settings groups and extend detail-page search/navigation; fix programmatic values and saving for off-screen sliders while preserving preference keys, defaults and old backups. Regress the existing long-key backup and rollback fixes (Issue #12).
-- Preserve the native power menu when custom resources are missing, corrupt or cannot be installed; read resources completely, close files and fall back safely after cache eviction.
+- Unify settings groups and extend detail-page search/navigation; fix off-screen slider writes, stale values after external writes/restore, dynamic step changes and failed-writer state while preserving preference keys, defaults and old backups. Regress the existing long-key backup and rollback fixes (Issue #12).
+- Preserve the native power menu when custom resources are missing, corrupt or cannot be installed; read resources completely, close files, keep the resource outside evictable cache and recheck availability before suppressing the native plugin.
 - Correct battery-temperature type detection in SecurityCenter. Verified samples do not establish compatibility with SecurityCenter 11.1.6.
 - Remove confirmed ineffective amplitude/scheduled-vibration controls and implementation while retaining historical configuration backup compatibility.
 - Add separate protected A13 signing and dual-repository promotion: require complete CI on final main, certificate continuity, APK validation and provenance; recover with the original artifact without rebuilding or re-signing.

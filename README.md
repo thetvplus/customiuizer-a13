@@ -10,7 +10,7 @@ CustoMIUIzer A13 是面向 **MIUI 14 / Android 13** 的系统界面与交互定�
 >
 > 持续维护，优先修复 Android 13 目标上的正确性、兼容性与稳定性问题。
 
-- 当前源码版本：`r13.14.0`（versionCode `142`，待发布）；现行正式版：`r13.13.0`
+- 当前版本：`r13.14.1`（versionCode `142`）；正式发行状态见 [Releases](https://github.com/thetvplus/customiuizer-a13/releases)
 - 应用 ID：`tv.withaibuild.customiuizer.r13`
 - 源码仓库：<https://github.com/thetvplus/customiuizer-a13>
 - 用户下载：<https://github.com/thetvplus/customiuizer-a13/releases>
@@ -36,7 +36,7 @@ CustoMIUIzer A13 是面向 **MIUI 14 / Android 13** 的系统界面与交互定�
 
 需要提供 libxposed API 102 的框架。不支持 Android 14 及以上版本，也不建议与上游版或其他 CustoMIUIzer 派生模块同时启用。
 
-历史实装基线：Redmi Note 11T Pro（`xaga`）、MIUI `V14.0.10.0.TLOINXM`；不代表 `r13.14.0` 已完成实机验收。
+历史实装基线：Redmi Note 11T Pro（`xaga`）、MIUI `V14.0.10.0.TLOINXM`；不代表 `r13.14.1` 已完成实机验收。
 
 ## 运行架构
 
@@ -49,7 +49,7 @@ CustoMIUIzer A13 是面向 **MIUI 14 / Android 13** 的系统界面与交互定�
 
 本版本变化见 [CHANGELOG.md](CHANGELOG.md)。工程规则、架构与兼容文档见 [AGENTS.md](AGENTS.md)、[ARCHITECTURE.md](ARCHITECTURE.md)、[COMPATIBILITY.md](COMPATIBILITY.md) 与 [docs/A13_PARITY.md](docs/A13_PARITY.md)。
 
-`r13.14.0` 准备包含核心 Hook、Launcher 手势、设置分组和搜索精修，以及独立的受保护签名发布工程。完整变化见 [CHANGELOG.md](CHANGELOG.md)，发布与恢复步骤见 [发行说明](docs/A13_RELEASE.md)。
+`r13.14.1` 包含核心 Hook、Launcher 手势、设置分组和搜索精修，以及独立的受保护签名发布工程。完整变化见 [CHANGELOG.md](CHANGELOG.md)，发布与恢复步骤见 [发行说明](docs/A13_RELEASE.md)。
 
 ## 构建与验证
 

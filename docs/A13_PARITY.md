@@ -49,3 +49,8 @@ RC 最后只读参考 A14 `3e0709f3234ed942d906487370547ec0136c7531` 的相关�
 
 阶段性审计表、批量生成器与快照可从 Git 历史查阅，不再作为当前维护门禁。
 证据等级以 [COMPATIBILITY](../COMPATIBILITY.md) 为准；A14 设备结果不能提升 A13 结论。
+
+2026-10-24 r13.14.1 封版复核：当前 MonwF SHA 仍为上述 dfd3a4d，复核 A13 初始/历史、当前源码后，
+补上滑杆外部配置失效、保存失败与动态步长边界（UPSTREAM_INTENT_EQUIVALENT）；电源资源改用
+私有 filesDir 避免系统缓存清理，抑制 GlobalActions 前检查可用性（A13_COMPAT_VARIANT）。
+未改变 ROM target/调用时序，不增加兼容层；静态/构建结果见 RC 记录，未取得设备证据。

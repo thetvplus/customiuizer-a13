@@ -3,8 +3,11 @@
 ## 范围与基线
 
 本轮 RC 从已合并 PR #15 的 main `d017f4fbdeb23c40a446ee64444726be0e2d4030` 开始。
-版本保持 `r13.14.0` / versionCode 142；验收范围与当前结果见 [RC 记录](A13_RC.md)。
-当前只完成候选精校与流程预演，**不创建正式 tag 或公开 Release**。
+本轮正式目标为 `r13.14.1` / versionCode 142，升级范围为 `r13.13.0 → r13.14.1`。
+`r13.14.0` 仅为此前未公开发布的开发版本；已核对两仓正式发行及 tag，没有发行过 code 142。
+用户已明确预授权本版 Stable Release、源码与 Xposed 两仓和同一正式 APK；验收见 [RC 记录](A13_RC.md)。
+Agent 连续完成最终 main 验证、签名候选、晋升与双仓核验，无需聊天逐步确认。
+GitHub 原生 `release-signing` / `release-publishing` 人工审批继续生效，等待审批不得记为已发布。
 
 参考 A14 main `eae2529d1af5e513c8a58c8ce1d198d371e63516` 的签名、APK 检查、来源证明和双仓恢复架构。
 A13 仅使用手动触发的两条独立流程，无 workflow_run、自动发布、签名回退或双仓分别构建。
@@ -32,9 +35,9 @@ Secrets 仅检查名称和所在范围，不读取、打印或导出明文。
 以及组织要求的授权。源码仓库使用该 job 的 GitHub token；跨仓 token 不进入签名 job。
 保留已有普通仓库 Secrets 时须自行核对用途；独立发布流程不引用旧的通用签名 Secret。
 
-2026-10-24 已实际配置并读回两个 Environment：reviewer 为 `thetvplus`、禁止管理员绕过、仅允许
-main branch。四个签名 Secret 名称已存在于 release-signing；release-publishing 尚缺
-`A13_XPOSED_RELEASE_TOKEN`，未读取或复制任何旧 Secret。公开双仓发布仍需维护者配置该 Token。
+2026-10-24 封版前读回：两个 Environment 的 reviewer 均为 `thetvplus`、禁止管理员绕过、仅允许
+main branch。四个签名 Secret 名称齐全；首次复核时 release-publishing 的 Secret 列表为空。
+发布时须重新核对 `A13_XPOSED_RELEASE_TOKEN`；名称存在不证明权限有效。未读取或复制未知旧 Secret。
 
 ## 操作顺序
 
@@ -54,7 +57,7 @@ main branch。四个签名 Secret 名称已存在于 release-signing；release-p
    R8 输出，以及 APK 内完整 `sourceCommit`。APK 和元数据共同生成并验证 GitHub SLSA 来源证明。
 7. Artifact 名为 `a13-signed-<run_id>-<attempt>`，保留 30 天。严格保留以下五个文件：
 
-   - `CustoMIUIzer-A13-r13.14.0.apk`
+   - `CustoMIUIzer-A13-r13.14.1.apk`
    - `SHA256SUMS`
    - `build-metadata.json`
    - `release-notes.md`（双语、摘要和来源）
@@ -64,9 +67,10 @@ main branch。四个签名 Secret 名称已存在于 release-signing；release-p
    以及双语说明 hash。改名不放宽来源校验；旧 schema / SHA 后缀文件名会被拒绝。
    2026-10-24 复核时 Signed Build 无运行记录，没有需要迁移的旧格式候选。
 
-8. 需要发布时，在 main 手动运行 **A13 Promote Release**，选择原始 `build_run_id`。
+8. 本版在签名验证成功后，按已有预授权在 main 运行 **A13 Stable Release**，选择原始 `build_run_id`。
+   按维护者要求更新显示名称；工作流文件仍为 `a13-promote-release.yml`，输入和保护逻辑不变。
    默认 `actions-only` 仅验证 Artifact。选择 `source` 或 `both` 时输入精确确认语句
-   `publish r13.14.0 from <build_run_id>`，并人工审批 `release-publishing`。
+   `publish r13.14.1 from <build_run_id>`，并人工审批 `release-publishing`。
 
 发布 job 在审批后重新获取原始 Artifact，比较审批前的 source SHA、APK hash、run attempt、Artifact ID。
 下载还核对 Artifact ZIP digest、APK、元数据、完整来源证明（包括仓库 ID、workflow、ref、SHA、run、attempt）
@@ -74,9 +78,9 @@ main branch。四个签名 Secret 名称已存在于 release-signing；release-p
 
 ## 幂等与失败恢复
 
-- 源码 tag：`r13.14.0`；Xposed tag：`142-r13.14.0`，均指向相同 source SHA。
+- 源码 tag：`r13.14.1`；Xposed tag：`142-r13.14.1`，均指向相同 source SHA。
 - `both` 始终先发布源码仓库，再同步 Xposed；两仓上传原始 Artifact 的完全相同字节。
-- 新 Release 标题为 `r13.14.0`。先创建 draft，严格上传并下载核验 APK 和 `build-metadata.json`
+- 新 Release 标题为 `r13.14.1`。先创建 draft，严格上传并下载核验 APK 和 `build-metadata.json`
   两个附件，最后发布为 `draft=false`、`prerelease=false`、Latest。完整 SHA256SUMS、双语说明文件及
   attestation 保留于原始 Actions Artifact；发布前仍必须验证全部五个文件和来源证明。
   双仓使用相同标题、双语正文和完全相同的 APK/元数据；恢复时也只接受这个精确附件集合。
@@ -118,15 +122,23 @@ printed or uploaded; private signing inputs never become artifacts or saved cach
 The successful signed candidate is attested and retained for 30 days. Promotion is a separate manual workflow;
 `actions-only` is the default. For publication select `source` or `both`, type
 `publish <versionName> from <build_run_id>` and approve `release-publishing`. Both repositories receive the same
-binary and metadata, titled `r13.14.0`, with identical bilingual notes. Checksums and attestation remain in the
+binary and metadata, titled `r13.14.1`, with identical bilingual notes. Checksums and attestation remain in the
 original five-file artifact. Promotion re-verifies the immutable Artifact ID/attempt and all content after
 approval, uploads to a draft, downloads assets to verify their bytes, then publishes a stable release.
 
 If Xposed fails after source publication, keep the source Release and retry promotion of the original successful
 build. Matching published releases remain unchanged; matching drafts gain only missing files. Conflicting tags,
 assets, metadata, notes or expired original artifacts stop recovery. Never rebuild, re-sign, overwrite or delete
-an existing release to hide a failure. No official signing or new version publication was triggered in this task.
+an existing release to hide a failure. The maintainer has preauthorized the r13.14.1 stable release to both repositories. Continue through the protected workflows after final main CI succeeds; native human Environment approvals remain mandatory. Record real run IDs and verification results before claiming publication.
 
 Implementation references: [GitHub Environment security](https://docs.github.com/en/actions/reference/security/secure-use),
 [attestation verification](https://cli.github.com/manual/gh_attestation_verify),
 [offline bundle/repository identity](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/verify-attestations-offline).
+
+## main Ruleset
+
+已核对 API 参数、仓库管理权限、Squash 可用性、PR 检查来源及基线包含关系，
+并应用 [最小提案](a13-main-ruleset.proposed.json)。规则 `A13 main safety`（ID `25766547`）
+已读回为 Active：main 禁止删除/force push、必须经 PR 且只允许 Squash、bypass 为空，
+要求 GitHub Actions（15368）的 `fast` 并保持最新 main；不要求 PR 运行 main-only Full。
+规则只匹配 `refs/heads/main`，不限制发行 tag，也不改变两个 Environment 的人工审批。
