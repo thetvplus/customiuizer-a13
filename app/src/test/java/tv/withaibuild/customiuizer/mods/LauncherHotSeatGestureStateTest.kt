@@ -45,6 +45,21 @@ class LauncherHotSeatGestureStateTest {
         assertEquals(0, state.finish(200f, 0f, 200))
     }
 
+    @Test fun exactVelocityThresholdAndExcessVerticalMovementKeepNativeHandling() {
+        val state = readyState()
+        state.begin(0f, 0f, 100)
+        assertEquals(0, state.finish(99f, 0f, 3100)) // Exactly 33 px/s, even though distance exceeds 75.
+        state.begin(0f, 0f, 4000)
+        assertEquals(1, state.finish(100f, 8f, 7000))
+        state.begin(0f, 0f, 8000)
+        assertEquals(0, state.finish(-99f, 0f, 11000))
+        state.begin(0f, 0f, 12000)
+        assertEquals(-1, state.finish(-100f, 8f, 15000))
+        state.begin(0f, 0f, 16000)
+        assertEquals(0, state.finish(200f, 9f, 16100))
+        assertEquals(0, state.finish(200f, 0f, 16100))
+    }
+
     @Test
     fun initialDensityDpiIsIntMinValue() {
         val state = LauncherGestureHooks.HotSeatGestureState()
