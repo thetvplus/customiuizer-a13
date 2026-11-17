@@ -1,5 +1,5 @@
 name: A13 Signed Build
-run-name: A13 Signed Build / ${{ inputs.source_sha }}
+run-name: A13 Signed Build / ${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -8,6 +8,10 @@ on:
         description: Full current main SHA with successful Fast and Full CI
         type: string
         required: true
+  workflow_run:
+    workflows: [A13 Full CI]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -18,8 +22,10 @@ concurrency:
 
 jobs:
   validate:
-    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Full CI' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'push'))
     runs-on: ubuntu-24.04
+    outputs:
+      ready: ${{ steps.gate.outputs.ready }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -32,13 +38,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Check exact main and CI
+        id: gate
         env:
           GH_TOKEN: ${{ github.token }}
         run: python tools/signed_release.py preflight
 
   sign:
     needs: validate
-    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Full CI' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'push')) && needs.validate.outputs.ready == 'true'
     environment: release-signing
     runs-on: ubuntu-24.04
     timeout-minutes: 60

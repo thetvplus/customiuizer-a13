@@ -45,6 +45,23 @@ class SourceAndCITest(unittest.TestCase):
         with patch.object(release, "command", return_value=b"b" * 40), self.assertRaises(ValueError):
             release.native_source(env)
 
+    def test_native_workflow_run_requires_matching_head_and_attempt(self):
+        path = ".github/workflows/a13-full-ci.yml"
+        workflow = {"id": 9, "path": path, "state": "active"}
+        run = BUILD_RUN | {"name": "A13 Full CI", "event": "push", "path": path}
+        with tempfile.TemporaryDirectory() as td:
+            event = Path(td) / "event.json"
+            event.write_text(json.dumps({"workflow_run": run}), encoding="utf-8")
+            env = {"GITHUB_REPOSITORY": release.REPO, "GITHUB_REPOSITORY_ID": str(release.POLICY["repository_id"]),
+                   "GITHUB_EVENT_NAME": "workflow_run", "GITHUB_REF": "refs/heads/main", "GITHUB_SHA": SOURCE,
+                   "GITHUB_WORKFLOW": "A13 Signed Build", "GITHUB_EVENT_PATH": str(event)}
+            with patch.object(release, "api", side_effect=[workflow, run]), patch.object(release, "command", side_effect=[SOURCE.encode(), b""]):
+                self.assertEqual(SOURCE, release.native_source(env))
+            with patch.object(release, "api", side_effect=[workflow, run | {"run_attempt": 3}]), self.assertRaisesRegex(ValueError, "attempt changed"):
+                release.native_source(env)
+            with self.assertRaisesRegex(ValueError, "exact-main"):
+                release.native_source(env | {"GITHUB_SHA": "b" * 40})
+
     def test_reject_wrong_sha_branch_fork_event_skipped_or_unsuccessful_run(self):
         workflow = {"id": 9, "path": release.WORKFLOW}
         release.check_run(BUILD_RUN, workflow, SOURCE, {"workflow_dispatch"})
@@ -66,11 +83,24 @@ class SourceAndCITest(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         release.successful_jobs(BUILD_RUN, {"full": {"Full verifier"}})
 
+    def test_only_automatic_verification_can_treat_skipped_signing_as_no_candidate(self):
+        jobs = [{"name": "validate", "status": "completed", "conclusion": "success",
+                 "steps": [{"name": "Check exact main and CI", "conclusion": "success"}]},
+                {"name": "sign", "status": "completed", "conclusion": "skipped"}]
+        expected = {"validate": {"Check exact main and CI"}, "sign": {"Upload signed candidate"}}
+        with patch.object(release, "api", return_value={"total_count": 2, "jobs": jobs}):
+            self.assertFalse(release.successful_jobs(BUILD_RUN, expected, allow_unsigned=True))
+            with self.assertRaises(ValueError):
+                release.successful_jobs(BUILD_RUN, expected)
+            jobs[1]["conclusion"] = "failure"
+            with self.assertRaises(ValueError):
+                release.successful_jobs(BUILD_RUN, expected, allow_unsigned=True)
+
     def test_signing_preflight_checks_native_confirmation_and_both_ci(self):
         with tempfile.TemporaryDirectory() as td:
             event = Path(td) / "event.json"
             event.write_text(json.dumps({"inputs": {"source_sha": "b" * 40}}))
-            with patch.dict(os.environ, {"GITHUB_EVENT_PATH": str(event)}), patch.object(release, "native_source", return_value=SOURCE), self.assertRaisesRegex(ValueError, "Confirmed source"):
+            with patch.dict(os.environ, {"GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_EVENT_PATH": str(event)}), patch.object(release, "native_source", return_value=SOURCE), self.assertRaisesRegex(ValueError, "Confirmed source"):
                 release.preflight()
 
     def test_missing_and_failed_ci_cannot_pass(self):
@@ -82,23 +112,27 @@ class SourceAndCITest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             event = Path(td) / "event.json"
             event.write_text(json.dumps({"inputs": {"source_sha": SOURCE}}))
-            for existing in (None, {"id": 10}):
-                with self.subTest(existing=existing), patch.dict(os.environ, {"GITHUB_EVENT_PATH": str(event)}), patch.object(release, "native_source", return_value=SOURCE), patch.object(release, "current_main"), patch.object(release, "environment_policy"), patch.object(release, "main_ci"), patch.object(release, "find_release", return_value=existing), patch.object(release, "optional_api", return_value=None), patch.object(release, "summary"), patch.object(release, "output"):
+            for existing, previous in ((None, None), (None, 123), ({"id": 10}, None)):
+                with self.subTest(existing=existing, previous=previous), patch.dict(os.environ, {"GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_EVENT_PATH": str(event)}), patch.object(release, "native_source", return_value=SOURCE), patch.object(release, "current_main"), patch.object(release, "environment_policy"), patch.object(release, "main_ci"), patch.object(release, "find_release", return_value=existing), patch.object(release, "optional_api", return_value=None), patch.object(release, "previous_candidate", return_value=previous), patch.object(release, "summary"), patch.object(release, "output") as output:
                     if existing is None:
-                        self.assertEqual(SOURCE, release.preflight())
+                        self.assertEqual(None if previous else SOURCE, release.preflight())
+                        if previous:
+                            output.assert_called_once_with(ready="false")
                     else:
                         with self.assertRaisesRegex(ValueError, "original signed candidate"):
                             release.preflight()
 
 
 class EnvironmentAndSigningTest(unittest.TestCase):
-    def test_environment_requires_reviewers_no_bypass_and_only_main(self):
-        record = {"protection_rules": [{"type": "required_reviewers", "reviewers": [{"id": 1}]}],
+    def test_environment_requires_no_reviewers_no_bypass_and_only_main(self):
+        record = {"protection_rules": [],
                   "can_admins_bypass": False,
                   "deployment_branch_policy": {"protected_branches": False, "custom_branch_policies": True}}
         rules = {"total_count": 1, "branch_policies": [{"name": "main", "type": "branch"}]}
         release.check_environment(record, rules)
-        for bad in (record | {"can_admins_bypass": True}, record | {"protection_rules": []}, record | {"deployment_branch_policy": None}):
+        for bad in (record | {"can_admins_bypass": True},
+                    record | {"protection_rules": [{"type": "required_reviewers", "reviewers": [{"id": 1}]}]},
+                    record | {"deployment_branch_policy": None}):
             with self.assertRaises(ValueError):
                 release.check_environment(bad, rules)
         for rule in ({"name": "*", "type": "branch"}, {"name": "main", "type": "tag"}):
@@ -353,6 +387,25 @@ class PublishingTest(unittest.TestCase):
         for text in ("", "publish r13.13.0 from 123", "publish r13.14.1 from 124"):
             with self.assertRaises(ValueError):
                 release.authorize(self.meta, "source", text)
+
+    def test_automatic_publication_only_accepts_its_own_completed_signed_run(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "event.json"
+            incoming = {"workflow_run": {"id": 123, "name": "A13 Signed Build", "event": "workflow_run",
+                         "status": "completed", "conclusion": "success", "head_sha": SOURCE, "run_attempt": 2}}
+            path.write_text(json.dumps(incoming), encoding="utf-8")
+            env = {"GITHUB_EVENT_NAME": "workflow_run", "GITHUB_WORKFLOW": "A13 Stable Release",
+                   "GITHUB_EVENT_PATH": str(path), "GITHUB_SHA": SOURCE}
+            with patch.dict(os.environ, env):
+                release.authorize(self.meta, "both", "")
+                for change in ({"id": 124}, {"head_sha": "b" * 40}, {"conclusion": "failure"}, {"run_attempt": 3},
+                               {"event": "workflow_dispatch"}):
+                    path.write_text(json.dumps({"workflow_run": incoming["workflow_run"] | change}), encoding="utf-8")
+                    with self.assertRaises(ValueError):
+                        release.authorize(self.meta, "both", "")
+                path.write_text(json.dumps(incoming), encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    release.authorize(self.meta, "source", "")
 
     def test_same_name_different_content_rejected_and_draft_only_allows_missing_assets(self):
         with patch.object(release, "command", side_effect=self.asset_download):

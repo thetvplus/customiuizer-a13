@@ -1,5 +1,5 @@
 name: A13 Stable Release
-run-name: A13 Stable Release / build ${{ inputs.build_run_id }} / ${{ inputs.destination }}
+run-name: A13 Stable Release / build ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.build_run_id }} / ${{ github.event_name == 'workflow_run' && 'both' || inputs.destination }}
 
 on:
   workflow_dispatch:
@@ -18,6 +18,10 @@ on:
         description: 'To publish, type: publish <versionName> from <build_run_id>'
         type: string
         required: false
+  workflow_run:
+    workflows: [A13 Signed Build]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -28,7 +32,7 @@ concurrency:
 
 jobs:
   verify:
-    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Signed Build' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'workflow_run'))
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -58,14 +62,14 @@ jobs:
         id: candidate
         env:
           GH_TOKEN: ${{ github.token }}
-          BUILD_RUN_ID: ${{ inputs.build_run_id }}
-          RELEASE_DESTINATION: ${{ inputs.destination }}
+          BUILD_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.build_run_id }}
+          RELEASE_DESTINATION: ${{ github.event_name == 'workflow_run' && 'both' || inputs.destination }}
           RELEASE_AUTHORIZATION: ${{ inputs.authorization }}
         run: python tools/signed_release.py fetch --directory "$RUNNER_TEMP/original-candidate"
 
   publish:
     needs: verify
-    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.destination != 'actions-only' && inputs.authorization != ''
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Signed Build' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'workflow_run')) && needs.verify.outputs.artifact_id != '' && (github.event_name == 'workflow_run' || (inputs.destination != 'actions-only' && inputs.authorization != ''))
     environment: release-publishing
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -91,8 +95,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           A13_XPOSED_RELEASE_TOKEN: ${{ secrets.A13_XPOSED_RELEASE_TOKEN }}
-          BUILD_RUN_ID: ${{ inputs.build_run_id }}
-          RELEASE_DESTINATION: ${{ inputs.destination }}
+          BUILD_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.build_run_id }}
+          RELEASE_DESTINATION: ${{ github.event_name == 'workflow_run' && 'both' || inputs.destination }}
           RELEASE_AUTHORIZATION: ${{ inputs.authorization }}
           VERIFIED_SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
           VERIFIED_APK_SHA256: ${{ needs.verify.outputs.apk_sha256 }}
