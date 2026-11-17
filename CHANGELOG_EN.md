@@ -2,6 +2,24 @@
 
 [简体中文](CHANGELOG.md) | English
 
+## r13.14.2 — 2026-11-17
+
+`versionCode 143`, an Android 13 maintenance update over `r13.14.1 / 142` with no new features.
+
+### Fixes and compatibility
+
+- **Dual-row mobile signal (#19):** Restore and retain all 96 signal drawables. Use controller-specific mutable lists and copies of host icon states without changing native `strengthId`. Respect host visibility rules and fall back to native handling for single/absent SIMs, airplane mode, and roaming. Restore native drawables and visibility before view updates and dark-mode recoloring; skip redundant image writes.
+- **Extended power menu (#14):** Restore the original MAML resource, verify ZIP integrity and prerequisites, and preserve the native power menu if resource preparation or replacement installation fails.
+- **SecurityCenter app details (#14):** Bind app info, path copying, Play Store links, and app launch actions to the current Fragment, Activity, and PackageInfo; remove global cross-screen references and unnecessary deferred posts. Targeted ROM evidence covers xaga SecurityCenter 8.0.4 and veux 8.9.4.
+- **Lock-screen music visualizer (#14):** Read the current media controller, artwork, and display state at first attachment; resynchronize after panel replacement. Use weak references, retain media-event fallback when screen callbacks are unavailable, and roll back partially installed Hooks.
+- Consolidate redundant testing, agent, and engineering-document rules, improve change-scoped checks and ROM / DEX evidence limits, and preserve existing preference keys, backups, and settings migration behavior.
+
+### Verification and known limitations
+
+Static checks, JVM tests, Lint, R8, and unsigned APK packaging checks passed. The final candidate resource table contains all 96 signal drawables and a byte-identical MAML ZIP. **No A13 on-device acceptance was completed.** Issues #19 and #14 still require validation of SIM switching, SystemUI recreation, MAML handoff, initial visualizer display, and panel replacement. SecurityCenter 11.1.6 and affected corrupt veux SystemUI DEX entries are outside verified compatibility scope; results from other ROMs are not generalized.
+
+Targets MIUI 14 / Android 13; HyperOS 1 / Android 13 remains experimental. Requires libxposed API 102 and `arm64-v8a`. The official release keeps the certificate used by `r13.14.1 / 142` for in-place upgrades. Migrating from `r13.12.2` with the older certificate still requires exporting settings, uninstalling, reinstalling, and restoring the backup.
+
 ## r13.14.1
 
 `versionCode 142`, a maintenance update from `r13.13.0`.
