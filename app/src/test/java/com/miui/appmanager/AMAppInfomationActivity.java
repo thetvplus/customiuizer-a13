@@ -1,8 +1,6 @@
 package com.miui.appmanager;
 
 import android.app.Activity;
-import android.app.FragmentManager;
-import android.app.StubFragmentManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -15,15 +13,9 @@ import tv.withaibuild.customiuizer.mods.FakeContext;
 /** SecurityCenter app-info host used by B2B-D3. */
 public class AMAppInfomationActivity extends Activity {
     public final List<Intent> started = new ArrayList<>();
-    public AMAppInformationFragment contentFragment;
     private final FakeContext resourcesHost = new FakeContext();
 
     public void onCreate(Bundle savedInstanceState) {}
-
-    @Override
-    public FragmentManager getFragmentManager() {
-        return new StubFragmentManager();
-    }
 
     @Override
     public void startActivity(Intent intent) {

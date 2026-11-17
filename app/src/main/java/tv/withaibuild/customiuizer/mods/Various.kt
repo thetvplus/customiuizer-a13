@@ -77,104 +77,70 @@ import java.util.concurrent.atomic.AtomicBoolean
 @SuppressLint("StaticFieldLeak")
 object Various {
 
-    @JvmField
-    var mLastPackageInfo: PackageInfo? = null
-
-    @JvmField
-    var mSupportFragment: Any? = null
-
     private val MIUI_CORE_APPS = setOf(
         "com.lbe.security.miui", "com.miui.securitycenter", "com.miui.packageinstaller"
     )
 
     @JvmStatic
     fun AppInfoHook(lpparam: PackageReadyParam) {
-        val amaCls = XposedHelpers.findClassIfExists("com.miui.appmanager.AMAppInfomationActivity", lpparam.classLoader)
-        if (amaCls == null) {
-            XposedHelpers.log("AppInfoHook", "Cannot find activity class!")
+        val loader = lpparam.classLoader
+        val fragmentClass = XposedHelpers.findClassIfExists(
+            "com.miui.appmanager.fragment.AMAppInformationFragment", loader
+        ) ?: return
+        val preferenceClass = XposedHelpers.findClassIfExists("androidx.preference.Preference", loader) ?: return
+        val create = XposedHelpers.findMethodExactIfExists(
+            fragmentClass, "onCreatePreferences", Bundle::class.java, String::class.java
+        )?.takeIf { it.returnType == Void.TYPE } ?: return
+        val click = XposedHelpers.findMethodExactIfExists(
+            fragmentClass, "onPreferenceTreeClick", preferenceClass
+        )?.takeIf { it.returnType == Boolean::class.javaPrimitiveType } ?: return
+        val (packageField, addPreference, getActivity) = try {
+            val packageField = XposedHelpers.findFirstFieldByExactType(fragmentClass, PackageInfo::class.java)
+            val addPreference = XposedHelpers.findMethodsByExactParameters(
+                fragmentClass, Void.TYPE, String::class.java, String::class.java, String::class.java
+            ).singleOrNull() ?: return
+            val getActivity = fragmentClass.getMethod("getActivity")
+            if (!Activity::class.java.isAssignableFrom(getActivity.returnType)) return
+            Triple(packageField, addPreference, getActivity)
+        } catch (t: Throwable) {
+            RuntimeFatality.throwIfFatal(t)
             return
         }
-
-        val xfragCls = XposedHelpers.findClassIfExists("androidx.fragment.app.Fragment", lpparam.classLoader)
-        val fragmentCls = XposedHelpers.findClassIfExists("android.app.Fragment", lpparam.classLoader)
-        if (xfragCls != null || fragmentCls != null) {
-            ModuleHelper.findAndHookConstructor("androidx.fragment.app.Fragment", lpparam.classLoader, object : MethodHook() {
-                override fun before(param: BeforeHookCallback) {
-                    try {
-                        val piField = XposedHelpers.findFirstFieldByExactType(param.thisObject.javaClass, PackageInfo::class.java)
-                        if (piField != null) mSupportFragment = param.thisObject
-                    } catch (fatal: Throwable) {
-                        RuntimeFatality.throwIfFatal(fatal)
-                    }
-                }
-            })
-        }
-
-        val clickHookInstalled = AtomicBoolean(false)
-        ModuleHelper.findAndHookMethod(amaCls, "onCreate", Bundle::class.java, object : MethodHook() {
+        val clickHandle = ModuleHelper.hookMethod(click, appInfoPreferenceClickHook(packageField, getActivity)) ?: return
+        val createHandle = ModuleHelper.hookMethod(create, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                val handler = Handler(Looper.getMainLooper())
-                handler.post {
-                    val act = param.thisObject as? Activity ?: return@post
-                    val contentFrag = act.fragmentManager.findFragmentById(android.R.id.content)
-                    val frag = contentFrag ?: mSupportFragment
-                    if (frag == null) {
-                        XposedHelpers.log("AppInfoHook", "Unable to find fragment")
-                        return@post
-                    }
-
-                    try {
-                        val modRes = ModuleHelper.getModuleRes(act)
-                        val piField = XposedHelpers.findFirstFieldByExactType(frag.javaClass, PackageInfo::class.java)
-                        mLastPackageInfo = piField.get(frag) as? PackageInfo
-                        val addPref = XposedHelpers.findMethodsByExactParameters(
-                            frag.javaClass,
-                            Void.TYPE,
-                            String::class.java,
-                            String::class.java,
-                            String::class.java
-                        )
-                        if (mLastPackageInfo == null || addPref.isEmpty()) {
-                            XposedHelpers.log("AppInfoHook", "Unable to find field/class/method in SecurityCenter to hook")
-                            return@post
-                        } else {
-                            addPref[0].isAccessible = true
-                        }
-                        addPref[0].invoke(frag, "apk_versioncode", modRes.getString(R.string.appdetails_apk_version_code), mLastPackageInfo!!.versionCode.toString())
-                        addPref[0].invoke(frag, "apk_filename", modRes.getString(R.string.appdetails_apk_file), mLastPackageInfo!!.applicationInfo?.sourceDir)
-                        addPref[0].invoke(frag, "data_path", modRes.getString(R.string.appdetails_data_path), mLastPackageInfo!!.applicationInfo?.dataDir)
-                        addPref[0].invoke(frag, "app_uid", modRes.getString(R.string.appdetails_app_uid), mLastPackageInfo!!.applicationInfo?.uid.toString())
-                        addPref[0].invoke(frag, "target_sdk", modRes.getString(R.string.appdetails_sdk), mLastPackageInfo!!.applicationInfo?.targetSdkVersion.toString())
-                        handler.post {
-                            try {
-                                addPref[0].invoke(frag, "open_in_store", modRes.getString(R.string.appdetails_playstore), "")
-                                addPref[0].invoke(frag, "launch_app", modRes.getString(R.string.appdetails_launch), "")
-                            } catch (t: Throwable) {
-                                RuntimeFatality.throwIfFatal(t)
-                                XposedHelpers.log(t)
-                            }
-                        }
-
-                        tryInstallAppInfoPreferenceClickHook(frag.javaClass, clickHookInstalled)
-                    } catch (t: Throwable) {
-                        RuntimeFatality.throwIfFatal(t)
-                        XposedHelpers.log(t)
-                        return@post
-                    }
+                if (param.throwable != null) return
+                val fragment = param.thisObject ?: return
+                val info = packageField.get(fragment) as? PackageInfo ?: return
+                val activity = getActivity.invoke(fragment) as? Activity ?: return
+                val resources = ModuleHelper.getModuleRes(activity)
+                fun row(key: String, title: Int, value: String?) {
+                    addPreference.invoke(fragment, key, resources.getString(title), value)
                 }
+                val app = info.applicationInfo
+                row("apk_versioncode", R.string.appdetails_apk_version_code, info.versionCode.toString())
+                row("apk_filename", R.string.appdetails_apk_file, app?.sourceDir)
+                row("data_path", R.string.appdetails_data_path, app?.dataDir)
+                row("app_uid", R.string.appdetails_app_uid, app?.uid?.toString())
+                row("target_sdk", R.string.appdetails_sdk, app?.targetSdkVersion?.toString())
+                row("open_in_store", R.string.appdetails_playstore, "")
+                row("launch_app", R.string.appdetails_launch, "")
             }
         })
+        if (createHandle == null) clickHandle.unhook()
     }
 
-    private val appInfoPreferenceClickHook = object : MethodHook() {
+    private fun appInfoPreferenceClickHook(packageField: Field, getActivity: Method) = object : MethodHook() {
         override fun before(param: BeforeHookCallback) {
             val frag = param.thisObject ?: return
-            val key = XposedHelpers.callMethod(param.args[0], "getKey") as? String ?: return
-            val title = XposedHelpers.callMethod(param.args[0], "getTitle") as? CharSequence
-            val act = activityFromFragment(frag) ?: return
-            val packageInfo = packageInfoFromFragment(frag) ?: return
+            val preference = param.getArg(0) ?: return
+            val key = XposedHelpers.callMethod(preference, "getKey") as? String ?: return
+            if (key != "apk_filename" && key != "data_path" && key != "open_in_store" && key != "launch_app") return
+            val act = getActivity.invoke(frag) as? Activity ?: return
+            val packageInfo = packageField.get(frag) as? PackageInfo ?: return
             when (key) {
                 "apk_filename" -> {
+                    val title = XposedHelpers.callMethod(preference, "getTitle") as? CharSequence
                     (act.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.setPrimaryClip(
                         ClipData.newPlainText(title, packageInfo.applicationInfo?.sourceDir)
                     )
@@ -182,6 +148,7 @@ object Various {
                     param.returnAndSkip(true)
                 }
                 "data_path" -> {
+                    val title = XposedHelpers.callMethod(preference, "getTitle") as? CharSequence
                     (act.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.setPrimaryClip(
                         ClipData.newPlainText(title, packageInfo.applicationInfo?.dataDir)
                     )
@@ -232,39 +199,6 @@ object Various {
                     param.returnAndSkip(true)
                 }
             }
-        }
-    }
-
-    private fun tryInstallAppInfoPreferenceClickHook(fragmentClass: Class<*>, installed: AtomicBoolean): Boolean {
-        if (installed.get()) return true
-        return try {
-            val unhooks = XposedHelpers.hookAllMethods(fragmentClass, "onPreferenceTreeClick", appInfoPreferenceClickHook)
-            val ok = unhooks.isNotEmpty()
-            if (ok) installed.set(true)
-            ok
-        } catch (t: Throwable) {
-            RuntimeFatality.throwIfFatal(t)
-            XposedHelpers.log("AppInfoHook", t)
-            false
-        }
-    }
-
-    private fun activityFromFragment(fragment: Any): Activity? {
-        return try {
-            XposedHelpers.callMethod(fragment, "getActivity") as? Activity
-        } catch (t: Throwable) {
-            RuntimeFatality.throwIfFatal(t)
-            null
-        }
-    }
-
-    private fun packageInfoFromFragment(fragment: Any): PackageInfo? {
-        return try {
-            val piField = XposedHelpers.findFirstFieldByExactType(fragment.javaClass, PackageInfo::class.java)
-            piField.get(fragment) as? PackageInfo
-        } catch (t: Throwable) {
-            RuntimeFatality.throwIfFatal(t)
-            null
         }
     }
 

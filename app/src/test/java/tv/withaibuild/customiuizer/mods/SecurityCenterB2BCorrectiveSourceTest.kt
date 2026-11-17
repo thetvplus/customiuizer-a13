@@ -61,31 +61,10 @@ class SecurityCenterB2BCorrectiveSourceTest {
     }
 
     @Test
-    fun d3_clickHookIsNotOnCreateLocalActivityCapture() {
-        val appInfo = extractFun("AppInfoHook")
-        assertFalse(
-            "onCreate must not register onPreferenceTreeClick with a nested MethodHook",
-            appInfo.contains("hookAllMethods(frag.javaClass, \"onPreferenceTreeClick\"")
-        )
-        assertTrue(
-            appInfo.contains("tryInstallAppInfoPreferenceClickHook(frag.javaClass, clickHookInstalled)")
-        )
-
-        val click = extractPropertyOrFun("appInfoPreferenceClickHook")
-        assertTrue(click.contains("activityFromFragment(frag)"))
-        assertTrue(click.contains("packageInfoFromFragment(frag)"))
-        assertFalse(click.contains("mLastPackageInfo"))
-        assertFalse(click.contains("param.thisObject as? Activity"))
-    }
-
-    @Test
     fun d4_authorizedCatchesUseRuntimeFatality_notDirectTypeChecks() {
         val bodies = listOf(
             extractFun("AppInfoHook"),
-            extractPropertyOrFun("appInfoPreferenceClickHook"),
-            extractFun("tryInstallAppInfoPreferenceClickHook"),
-            extractFun("activityFromFragment"),
-            extractFun("packageInfoFromFragment"),
+            extractFun("appInfoPreferenceClickHook"),
             extractFun("AppsDefaultSortHook"),
             extractFun("tryInstallSortOnActivityCreated"),
             extractFun("setAppState"),
@@ -120,16 +99,6 @@ class SecurityCenterB2BCorrectiveSourceTest {
         val match = marker.find(source) ?: fail("missing fun $name in Various.kt").let { return "" }
         val start = match.range.first + 1
         return source.substring(start, nextMemberStart(source, match.range.last))
-    }
-
-    private fun extractPropertyOrFun(name: String): String {
-        val source = readSource()
-        val marker = Regex("""\n    private val $name """)
-        val match = marker.find(source)
-        if (match != null) {
-            return source.substring(match.range.first + 1, nextMemberStart(source, match.range.last))
-        }
-        return extractFun(name)
     }
 
     private fun nextMemberStart(source: String, from: Int): Int {

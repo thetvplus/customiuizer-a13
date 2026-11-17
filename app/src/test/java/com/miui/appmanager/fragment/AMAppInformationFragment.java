@@ -1,15 +1,14 @@
-package com.miui.appmanager;
+package com.miui.appmanager.fragment;
 
 import android.app.Activity;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
+import android.os.Bundle;
+import androidx.preference.Preference;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * App-info fragment fixture. Does not extend androidx Fragment because
- * {@code getActivity()} is final there; production uses callMethod("getActivity").
- */
+/** Exact AppInfo entry points with an independently assigned Activity owner. */
 public class AMAppInformationFragment {
     public PackageInfo mPackageInfo;
     public Activity host;
@@ -19,7 +18,9 @@ public class AMAppInformationFragment {
         addedKeys.add(key);
     }
 
-    public boolean onPreferenceTreeClick(Object preference) {
+    public void onCreatePreferences(Bundle state, String rootKey) {}
+
+    public boolean onPreferenceTreeClick(Preference preference) {
         return false;
     }
 

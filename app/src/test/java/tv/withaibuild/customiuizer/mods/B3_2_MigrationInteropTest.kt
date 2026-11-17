@@ -15,18 +15,6 @@ class B3_2_MigrationInteropTest {
     }
 
     @Test
-    fun `Various preserves static fields for last package info and support fragment`() {
-        val clazz = Class.forName("tv.withaibuild.customiuizer.mods.Various")
-        val lastPackageInfo = clazz.getField("mLastPackageInfo")
-        assertNotNull(lastPackageInfo)
-        assertEquals("android.content.pm.PackageInfo", lastPackageInfo.type.name)
-
-        val supportFragment = clazz.getField("mSupportFragment")
-        assertNotNull(supportFragment)
-        assertEquals(Any::class.java, supportFragment.type)
-    }
-
-    @Test
     fun `Various checkBundle preserves signature`() {
         val clazz = Class.forName("tv.withaibuild.customiuizer.mods.Various")
         val method = clazz.getMethod("checkBundle", Class.forName("android.content.Context"), Class.forName("android.os.Bundle"))
