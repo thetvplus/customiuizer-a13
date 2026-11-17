@@ -202,7 +202,7 @@ def source_version(text: str) -> tuple[str, int]:
 def preflight() -> str:
     sha = native_source()
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-    if os.environ.get("GITHUB_EVENT_NAME", "workflow_dispatch") == "workflow_dispatch":
+    if os.environ.get("GITHUB_EVENT_NAME") != "workflow_run":
         require(event.get("inputs", {}).get("source_sha") == sha, "Confirmed source SHA differs from native main SHA")
     current_main(sha)
     environment_policy("release-signing")
