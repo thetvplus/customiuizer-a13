@@ -1,14 +1,14 @@
 # A13 ROM 样本与兼容结论
 
-ROM 留在仓库外；以下记录约束本次修复，不代表整台设备的功能验收。
+原始 ROM 留在仓库外。以下结果限对应输入与成员，证据等级见 [COMPATIBILITY](../../COMPATIBILITY.md#证据等级)。
 
 | 样本 | 真实版本 | 可用证据 |
 | --- | --- | --- |
-| xaga，目录 `xaga-in-A13_MIUI14` | 国行 MIUI 14，`V14.0.7.0.TLOCNXM`，API 33 | 本次检查的 SystemUI、Settings、framework、services、miui-services、Home、SystemUIPlugin ZIP CRC 均通过 |
+| xaga，目录 `xaga-in-A13_MIUI14` | 国行 MIUI 14，`V14.0.7.0.TLOCNXM`，API 33 | 已检查的 SystemUI、Settings、framework、services、miui-services、Home、SystemUIPlugin ZIP CRC 均通过 |
 | veux，目录 `veux-id-A13_HyperOS1` | 印尼 HyperOS 1，`OS1.0.10.0.TKCIDXM`，API 33 | services、miui-services CRC 通过；Home / plugin 的 DEX CRC 通过，资源 CRC 失败 |
 
 veux 的 SystemUI `classes2.dex` / `classes3.dex`、Settings DEX、framework 部分 DEX 校验失败，
-按用户要求跳过这些输入。DexSQL 可以只返回其余 DEX；此时零行结果不能证明 ROM 缺少目标。
+已排除受影响条目。DexSQL 仍可能返回这些条目的定义，命中只作线索，零行结果保持未知。
 Home / plugin 的 DEX 也存在 SHA-1 头摘要不一致，因此不将其当作完整原厂包或资源证据。
 机型和地区均不同，不能把所有差异归因于 MIUI / HyperOS。
 
@@ -26,26 +26,33 @@ Home / plugin 的 DEX 也存在 SHA-1 头摘要不一致，因此不将其当作
   小程序、默认渠道、无效身份和启动失败保留系统行为；启动成功后折叠失败不会重复打开。
 - 老的 `VibratorService.doVibratorOn` 在两份 services 中均不存在。振幅调整已在集中维护中退役，
   移除唯一消费者和入口、保留历史偏好与备份，不用未经设备验证的新路径替代它；
-  其他按应用振动功能继续保留。详见 [维护记录](../A13_CORE_MAINTENANCE.md)。
+  其他按应用振动功能继续保留。分类见 [A13_PARITY](../A13_PARITY.md)。
 
 分类均为 `A13_COMPAT_VARIANT`，保留旧 preference key 和已有功能意图。
-核对顺序：MonwF 当前 `System.java` → A13 `c696d33` 初始实现 → 修改前 A13 →
-A14 `cb89042b0ff9e7ce1e9a8efe31ee696fa0694e06`。
-A14 提供公开 Intent 和冷路径解析的参考；其单 boolean 菜单 / listener ABI 未移植至 A13。
+HyperOS 通知设置仍缺完整样本证据。历史维护与构建记录由 [A13_PARITY](../A13_PARITY.md) 链接到 Git。
 
-STATIC_VERIFIED = YES；BUILD_VERIFIED = YES。相关回调测试、完整 JVM / Python 门禁、
-lint 与 R8 均通过；最终 DEX 未打包 Hook API，设置入口无直接 Hook API 引用。
-LOG_VERIFIED / DEVICE_VERIFIED 均未取得；HyperOS 通知设置尚无完整样本证据。
+## 双排信号与 Issue 14
 
-## 双排信号与 Issue #14（2026-11-17）
+**双排信号（#19）**。历史发布 APK 中，r13.12.2 有 96 个双排信号 drawable，r13.13.0 与 r13.14.1 为零。源码中 `DualRowSignalHook` 在精确成员和资源就绪后才合并。xaga `MiuiSystemUI.apk!classes2.dex` 中定义了以下成员。
 
-- **双排信号（#19）**。已发布的 r13.12.2 含 96 个双排信号 drawable，r13.13.0 与 r13.14.1 的资源表中为零。保留图标资源，确认 SystemUI 的精确视图入口并完成 drawable 注册后才合并信号。xaga 含左右两个控制器的 `setMobileIcons(String,List)` 和 `StatusBarMobileView` 的初始化、更新及明暗切换入口。veux 的完整 DEX 可确认右控制器和视图入口，左控制器仍缺完整样本证据。
-- **扩展电源菜单（#14）**。同一对发布 APK 中 `raw/extended_power_menu` 从有到无。r13.14.1 的报告日志包含资源 ID 0 异常和随后出现的原生电源菜单。xaga 的 `MiuiGlobalActions` 构造函数调用 SystemUI 的 MAML ZIP loader；veux 来自 `createScreenElementRoot()` 的引用仅作旁证。保留 MAML 路线，用直接资源引用让压缩器保留包内文件。
-- **安全中心（#14）**。两份可用 APK 的应用详情活动均从 Intent 的 `package_name` 解析原生目标，均缺少活动自身的 `PackageInfo` 字段。禁用菜单增加此路径，按 ROM 的 `miui.intent.extra.USER_ID` 保留原生跨用户操作。两份样本都有旧版 `initView()`、`onClick(View)` 与电池 `BatteryFragment` handler。报告的 11.1.6 缺少前两个精确方法；电池、默认打开方式及应用信息页仍需要该版本 APK 或日志来确认绑定。
-- **锁屏可视化（#14）**。xaga 的 CentralSurfaces、KeyguardStateController 和 NotificationMediaManager 保留对应入口。面板重复初始化时复用当前视图，替换面板时移除旧视图。播放判定每次读取一次会话状态；仅允许控制器模式下，没有活动会话时跳过音频服务查询。日志未定位报告设备上的失效点。
-- **历史 Issue**。#12 已有 256 字节上限与 142 字节回归；#1、#2、#3 的网速、文件夹、手势和悬浮菜单保留既有路径。Home 和插件 DEX 的头校验异常限制了可推断范围，未从零结果扩展 Hook。
+```text
+Lcom/android/systemui/statusbar/phone/StatusBarIconControllerImpl;->setMobileIcons(Ljava/lang/String;Ljava/util/List;)V
+Lcom/android/systemui/statusbar/phone/MiuiDripLeftStatusBarIconControllerImpl;->setMobileIcons(Ljava/lang/String;Ljava/util/List;)V
+Lcom/android/systemui/statusbar/StatusBarMobileView;->initViewState(Lcom/android/systemui/statusbar/phone/StatusBarSignalPolicy$MobileIconState;)V
+Lcom/android/systemui/statusbar/StatusBarMobileView;->updateState(Lcom/android/systemui/statusbar/phone/StatusBarSignalPolicy$MobileIconState;)Z
+Lcom/android/systemui/statusbar/StatusBarMobileView;->applyDarknessInternal()V
+Lcom/android/systemui/statusbar/MiuiStatusBarIconViewHelper;->transformResId(IZZ)I
+```
 
-以上行为结论为静态证据。历史日志针对报告中的发布版，候选版显示与设备行为仍待验收。
+`initViewState` 和 `updateState` 调用 `Landroid/widget/ImageView;->setImageResource(I)V`。veux 的右控制器与视图命中来自 CRC 失败的 `classes2.dex`，左右控制器与视图绑定均待验。候选 APK 资源表、双卡样式和原生信号恢复待验证。
+
+**扩展电源菜单（#14）**。r13.14.1 资源表缺少过去存在的 `raw/extended_power_menu`。报告日志出现资源 ID 0 和原生电源菜单。xaga `MiuiSystemUI.apk!classes.dex` 的 `MiuiGlobalActions` 构造函数调用 `Lcom/miui/maml/util/ZipResourceLoader;-><init>(Ljava/lang/String;)V`，后者定义在 `classes2.dex`。`Lcom/android/systemui/plugins/PluginEnablerImpl;->isEnabled(Landroid/content/ComponentName;)Z` 定义在 `classes.dex`。veux 的有效 `classes.dex` 可确认这两个入口声明，调用和 ClassLoader 待验证。`ExtendedPowerMenuHook` 使用直接资源引用和完整文件检查，SystemUI 重建后的原生菜单交接仍待确认。
+
+**安全中心（#14）**。两份样本的 `classes2.dex` 均定义 `Lcom/miui/appmanager/ApplicationsDetailsActivity;->initView()V`、`Lcom/miui/appmanager/ApplicationsDetailsActivity;->onClick(Landroid/view/View;)V`，供默认打开方式 Hook 绑定。应用详情使用 Intent 的 `package_name`，禁用菜单依照 `miui.intent.extra.USER_ID` 保留原生跨用户操作。`Lcom/miui/powercenter/BatteryFragment$d;->handleMessage(Landroid/os/Message;)V` 定义在 xaga `classes2.dex`、veux `classes3.dex`，调用原生 `Landroid/os/Handler;->handleMessage(Landroid/os/Message;)V`，A13 温度 Hook 按弱所有者更新。报告的 11.1.6 的成员、类加载及菜单行为待对应 APK 或日志验证。
+
+**锁屏可视化（#14）**。xaga 有 CentralSurfaces、KeyguardStateController 和 NotificationMediaManager 对应入口。源码复用当前面板视图，替换面板时移除旧视图。仅允许控制器模式下，无活动会话则跳过音频服务查询。报告设备的失效点仍待定位。
+
+历史日志仅覆盖报告中的发布版本。候选版的宿主回调、显示与生命周期保持待验。
 
 ## 输入身份（SHA-256）
 
@@ -56,8 +63,11 @@ LOG_VERIFIED / DEVICE_VERIFIED 均未取得；HyperOS 通知设置尚无完整�
 | xaga `system/system/framework/services.jar` | `66cceb59614c69f87ad8cb10ac7c357c8f27875aa75eb6118457807e075d7a7f` |
 | veux `system/system/framework/services.jar` | `4cc071acdf3bb53747b4ddbd1d1c699d6f84fd88f7588b0221c3e93cc36f3fb0` |
 | xaga `system_ext/priv-app/MiuiSystemUI/MiuiSystemUI.apk` | `c0d9bf1d5b985ca84846cd9e597b2ed694289890c227d8c15100b6168d4eed98` |
+| veux `system_ext/priv-app/MiuiSystemUI/MiuiSystemUI.apk`（仅 `classes.dex` 有效） | `f0b15216121a8ba92b28043313e90ee96fa640724d190748a28dea95882c0768` |
+| xaga `product/priv-app/MIUISecurityCenter/MIUISecurityCenter.apk` | `00d0ae515d36c7b152914d5e8a8e16ef02e116a542c241eafb8e418d7dc381a2` |
+| veux `product/priv-app/MIUISecurityCenterGlobal/MIUISecurityCenterGlobal.apk` | `351b9bd398b0b8686cb589222de674a354041f94e6b068eec55355e32edcbc3c` |
+| xaga Home（历史核心维护输入） | `4a777f4e6bad31f892a45c6565f04159db503a1177e8930591d7c1223d52eed8` |
 | xaga `system_ext/priv-app/Settings/Settings.apk` | `c676552ec539e492c47b25294e05085176f75ce0c8eb829fab040fdb2d96e435` |
 | xaga `system/system/framework/framework.jar` | `093f53a068eaaabef145e7580825cac1c6dc681e835cd865e078b4a77c327b7a` |
 
-重查先用 Python 标准库 `zipfile` 的 CRC 检查，再运行 [DexSQL 查询](../../tools/dexsql/README.md)。
-校验失败保留输入并跳过受影响范围，不自动修补样本，也不建立另一套 DEX 解析器。
+定向复查方法与输入变更条件见 [DexSQL](../../tools/dexsql/README.md)。

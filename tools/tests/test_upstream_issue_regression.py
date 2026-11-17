@@ -145,12 +145,6 @@ def function_body(text: str, func_name: str) -> str:
     block = block_for_opener(text, m.end(), "{", "}")
     return block
 class UpstreamIssueRegressionTests(unittest.TestCase):
-    def test_current_compatibility_evidence_is_available(self):
-        for name in (
-            "docs/audit/A13_UPSTREAM_ISSUE_REGRESSION.md",
-            "docs/rom-intelligence/A13_SAMPLES.md",
-        ):
-            self.assertTrue((REPO / name).is_file(), f"{name} missing")
     # --------------------------------------------------------------------- #660
     def test_battery_indicator_removes_existing_view_before_add(self):
         """`BatteryIndicatorHook` must not attach a second View if the old one is

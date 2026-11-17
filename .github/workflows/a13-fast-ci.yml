@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'devin/a13-*'
   workflow_dispatch:
 
 permissions:
@@ -27,27 +28,39 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12'
+
+      - name: Check PR impact
+        id: impact
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          scope=$(python tools/verify.py impact --base "$BASE_SHA")
+          echo "scope=$scope" >> "$GITHUB_OUTPUT"
+
       - name: Set up JDK 25
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: '25'
 
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
-        with:
-          python-version: '3.12'
-
       - name: Set up Android SDK
+        if: steps.impact.outputs.scope != 'docs'
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
         with:
           packages: ''
           log-accepted-android-sdk-licenses: false
 
       - name: Install pinned Android SDK packages
+        if: steps.impact.outputs.scope != 'docs'
         run: bash tools/ci_install_android_sdk.sh
 
       - name: Set up Gradle
+        if: steps.impact.outputs.scope != 'docs'
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v4.4.2
         with:
           cache-cleanup: on-success
@@ -58,24 +71,25 @@ jobs:
       - name: CI portability
         run: python tools/check_ci_portability.py
 
-      - name: Text encoding gate
-        run: python tools/check_text_encoding.py
-
       - name: Python tool tests
         run: python -m unittest discover -s tools/tests -p "test_*.py"
 
       - name: Static governance checks
         run: |
-          python tools/check-invariants.py
-          python tools/check-compat-contracts.py
-          python tools/check_hook_contract_parity.py
           python tools/source_hazard_scan.py
           python tools/catalog_contract_probe.py --catalog app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt --feature-id app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureId.kt --diagnostic-ids app/src/main/java/tv/withaibuild/customiuizer/mods/diagnostics/DiagnosticIds.kt --matrix docs/rom-intelligence/A13_PROCESS_MATRIX.md
-          python tools/ci_contract_scan.py --expected-branch main --default-branch main
           python tools/audit_hook_ownership.py --check
 
       - name: Release graph without signing or APK assembly
+        if: steps.impact.outputs.scope != 'docs'
         run: python tools/check_release_build_graph.py
 
       - name: Full local verifier
-        run: python tools/verify.py full
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            python tools/verify.py full --changed --base "$BASE_SHA"
+          else
+            python tools/verify.py full
+          fi

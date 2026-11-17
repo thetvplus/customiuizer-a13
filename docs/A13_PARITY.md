@@ -20,37 +20,14 @@ FEATURE PARITY != CODE PARITY；禁止整文件盲拷或混用 ROM target。
 审查 Android 13 API、MIUI 14 ABI、HyperOS 1 / Android 13 样本、进程 / ClassLoader、
 生命周期、资源 / preference 映射、失败语义。缺少 ROM 或设备证据的高风险变更保持 HOLD。
 
-构建能力参考 A14 `9feacdc6736de98232958ea24b8f722cfb3eff85`：
-采用其 AGP / Gradle 版本与内置 Kotlin 配置思路，复用适合 A13 的 DexSQL 查询。
-API 102 工程迁移参考 A14 `cb89042b0ff9e7ce1e9a8efe31ee696fa0694e06`：
-原生安装策略、Service 的应用级所有者、真实提交结果和作用域快照。
-分类为 `UPSTREAM_INTENT_EQUIVALENT`；不新增 ROM 功能，不导入其 SystemUI / 插件 ABI。
-不保留 API 101 路径，不启用热重载；既有 Hook 的参数、时序和 `chain.proceed()` 次数保持。
+## 已采用的参考
 
-## 当前证据
+| 范围 | 分类与 A13 结论 |
+| --- | --- |
+| 构建与 API 102 安装 | 工程参考 [A14 工具链](https://github.com/thetvplus/customiuizer-a14/tree/9feacdc6736de98232958ea24b8f722cfb3eff85) 与 [API 102 迁移](https://github.com/thetvplus/customiuizer-a14/tree/cb89042b0ff9e7ce1e9a8efe31ee696fa0694e06)。A13 入口、作用域与回调合同见 [架构](../ARCHITECTURE.md)。 |
+| 系统与应用 Hook | 来电过滤、通知渠道、熄屏动画、Toast、焦点及安全中心电池温度为 `A13_COMPAT_VARIANT`。按应用振动、即时音量、Dock 取消及滑杆保持 `UPSTREAM_INTENT_EQUIVALENT`。振幅 / 定时调整为 `DEAD_UPSTREAM_PATH`，限两份 services 样本，旧备份仍兼容。 |
+| 设置页 | 参考 [A14 交互](https://github.com/thetvplus/customiuizer-a14/tree/eae2529d1af5e513c8a58c8ce1d198d371e63516)，保留 A13 XML preference 和现有设置模型。 |
+| 电源菜单与双排信号 | `A13_COMPAT_VARIANT`。保留 A13 MAML 和目标 SystemUI 视图链。样本与未确认的目标见 [ROM 记录](rom-intelligence/A13_SAMPLES.md)。 |
+| 工程治理 | 参考 [A14 当时主线](https://github.com/thetvplus/customiuizer-a14/tree/87118e5d76833ae43a239b5832b0194ec014649f) 的工程判断、只读 Review 和按影响选测。运行时与正式发行边界由 A13 维护。 |
 
-2026-10-24 集中维护以 A14 `eae2529d1af5e513c8a58c8ce1d198d371e63516` 作页面交互参考，
-没有新增 A14 ROM 功能或导入其页面生成器。旧精修分支的 H03-H07、振幅退役、Dock 取消语义、
-安全中心温度与全量页面/搜索变更的分类和证据见 [维护记录](A13_CORE_MAINTENANCE.md)。
-
-当前 ROM 修正见 [A13 样本](rom-intelligence/A13_SAMPLES.md)：来电事件过滤、通知渠道设置均为
-`A13_COMPAT_VARIANT`，保留上游意图；A14 仅参考实现方法，不复用其 ROM ABI。
-
-2026-10-24 RC 定向精校继续核对 MonwF `dfd3a4de5201d058357c692250e35b1cb74edfb6`、
-A13 初始 `c696d33` 及合并后的 `d017f4f`。滑杆值独立于回收行、Dock assistant 按手势与 controller
-更新区域，均为 `UPSTREAM_INTENT_EQUIVALENT`。扩展电源菜单的完整资源复制、完整性检查、
-终端失败及原生插件保护为 `A13_COMPAT_VARIANT`；保留 A13 MAML 路径，不移植当前上游/A14
-的 GlobalActionsDialogLite 方案，也不提升其 RETIRE_CANDIDATE 状态。
-本轮没有新增 A14 功能。静态样本、失败边界及未取得的设备证据见 [RC 记录](A13_RC.md)。
-RC 最后只读参考 A14 `3e0709f3234ed942d906487370547ec0136c7531` 的相关文件；未整文件移植。
-
-- [A13 进程矩阵](rom-intelligence/A13_PROCESS_MATRIX.md)：目标路由与阶段。
-- [构建说明](ENGINEERING_UPGRADE.md)：工具链、验证和签名边界。
-
-阶段性审计表、批量生成器与快照可从 Git 历史查阅，不再作为当前维护门禁。
-证据等级以 [COMPATIBILITY](../COMPATIBILITY.md) 为准；A14 设备结果不能提升 A13 结论。
-
-2026-10-24 r13.14.1 封版复核：当前 MonwF SHA 仍为上述 dfd3a4d，复核 A13 初始/历史、当前源码后，
-补上滑杆外部配置失效、保存失败与动态步长边界（UPSTREAM_INTENT_EQUIVALENT）；电源资源改用
-私有 filesDir 避免系统缓存清理，抑制 GlobalActions 前检查可用性（A13_COMPAT_VARIANT）。
-未改变 ROM target/调用时序，不增加兼容层；静态/构建结果见 RC 记录，未取得设备证据。
+旧的逐阶段论证可追溯至固定提交的 [核心维护](https://github.com/thetvplus/customiuizer-a13/blob/78fe48b3ea1f7fa8637215a26025ff464ad25708/docs/A13_CORE_MAINTENANCE.md) 和 [RC 记录](https://github.com/thetvplus/customiuizer-a13/blob/78fe48b3ea1f7fa8637215a26025ff464ad25708/docs/A13_RC.md)。

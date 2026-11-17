@@ -63,19 +63,33 @@ def symbol_field(block: str, name: str) -> str | None:
     return m.group(1) if m else None
 
 
-def parse_matrix_ids(path: Path) -> set[str]:
-    ids: set[str] = set()
-    if not path.exists():
-        return ids
-    for line in path.read_text(encoding="utf-8").splitlines():
+def parse_matrix_ids(path: Path) -> list[str]:
+    ids: list[str] = []
+    columns = 0
+    required = {
+        "Feature ID", "Preference key(s)", "Business / user-visible name",
+        "target package", "allowed process(es)", "denied process(es)",
+        "install phase", "ClassLoader source", "installer entry point",
+        "Contract / target bundle", "required target(s)", "optional target(s)",
+        "Receiver / Observer / Handler side effects", "current real-device evidence",
+        "failure strategy",
+    }
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip("|").split("|")]
-        if not cells:
+        if cells[0] == "Feature ID":
+            if not required.issubset(cells):
+                raise ValueError(f"matrix header missing columns: {sorted(required - set(cells))}")
+            columns = len(cells)
             continue
+        if not columns:
+            raise ValueError(f"matrix row {number} precedes its header")
+        if len(cells) != columns or not all(cells):
+            raise ValueError(f"invalid process matrix row {number}: expected {columns} non-empty columns")
         value = cells[0].strip("` ")
         if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]+", value):
-            ids.add(value)
+            ids.append(value)
     return ids
 
 
@@ -127,10 +141,16 @@ def main(argv: list[str] | None = None) -> int:
         text = path.read_text(encoding="utf-8")
         dispatch_ids.extend(re.findall(r'installById\s*\(\s*"([^"]+)"', text))
 
-    matrix_ids = parse_matrix_ids(matrix_path)
+    try:
+        matrix_rows = parse_matrix_ids(matrix_path)
+    except (OSError, ValueError) as exc:
+        print(f"Invalid process matrix: {exc}")
+        return 1
+    matrix_ids = set(matrix_rows)
     errors: list[str] = []
     errors += duplicate_messages("FeatureSpec id", spec_ids)
     errors += duplicate_messages("FeatureId canonical id", enum_ids)
+    errors += duplicate_messages("process matrix feature", matrix_rows)
 
     missing_id = sorted(set(spec_ids) - set(enum_ids))
     orphan_enum = sorted(set(enum_ids) - set(spec_ids))

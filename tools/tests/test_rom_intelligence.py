@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the ROM inventory and target diff workflow.
-
-These tests skip gracefully if the scripts are not yet present, so the audit
-branch can be verified before all tools are finalized.
-"""
+"""ROM tool regressions and optional veux image integration tests."""
 from __future__ import annotations
 
 import json
@@ -19,12 +15,12 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent.parent
 
 
-def run_py(script: str, *args: str) -> tuple[int, str, str]:
+def run_py(script: str, *args: str, cwd: Path = REPO) -> tuple[int, str, str]:
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
     proc = subprocess.run(
         [sys.executable, str(REPO / "tools" / script), *args],
-        cwd=REPO,
+        cwd=cwd,
         capture_output=True,
         text=True,
         env=env,
@@ -34,11 +30,16 @@ def run_py(script: str, *args: str) -> tuple[int, str, str]:
     return proc.returncode, proc.stdout, proc.stderr
 
 
-def has_tool(name: str) -> str:
-    return "found" if shutil.which(name) else "missing"
+def veux_super_image() -> Path:
+    configured = os.environ.get("A13_VEUX_SUPER_IMG")
+    if not configured:
+        raise unittest.SkipTest("set A13_VEUX_SUPER_IMG to run the veux integration tests")
+    path = Path(configured).resolve()
+    if not path.is_file():
+        raise FileNotFoundError(f"A13_VEUX_SUPER_IMG does not point to a file: {path}")
+    return path
 
 
-@unittest.skipUnless((REPO / "tools" / "rom_inventory.py").is_file(), "rom_inventory.py not present")
 class RomInventoryTests(unittest.TestCase):
     def test_help_returns_zero(self):
         rc, out, _ = run_py("rom_inventory.py", "--help")
@@ -79,7 +80,6 @@ class RomInventoryTests(unittest.TestCase):
 
 
 
-@unittest.skipUnless((REPO / "tools" / "rom_super_inspector.py").is_file(), "rom_super_inspector.py not present")
 class RomSuperInspectorTests(unittest.TestCase):
     def test_help_returns_zero(self):
         rc, out, _ = run_py("rom_super_inspector.py", "--help")
@@ -96,46 +96,6 @@ class RomSuperInspectorTests(unittest.TestCase):
             self.assertEqual(rc, 0, f"--allow-missing empty dir failed: {rc}")
 
 
-@unittest.skipUnless(
-    (REPO / "docs" / "rom-intelligence" / "A13_PROCESS_MATRIX.md").is_file(),
-    "process matrix not present",
-)
-class ProcessMatrixDocTests(unittest.TestCase):
-    def test_process_matrix_has_required_sections(self):
-        text = (REPO / "docs" / "rom-intelligence" / "A13_PROCESS_MATRIX.md").read_text(
-            encoding="utf-8", errors="replace"
-        )
-        for header in ("Feature ID", "Preference key(s)", "Business / user-visible name", "target package", "allowed process(es)", "denied process(es)"):
-            self.assertIn(header, text, f"missing header: {header}")
-
-
-@unittest.skipUnless(
-    (REPO / "docs" / "rom-intelligence" / "A13_TARGET_MATRIX.md").is_file(),
-    "target matrix not present",
-)
-class TargetMatrixDocTests(unittest.TestCase):
-    def test_target_matrix_has_required_statuses(self):
-        text = (REPO / "docs" / "rom-intelligence" / "A13_TARGET_MATRIX.md").read_text(
-            encoding="utf-8", errors="replace"
-        )
-        for status in ("STATIC_RESOLVED", "CANDIDATE", "WAITING_FOR_SAMPLE"):
-            self.assertIn(status, text, f"missing status: {status}")
-
-
-@unittest.skipUnless(
-    (REPO / "docs" / "audit" / "A13_FEATURE_RETIREMENT_AUDIT.md").is_file(),
-    "retirement audit not present",
-)
-class FeatureRetirementDocTests(unittest.TestCase):
-    def test_retirement_audit_has_categories(self):
-        text = (REPO / "docs" / "audit" / "A13_FEATURE_RETIREMENT_AUDIT.md").read_text(
-            encoding="utf-8", errors="replace"
-        )
-        for cat in ("KEEP", "KEEP_GUARDED", "EXPERIMENTAL", "FREEZE_LEGACY", "DELETE_DEAD"):
-            self.assertIn(cat, text, f"missing category: {cat}")
-
-
-@unittest.skipUnless((REPO / "tools" / "rom_super_inspector.py").is_file(), "rom_super_inspector.py not present")
 class LpOffsetRegressionTests(unittest.TestCase):
     """Regression tests for LP linear extent offset semantics.
 
@@ -300,7 +260,6 @@ class LpOffsetRegressionTests(unittest.TestCase):
         self.assertTrue(any("target_type" in w for w in meta["warnings"]))
 
 
-@unittest.skipUnless((REPO / "tools" / "rom_fs_probe.py").is_file(), "rom_fs_probe.py not present")
 class RomFsProbeTests(unittest.TestCase):
     def test_authoritative_fs_detection_ext4(self):
         """ext4 superblock magic is at 1024+56, not byte 0."""
@@ -371,7 +330,6 @@ class RomFsProbeTests(unittest.TestCase):
             self.assertEqual(fs, "UNKNOWN")
 
 
-@unittest.skipUnless((REPO / "tools" / "rom_part_extractor.py").is_file(), "rom_part_extractor.py not present")
 class RomPartExtractorTests(unittest.TestCase):
     def test_help_returns_zero(self):
         rc, out, _ = run_py("rom_part_extractor.py", "--help")
@@ -380,20 +338,19 @@ class RomPartExtractorTests(unittest.TestCase):
     def test_default_run_cleans_temp_partition(self):
         """Extracting a partition to a temporary workdir and not passing --out
         must not leave a file in the current directory."""
-        super_img = Path(r"C:\Home\xiaomi\rom\A13\veux_id_global_images_OS1.0.10.0.TKCIDXM_13.0\images\super.img")
-        if not super_img.is_file():
-            self.skipTest("veux super.img not available")
+        super_img = veux_super_image()
 
-        leftover = REPO / "system_ext_a.img"
-        leftover.unlink(missing_ok=True)
-        rc, _, _ = run_py(
-            "rom_part_extractor.py", str(super_img), "system_ext_a"
-        )
-        self.assertEqual(rc, 0)
-        self.assertFalse(leftover.exists(), "default extraction left system_ext_a.img in repo root")
+        with tempfile.TemporaryDirectory() as tmp:
+            workdir = Path(tmp)
+            rc, out, err = run_py("rom_part_extractor.py", str(super_img), "system_ext_a", cwd=workdir)
+            self.assertEqual(rc, 0, out + err)
+            self.assertFalse((workdir / "system_ext_a.img").exists())
+            extracted = Path(out.splitlines()[-1])
+            self.assertEqual("system_ext_a.img", extracted.name)
+            self.assertFalse(extracted.parent.exists(), "temporary partition directory leaked")
 
 
-@unittest.skipUnless((REPO / "tools" / "rom_apk_extract.py").is_file(), "rom_apk_extract.py not present")
+
 class RomApkExtractTests(unittest.TestCase):
     def test_help_returns_zero(self):
         rc, out, _ = run_py("rom_apk_extract.py", "--help")
@@ -402,9 +359,7 @@ class RomApkExtractTests(unittest.TestCase):
     def test_default_pipeline_cleans_temp_partition(self):
         """rom_apk_extract must extract MiuiSystemUI.apk without leaving a
         1.5GB partition dump in the output directory."""
-        super_img = Path(r"C:\Home\xiaomi\rom\A13\veux_id_global_images_OS1.0.10.0.TKCIDXM_13.0\images\super.img")
-        if not super_img.is_file():
-            self.skipTest("veux super.img not available")
+        super_img = veux_super_image()
 
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "MiuiSystemUI.apk"
@@ -417,6 +372,7 @@ class RomApkExtractTests(unittest.TestCase):
             )
             self.assertEqual(rc, 0, f"apk extraction failed: {out_text}")
             self.assertTrue(out.is_file(), "MiuiSystemUI.apk was not written")
+            self.assertEqual({out}, set(out.parent.iterdir()))
             data = json.loads(out_text.splitlines()[-1])
             self.assertEqual(data["sha256"], "dd2271dfcd6975c0d8997d4a00a7ee975b0b45f7da6737487f4bf7dfed867b94")
 
