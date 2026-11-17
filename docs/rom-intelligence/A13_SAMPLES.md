@@ -37,6 +37,16 @@ STATIC_VERIFIED = YES；BUILD_VERIFIED = YES。相关回调测试、完整 JVM /
 lint 与 R8 均通过；最终 DEX 未打包 Hook API，设置入口无直接 Hook API 引用。
 LOG_VERIFIED / DEVICE_VERIFIED 均未取得；HyperOS 通知设置尚无完整样本证据。
 
+## 双排信号与 Issue #14（2026-11-17）
+
+- **双排信号（#19）**。已发布的 r13.12.2 含 96 个双排信号 drawable，r13.13.0 与 r13.14.1 的资源表中为零。保留图标资源，确认 SystemUI 的精确视图入口并完成 drawable 注册后才合并信号。xaga 含左右两个控制器的 `setMobileIcons(String,List)` 和 `StatusBarMobileView` 的初始化、更新及明暗切换入口。veux 的完整 DEX 可确认右控制器和视图入口，左控制器仍缺完整样本证据。
+- **扩展电源菜单（#14）**。同一对发布 APK 中 `raw/extended_power_menu` 从有到无。r13.14.1 的报告日志包含资源 ID 0 异常和随后出现的原生电源菜单。xaga 的 `MiuiGlobalActions` 构造函数调用 SystemUI 的 MAML ZIP loader；veux 来自 `createScreenElementRoot()` 的引用仅作旁证。保留 MAML 路线，用直接资源引用让压缩器保留包内文件。
+- **安全中心（#14）**。两份可用 APK 的应用详情活动均从 Intent 的 `package_name` 解析原生目标，均缺少活动自身的 `PackageInfo` 字段。禁用菜单增加此路径，按 ROM 的 `miui.intent.extra.USER_ID` 保留原生跨用户操作。两份样本都有旧版 `initView()`、`onClick(View)` 与电池 `BatteryFragment` handler。报告的 11.1.6 缺少前两个精确方法；电池、默认打开方式及应用信息页仍需要该版本 APK 或日志来确认绑定。
+- **锁屏可视化（#14）**。xaga 的 CentralSurfaces、KeyguardStateController 和 NotificationMediaManager 保留对应入口。面板重复初始化时复用当前视图，替换面板时移除旧视图。播放判定每次读取一次会话状态；仅允许控制器模式下，没有活动会话时跳过音频服务查询。日志未定位报告设备上的失效点。
+- **历史 Issue**。#12 已有 256 字节上限与 142 字节回归；#1、#2、#3 的网速、文件夹、手势和悬浮菜单保留既有路径。Home 和插件 DEX 的头校验异常限制了可推断范围，未从零结果扩展 Hook。
+
+以上行为结论为静态证据。历史日志针对报告中的发布版，候选版显示与设备行为仍待验收。
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。

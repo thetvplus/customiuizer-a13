@@ -388,69 +388,83 @@ object Various {
 
     @JvmStatic
     fun AppsDisableHook(lpparam: PackageReadyParam) {
-        ModuleHelper.findAndHookMethod("com.miui.appmanager.ApplicationsDetailsActivity", lpparam.classLoader, "onCreateOptionsMenu", Menu::class.java, object : MethodHook() {
-            override fun after(param: AfterHookCallback) {
-                val act = param.thisObject as? Activity ?: return
-                val menu = param.args[0] as? Menu ?: return
-                val dis = menu.add(0, 666, 1, act.resources.getIdentifier("app_manager_disable_text", "string", lpparam.packageName))
-                dis.setIcon(act.resources.getIdentifier("action_button_stop", "drawable", lpparam.packageName))
-                dis.isEnabled = true
-                dis.setShowAsAction(1)
+        val activityClass = XposedHelpers.findClassIfExists("com.miui.appmanager.ApplicationsDetailsActivity", lpparam.classLoader) ?: return
+        val hostUser = XposedHelpers.callStaticMethod(UserHandle::class.java, "myUserId") as? Int ?: return
+        val packageField = try {
+            XposedHelpers.findFirstFieldByExactType(activityClass, PackageInfo::class.java)
+        } catch (_: NoSuchFieldError) {
+            null
+        }
 
-                val pm = act.packageManager
-                val piField = XposedHelpers.findFirstFieldByExactType(act.javaClass, PackageInfo::class.java)
-                val mPackageInfo = piField.get(act) as? PackageInfo ?: return
-                val appInfo = try {
-                    pm.getApplicationInfo(mPackageInfo.packageName, PackageManager.GET_META_DATA)
-                } catch (fatal: Throwable) {
-                    RuntimeFatality.throwIfFatal(fatal)
-                    return
-                }
-                val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-                val isUpdatedSystem = (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-
-                dis.setTitle(act.resources.getIdentifier(if (appInfo.enabled) "app_manager_disable_text" else "app_manager_enable_text", "string", lpparam.packageName))
-
-                if (!appInfo.enabled || (isSystem && !isUpdatedSystem)) {
-                    val item = menu.findItem(2)
-                    item?.isVisible = false
-                }
+        fun targetApp(activity: Activity): ApplicationInfo? {
+            val intent = activity.intent
+            // The toggle uses this process's PackageManager.
+            if (intent.getIntExtra("miui.intent.extra.USER_ID", hostUser) != hostUser) return null
+            val packageName = ((packageField?.get(activity) as? PackageInfo)?.packageName
+                ?: intent.getStringExtra("package_name"))?.takeIf { it.isNotEmpty() } ?: return null
+            return try {
+                activity.packageManager.getApplicationInfo(packageName, 0)
+            } catch (_: PackageManager.NameNotFoundException) {
+                return null
             }
-        })
+        }
 
-        ModuleHelper.findAndHookMethod("com.miui.appmanager.ApplicationsDetailsActivity", lpparam.classLoader, "onOptionsItemSelected", MenuItem::class.java, object : MethodHook() {
+        if (ModuleHelper.findAndHookMethod(activityClass, "onOptionsItemSelected", MenuItem::class.java, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                val item = param.args[0] as? MenuItem ?: return
+                if (param.throwable != null) return
+                val item = param.getArg(0) as? MenuItem ?: return
                 if (item.itemId != 666) return
 
                 val act = param.thisObject as? Activity ?: return
+                val appInfo = targetApp(act) ?: return
                 val modRes = ModuleHelper.getModuleRes(act)
-                val piField = XposedHelpers.findFirstFieldByExactType(act.javaClass, PackageInfo::class.java)
-                val mPackageInfo = piField.get(act) as? PackageInfo ?: return
-                if (MIUI_CORE_APPS.contains(mPackageInfo.packageName)) {
+                if (MIUI_CORE_APPS.contains(appInfo.packageName)) {
                     Toast.makeText(act, modRes.getString(R.string.disable_app_settings), Toast.LENGTH_SHORT).show()
                     return
                 }
 
                 val pm = act.packageManager
-                val appInfo = pm.getApplicationInfo(mPackageInfo.packageName, PackageManager.GET_META_DATA)
                 val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-                val state = pm.getApplicationEnabledSetting(mPackageInfo.packageName)
+                val state = pm.getApplicationEnabledSetting(appInfo.packageName)
                 val isEnabledOrDefault = state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED || state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
                 if (isEnabledOrDefault) {
                     if (isSystem) {
                         val title = modRes.getString(R.string.disable_app_title)
                         val text = modRes.getString(R.string.disable_app_text)
                         AlertDialog.Builder(act).setTitle(title).setMessage(text).setPositiveButton(android.R.string.ok) { _, _ ->
-                            setAppState(act, mPackageInfo.packageName, item, false)
+                            setAppState(act, appInfo.packageName, item, false)
                         }.setNegativeButton(android.R.string.cancel, null).show()
                     } else {
-                        setAppState(act, mPackageInfo.packageName, item, false)
+                        setAppState(act, appInfo.packageName, item, false)
                     }
                 } else {
-                    setAppState(act, mPackageInfo.packageName, item, true)
+                    setAppState(act, appInfo.packageName, item, true)
                 }
                 param.setResult(true)
+            }
+        }) == null) return
+
+        ModuleHelper.findAndHookMethod(activityClass, "onCreateOptionsMenu", Menu::class.java, object : MethodHook() {
+            override fun after(param: AfterHookCallback) {
+                if (param.throwable != null) return
+                val act = param.thisObject as? Activity ?: return
+                val menu = param.getArg(0) as? Menu ?: return
+                val appInfo = targetApp(act) ?: return
+                val titleRes = act.resources.getIdentifier(
+                    if (appInfo.enabled) "app_manager_disable_text" else "app_manager_enable_text",
+                    "string", act.packageName
+                )
+                if (titleRes == 0) return
+
+                val dis = menu.add(0, 666, 1, titleRes)
+                dis.setIcon(act.resources.getIdentifier("action_button_stop", "drawable", act.packageName))
+                dis.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+                val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                val isUpdatedSystem = (appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+                if (!appInfo.enabled || (isSystem && !isUpdatedSystem)) {
+                    val item = menu.findItem(2)
+                    item?.isVisible = false
+                }
             }
         })
     }
@@ -738,13 +752,17 @@ object Various {
 
     @JvmStatic
     fun OpenByDefaultHook(lpparam: PackageReadyParam) {
+        val hostUser = XposedHelpers.callStaticMethod(UserHandle::class.java, "myUserId") as? Int ?: return
         var defaultViewId = -1
         ModuleHelper.findAndHookMethod("com.miui.appmanager.ApplicationsDetailsActivity", lpparam.classLoader, "initView", object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
+                val act = param.thisObject as? Activity ?: return
+                if (act.intent.getIntExtra("miui.intent.extra.USER_ID", hostUser) != hostUser) return
                 if (defaultViewId == -1) {
-                    val act = param.thisObject as? Activity ?: return
                     defaultViewId = act.resources.getIdentifier("am_detail_default", "id", "com.miui.securitycenter")
-                    MainModule.getResHooks().setResReplacement("com.miui.securitycenter", "string", "app_manager_default_open_title", R.string.various_open_by_default_title)
+                    if (defaultViewId != 0) {
+                        MainModule.getResHooks().setResReplacement("com.miui.securitycenter", "string", "app_manager_default_open_title", R.string.various_open_by_default_title)
+                    }
                 }
             }
         })
@@ -752,12 +770,17 @@ object Various {
         ModuleHelper.findAndHookMethod("com.miui.appmanager.ApplicationsDetailsActivity", lpparam.classLoader, "onClick", View::class.java, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
                 val view = param.args[0] as? View ?: return
-                if (view.id == defaultViewId && defaultViewId != -1) {
+                if (defaultViewId > 0 && view.id == defaultViewId) {
                     val act = param.thisObject as? Activity ?: return
+                    if (act.intent.getIntExtra("miui.intent.extra.USER_ID", hostUser) != hostUser) return
                     val intent = Intent("android.settings.APP_OPEN_BY_DEFAULT_SETTINGS")
-                    val pkgName = act.intent.getStringExtra("package_name")
-                    intent.data = Uri.parse("package:".plus(pkgName))
-                    act.startActivity(intent)
+                    val pkgName = act.intent.getStringExtra("package_name")?.takeIf { it.isNotEmpty() } ?: return
+                    intent.data = Uri.fromParts("package", pkgName, null)
+                    try {
+                        act.startActivity(intent)
+                    } catch (_: android.content.ActivityNotFoundException) {
+                        return
+                    }
                     param.returnAndSkip(null)
                 }
             }

@@ -1,68 +1,33 @@
 # AGENTS.md — 米客 A13｜CustoMIUIzer A13
 
-适用于本仓库所有 Agent。用户当前明确要求优先；源码和本轮证据高于历史报告。
+适用于本仓库所有 Agent。当前用户要求和已授权的任务合同优先。用现行源码、调用链和 ROM 证据确认行为，历史报告仅作线索。
 
 ## 产品边界
 
-- Android 13 / API 33；主支持 MIUI 14，HyperOS 1 / Android 13 实验兼容。
-- Android 14+ 和灵动额头 / Dynamic Island 不进入 A13。
-- applicationId：`tv.withaibuild.customiuizer.r13`；ABI：`arm64-v8a`。
-- 纯 libxposed API 102：API / Service 102.0.0，min / target API 均为 102。
-- A13 / A14 不共享生产分支、APK或运行时库。
-- 签名以各自发布配置为准；更换发布证书须用户明确授权，并说明升级影响。
+- Android 13 / API 33，主支持 MIUI 14，HyperOS 1 / Android 13 实验兼容。Android 14+ 和灵动额头不进入 A13。
+- `tv.withaibuild.customiuizer.r13`、`arm64-v8a`。当前 libxposed min / target API 均为 102，以构建配置和模块元数据为准。
+- A13 与 A14 独立维护生产分支、APK、签名和运行时库。默认保留 Java 入口及现有 libxposed 架构。
 
-## 实现原则
+## 工程判断
 
-正确性 > 兼容性 > 稳定性 > 生命周期 > 可维护性 > 内存与性能 > 结构整洁。
-少状态、少层、少重复、少后台行为。为实际问题服务，不为抽象或行数重构。
+**Judgment over Procedure**。先确定触发、实际失败与完成条件。沿调用链做能区分根因的最小检查，只有证据缺口才扩大检索。已确认的来源和同一版本无需反复核对。附加测试应能捕获真实回归。
 
-- 不整体重做 PrefMap、ResourceHooks、ProcessRouter、PreferenceBootstrap。
-- 不引入 Compose、新 DI 或大型框架；不把整个 Java 树 Kotlin 化。
-- 默认保留 Java 的 MainModule、XposedHelpers、MemberUtilsX。
-- 无关进程不初始化功能；关闭功能不创建业务 Hook、监听或任务。
-- 每进程 / ClassLoader / Feature 只安装一次，偏好变化不重置安装状态。
-- 部分安装失败进入终端状态；不重试无法证明无副作用的安装。
-- 保持参数改写、回调时序、原方法调用次数与普通异常恢复语义。
-- 致命 JVM 错误及其包装原因必须传播，不可用 catch 掩盖根因。
-- Receiver / Observer / listener / controller 有所有者和替换、失效、释放闭环。
-- 不静态强持有 Activity、View 或短生命周期 controller；缓存按 ClassLoader 隔离且有界。
-- 热路径不做磁盘 I/O、同步 Binder、DexKit、重复反射、Regex 重建或日志洪泛。
-- 原生 Hook ID 只用于已定义的基础设施；不启用热重载、replaceHook 或 detach。
-- 设置进程可使用 Service SDK，不得依赖 compileOnly Hook API 的加载。
+**Performance-First**。在正确性、兼容性、生命周期和宿主稳定有保障时，优先减少关键路径和持续运行的工作，尤其是反射、分配、Binder、绘制、唤醒和长期持有。复用原生能力和已有状态。保留 PrefMap、ResourceHooks、ProcessRouter、PreferenceBootstrap 的职责，避免引入框架或大规模语言迁移。
 
-## A14 与 ROM
+- **提前准备**。所属进程的实际 ClassLoader 和依赖就绪后解析稳定成员，避开首帧阻塞与全量预载。热路径使用准备好的有界状态。
+- **按需激活**。功能关闭时不安装业务 Hook、监听或任务。按进程和 loader 单次安装，偏好变动不重置安装状态。所有者负责替换、失效和释放，避免静态强持有短生命周期对象。部分安装失败必须有界。
+- **增量执行**。相关输入变化时才更新状态、资源和布局；保留原方法调用次数、回调时序、参数和异常语义。沿用既有回调安全边界，传播致命 JVM 错误及其包装原因。原生 Hook ID 仍限已有基础设施，不启用热重载或 Hook 替换。
 
-A14 参考产品意图和工程方法，不是整文件移植来源。已有功能先核对 MonwF 当前上游、
-A13 历史与当前实现，再看 A14。变更分类及必要差异记录在 `docs/A13_PARITY.md`。
+## 上游与 ROM
 
-确认 Android 13 API、目标成员完整签名、进程 / ClassLoader、生命周期、资源 / preference
-和失败语义。不能拼接两个 ROM 的目标成员。缺少证据的高风险 ROM 热路径保持成熟实现。
-删除或改名先检查 Manifest、R8、反射、DexKit、资源和旧 preference key。
+已有功能改语义前按相关范围查 MonwF 上游、A13 历史和当前实现，再参考 A14。功能分类与差异记录在 [A13_PARITY](docs/A13_PARITY.md)。进入 A13 的功能需要独立的 Android 13 证据。
 
-ROM 与构建证据分别记录：STATIC_VERIFIED / BUILD_VERIFIED。A13 日志支持才算
-LOG_VERIFIED，A13 实机直接验收才算 DEVICE_VERIFIED；A14 设备和 ROM 样本不能替代。
-完整定义见 `COMPATIBILITY.md`。ROM、trace、mapping、profiler 数据留在仓库外。
-DexSQL 只作按需开发工具，不增加 APK 或默认 CI 依赖。
+宽发现、严绑定、按能力兼容。核对目标的完整签名、调用关系、实际 ClassLoader、生命周期、资源、偏好及失败语义。候选无法确认时沿用原生行为。删除或改名前核对 Manifest、R8、反射、DexKit、资源和旧偏好。DexSQL 复用 [现有查询](tools/dexsql/README.md)，仅用于按需离线取证；残缺 DEX 的零结果不能作为目标缺失的证据。
 
-## 验证与 Git
+分别记录 `STATIC_VERIFIED` 与 `BUILD_VERIFIED`。只有相应的 A13 日志支持 `LOG_VERIFIED`，A13 实机直接验收支持 `DEVICE_VERIFIED`；未测行为和性能保持待验证。完整定义见 [COMPATIBILITY](COMPATIBILITY.md)。
 
-开始核对工作区和远端，保护未知修改。Agent 分支使用 `devin/a13-*`，从 exact SHA 创建。
-不 force push、不破坏性 reset、不改写公开历史、不无差别 clean。
-接受开发任务后，默认自动完成该任务所需的修改、验证、commit、Agent 分支 push、PR 创建/更新和
-Fast / Full CI 的触发、跟进及失败修复，无需逐项向用户重复申请授权。工程检查由 Agent 自行执行、
-核对真实结果并收口，不把例行核对转交用户。
-用户要求合并 main 时，在 PR 和必要 CI 通过后自主完成，不再追加确认；未要求合并时保持专项分支。
-当前任务明确的只读、本地保留或停止点优先。正式签名、tag 和公开 release 仍遵循当前发行任务合同
-及既有受保护流水线；自动化不得跳过失败门禁或把未执行的检查写成通过。
+## 验证与协作
 
-开发中按改动运行 `python tools/verify.py fast --changed`，必要时加 `--tests <TestClassName>`。
-收口一次运行 `python tools/verify.py full`、`python -m compileall tools`、
-`python -m unittest discover -s tools/tests -p "test_*.py"`、`git diff --check`。
-改动优化器或 Hook API 时另做 R8 验证，不重复 clean，不通过删测试、吞异常或关检查造通过。
-文档任务不编译 Android。最终报告 Base SHA、Final SHA、验证范围和遗留风险。
-
-正式发布只在明确授权时使用仓库外 A13 签名；普通验证不加载正式签名。
-不得提交 APK、keystore、密码或本地配置。Fast / Full CI 不使用正式 keystore；
-只有 main 精确 SHA、完整 CI 与 release-signing 审批通过的独立 A13 Signed Build 可临时加载正式签名。
-公开发布另经 release-publishing 审批和版本确认，恢复发布复用原始 Artifact。详见 `docs/A13_RELEASE.md`。
-不主动递增版本或伪造发行记录；如任务授权改版本，版本名、code、CHANGELOG 必须一致。
+- 按影响选测。开发中用 `python tools/verify.py fast --changed`，定向测试加 `--tests <TestClassName>`。最终代码一次 `python tools/verify.py full`，另运行 `python -m compileall tools`、`python -m unittest discover -s tools/tests -p "test_*.py"` 与 `git diff --check`。资源压缩、优化器或 Hook API 改动按影响核对 R8 和实际产物。纯文档改动走相关轻量检查。保留有效门禁和行为断言。
+- 从确定基线建 `devin/a13-*` 工作分支，保护未知修改。开发授权包含 commit、push、PR 和 Fast / Full CI 跟进。仅在用户要求时合并 `main`。禁止 force push、破坏性 reset、改写公开历史和无差别 clean。只读、本地保留和用户指定的停止点优先。交付记录 Base SHA、Final SHA、提交、验证与待验项。
+- 正式版本、签名、tag 和发布遵循 [A13_RELEASE](docs/A13_RELEASE.md) 与现有受保护流水线。普通验证使用无正式签名的构建。修改正式版本须经授权，版本名、单调递增的 versionCode 和 CHANGELOG 同步。APK、签名材料、本地配置、ROM、DEX、trace、mapping 和原始日志留在仓库外。
