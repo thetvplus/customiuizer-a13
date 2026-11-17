@@ -54,6 +54,7 @@ import tv.withaibuild.customiuizer.utils.AudioVisualizer
 import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper
 import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.AfterHookCallback
 import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.BeforeHookCallback
+import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.CustomMethodUnhooker
 import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.MethodHook
 import tv.withaibuild.customiuizer.mods.utils.ModuleHelper
 import tv.withaibuild.customiuizer.mods.utils.RuntimeFatality
@@ -723,25 +724,55 @@ object SystemAudioAndVisualAndMoreHooks {
         })
     }
 
-    private var audioViz: WeakReference<AudioVisualizer>? = null
-    private var isKeyguardShowing = false
-    private var isNotificationPanelExpanded = false
-    private var mMediaController: MediaController? = null
-
-    private fun updateAudioVisualizerState(context: Context) {
-        val visualizer = audioViz?.get() ?: return
-        val controllerPlaying = mMediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
-        val isPlaying = if (controllerPlaying || !visualizer.showWithControllerOnly) {
-            context.getSystemService(AudioManager::class.java)?.isMusicActive == true
-        } else {
-            false
-        }
-        visualizer.updateViewState(isPlaying, isKeyguardShowing, isNotificationPanelExpanded)
-    }
-
     @JvmStatic
     fun AudioVisualizerHook(lpparam: PackageReadyParam) {
-        ModuleHelper.hookAllMethods(StatusBarCls, lpparam.classLoader, "makeStatusBarView", object : MethodHook() {
+        val loader = lpparam.classLoader
+        val centralSurfaces = XposedHelpers.findClassIfExists(StatusBarCls, loader) ?: return
+        val panelExpanded = XposedHelpers.findFieldIfExists(centralSurfaces, "mPanelExpanded") ?: return
+        val keyguardController = XposedHelpers.findFieldIfExists(centralSurfaces, "mKeyguardStateController")
+        val isShowing = keyguardController?.type?.let { XposedHelpers.findMethodExactIfExists(it, "isShowing") }
+        val mediaManager = XposedHelpers.findClassIfExists("com.android.systemui.statusbar.NotificationMediaManager", loader) ?: return
+        val controllerField = XposedHelpers.findFieldIfExists(mediaManager, "mMediaController") ?: return
+        val metadataField = XposedHelpers.findFieldIfExists(mediaManager, "mMediaMetadata") ?: return
+        val mediaOwner = XposedHelpers.findFieldIfExists(centralSurfaces, "mMediaManager")
+            ?.takeIf { it.type == mediaManager }
+        val registerResult = XposedHelpers.findClassIfExists("com.android.internal.statusbar.RegisterStatusBarResult", loader) ?: return
+        val makeView = XposedHelpers.findMethodExactIfExists(centralSurfaces, "makeStatusBarView", registerResult) ?: return
+        val setExpanded = XposedHelpers.findMethodExactIfExists(centralSurfaces, "setPanelExpanded", Boolean::class.javaPrimitiveType) ?: return
+        val keyguard = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.policy.KeyguardStateControllerImpl", loader,
+            "notifyKeyguardState", Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType
+        ) ?: return
+        val updateMedia = XposedHelpers.findMethodExactIfExists(
+            mediaManager, "updateMediaMetaData", Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType
+        ) ?: return
+        var audioViz: WeakReference<AudioVisualizer>? = null
+        var controller: WeakReference<MediaController>? = null
+        var isKeyguardShowing = false
+        var isNotificationPanelExpanded = false
+
+        fun syncController(manager: Any?) {
+            val next = manager?.let { controllerField.get(it) as? MediaController }
+            if (controller?.get() !== next) controller = next?.let { WeakReference(it) }
+        }
+
+        fun albumArt(manager: Any?): Bitmap? {
+            val metadata = manager?.let { metadataField.get(it) as? MediaMetadata } ?: return null
+            return metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
+                ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+                ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+        }
+
+        fun updatePlayback(visualizer: AudioVisualizer) {
+            val needsPlayback = visualizer.isScreenOn &&
+                (isKeyguardShowing || (isNotificationPanelExpanded && visualizer.showInDrawer))
+            val playing = needsPlayback && (!visualizer.showWithControllerOnly ||
+                controller?.get()?.playbackState?.state == PlaybackState.STATE_PLAYING) &&
+                visualizer.context.getSystemService(AudioManager::class.java)?.isMusicActive == true
+            visualizer.updateViewState(playing, isKeyguardShowing, isNotificationPanelExpanded)
+        }
+
+        val attach = object : MethodHook() {
             override fun after(param: AfterHookCallback) {
                 if (param.throwable != null) return
                 val viewController = XposedHelpers.getObjectField(param.thisObject, "mNotificationPanelViewController")
@@ -752,6 +783,11 @@ object SystemAudioAndVisualAndMoreHooks {
                 val oldPanel = oldFrame?.parent as? ViewGroup
                 if (oldPanel === mNotificationPanel) return
 
+                if (isShowing != null) {
+                    val keyguard = keyguardController?.get(param.thisObject)
+                    if (keyguard != null) isKeyguardShowing = isShowing.invoke(keyguard) as Boolean
+                }
+                isNotificationPanelExpanded = panelExpanded.getBoolean(param.thisObject)
                 val visFrame = FrameLayout(mContext)
                 visFrame.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 val visualizer = AudioVisualizer(mContext)
@@ -770,60 +806,71 @@ object SystemAudioAndVisualAndMoreHooks {
                 mNotificationPanel.addView(visFrame, (order + 1).coerceAtMost(mNotificationPanel.childCount))
                 if (oldFrame != null) oldPanel?.removeView(oldFrame)
                 audioViz = WeakReference(visualizer)
+                visualizer.isScreenOn = mContext.getSystemService(PowerManager::class.java)?.isInteractive == true
+                if (mediaOwner != null) {
+                    val manager = mediaOwner.get(param.thisObject)
+                    syncController(manager)
+                    if (visualizer.isScreenOn) albumArt(manager)?.let(visualizer::updateMusicArt)
+                }
+                updatePlayback(visualizer)
             }
-        })
+        }
 
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.phone.ScrimController", lpparam.classLoader, "onScreenTurnedOff", object : MethodHook() {
+        val scrimController = "com.android.systemui.statusbar.phone.ScrimController"
+        val screenOff = object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                audioViz?.get()?.updateScreenOn(false)
+                if (param.throwable != null) return
+                val visualizer = audioViz?.get() ?: return
+                visualizer.updateScreenOn(false)
             }
-        })
+        }
 
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.phone.ScrimController", lpparam.classLoader, "onScreenTurnedOn", object : MethodHook() {
+        val screenOn = object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                audioViz?.get()?.updateScreenOn(true)
+                if (param.throwable != null) return
+                val visualizer = audioViz?.get() ?: return
+                visualizer.isScreenOn = true
+                updatePlayback(visualizer)
             }
-        })
+        }
 
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.policy.KeyguardStateControllerImpl", lpparam.classLoader, "notifyKeyguardState", Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, object : MethodHook() {
+        val keyguardChanged = object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                val isKeyguardShowingNew = param.getArg(0) as? Boolean ?: false
+                if (param.throwable != null) return
+                val isKeyguardShowingNew = param.getArg(0) as? Boolean ?: return
                 if (isKeyguardShowing != isKeyguardShowingNew) {
                     isKeyguardShowing = isKeyguardShowingNew
                     isNotificationPanelExpanded = false
-                    updateAudioVisualizerState(XposedHelpers.getObjectField(param.thisObject, "mContext") as? Context ?: return)
+                    audioViz?.get()?.let(::updatePlayback)
                 }
             }
-        })
+        }
 
-        ModuleHelper.hookAllMethods(StatusBarCls, lpparam.classLoader, "setPanelExpanded", object : MethodHook() {
+        val panelChanged = object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                val isNotificationPanelExpandedNew = XposedHelpers.getBooleanField(param.thisObject, "mPanelExpanded")
+                if (param.throwable != null) return
+                val isNotificationPanelExpandedNew = panelExpanded.getBoolean(param.thisObject)
                 if (isNotificationPanelExpanded != isNotificationPanelExpandedNew) {
                     isNotificationPanelExpanded = isNotificationPanelExpandedNew
-                    updateAudioVisualizerState(XposedHelpers.getObjectField(param.thisObject, "mContext") as? Context ?: return)
+                    audioViz?.get()?.let(::updatePlayback)
                 }
             }
-        })
+        }
 
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.NotificationMediaManager", lpparam.classLoader, "updateMediaMetaData", Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, object : MethodHook() {
+        var tracksScreen = false
+        val mediaChanged = object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
+                syncController(param.thisObject)
                 val visualizer = audioViz?.get() ?: return
-                val mContext = XposedHelpers.getObjectField(param.thisObject, "mContext") as? Context ?: return
-                val powerMgr = mContext.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
-                val isScreenOn = powerMgr.isInteractive
-                if (!isScreenOn) {
-                    visualizer.updateScreenOn(false)
-                    return
-                } else visualizer.isScreenOn = true
-
-                val mMediaMetadata = XposedHelpers.getObjectField(param.thisObject, "mMediaMetadata") as? MediaMetadata
-                var art: Bitmap? = null
-                if (mMediaMetadata != null) {
-                    art = mMediaMetadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
-                    if (art == null) art = mMediaMetadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-                    if (art == null) art = mMediaMetadata.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
+                val mContext = visualizer.context
+                if (!tracksScreen) {
+                    visualizer.isScreenOn = mContext.getSystemService(PowerManager::class.java)?.isInteractive == true
                 }
+                if (!visualizer.isScreenOn) {
+                    if (!tracksScreen) visualizer.updateScreenOn(false)
+                    return
+                }
+                var art = albumArt(param.thisObject)
                 if (art == null) {
                     val wallpaperMgr = WallpaperManager.getInstance(mContext)
                     @Suppress("MissingPermission")
@@ -840,10 +887,44 @@ object SystemAudioAndVisualAndMoreHooks {
                     }
                 }
 
-                mMediaController = XposedHelpers.getObjectField(param.thisObject, "mMediaController") as? MediaController
-                updateAudioVisualizerState(mContext)
+                updatePlayback(visualizer)
                 visualizer.updateMusicArt(art)
             }
-        })
+        }
+
+        val installed = ArrayList<CustomMethodUnhooker>(6)
+        fun bind(method: Method, callback: MethodHook): Boolean {
+            installed.add(ModuleHelper.hookMethod(method, callback) ?: return false)
+            return true
+        }
+        var attached = false
+        try {
+            if (!bind(keyguard, keyguardChanged) || !bind(setExpanded, panelChanged) || !bind(updateMedia, mediaChanged)) return
+            val off = ModuleHelper.findAndHookMethod(scrimController, loader, "onScreenTurnedOff", screenOff)
+            if (off != null) {
+                installed.add(off)
+                val on = ModuleHelper.findAndHookMethod(scrimController, loader, "onScreenTurnedOn", screenOn)
+                if (on != null) {
+                    installed.add(on)
+                    tracksScreen = true
+                } else {
+                    off.unhook()
+                    installed.removeAt(installed.lastIndex)
+                }
+            }
+            // A panel may attach as soon as this hook is installed.
+            attached = bind(makeView, attach)
+        } finally {
+            if (!attached) {
+                for (handle in installed.asReversed()) {
+                    try {
+                        handle.unhook()
+                    } catch (t: Throwable) {
+                        RuntimeFatality.throwIfFatal(t)
+                        XposedHelpers.log(t)
+                    }
+                }
+            }
+        }
     }
 }

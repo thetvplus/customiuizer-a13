@@ -163,10 +163,9 @@ object FakeXposedInterface {
                 "intercept" -> {
                     val executable = interceptedExecutables.removeLastOrNull()
                     val hook = args?.firstOrNull() as? tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.MethodHook
-                    if (executable != null && hook != null) {
-                        recordedHooks.add(RecordedHook(executable, hook))
-                    }
-                    HookHandleProxy.create(proxy.javaClass.classLoader!!)
+                    val record = if (executable != null && hook != null) RecordedHook(executable, hook) else null
+                    if (record != null) recordedHooks.add(record)
+                    HookHandleProxy.create(proxy.javaClass.classLoader!!, record)
                 }
                 else -> null
             }
@@ -183,11 +182,11 @@ object FakeXposedInterface {
         }
     }
 
-    private object HookHandleHandler : InvocationHandler {
+    private class HookHandleHandler(private val record: RecordedHook?) : InvocationHandler {
         override fun invoke(proxy: Any, method: Method, args: Array<out Any>?): Any? {
             return when (method.name) {
                 "getExecutable" -> null
-                "unhook" -> null
+                "unhook" -> { recordedHooks.remove(record); null }
                 "getId" -> "fake"
                 "replaceHook" -> proxy
                 else -> null
@@ -196,11 +195,11 @@ object FakeXposedInterface {
     }
 
     private object HookHandleProxy {
-        fun create(classLoader: ClassLoader): XposedInterface.HookHandle {
+        fun create(classLoader: ClassLoader, record: RecordedHook?): XposedInterface.HookHandle {
             return Proxy.newProxyInstance(
                 classLoader,
                 arrayOf(XposedInterface.HookHandle::class.java),
-                HookHandleHandler
+                HookHandleHandler(record)
             ) as XposedInterface.HookHandle
         }
     }

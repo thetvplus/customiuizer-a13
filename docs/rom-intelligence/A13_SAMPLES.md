@@ -40,15 +40,25 @@ Lcom/android/systemui/statusbar/phone/StatusBarIconControllerImpl;->setMobileIco
 Lcom/android/systemui/statusbar/phone/MiuiDripLeftStatusBarIconControllerImpl;->setMobileIcons(Ljava/lang/String;Ljava/util/List;)V
 Lcom/android/systemui/statusbar/StatusBarMobileView;->initViewState(Lcom/android/systemui/statusbar/phone/StatusBarSignalPolicy$MobileIconState;)V
 Lcom/android/systemui/statusbar/StatusBarMobileView;->updateState(Lcom/android/systemui/statusbar/phone/StatusBarSignalPolicy$MobileIconState;)Z
+Lcom/android/systemui/statusbar/StatusBarMobileView;->applyMobileState(Lcom/android/systemui/statusbar/phone/StatusBarSignalPolicy$MobileIconState;)V
+Lcom/android/systemui/statusbar/StatusBarMobileView;->updateImageDrawable()V
 Lcom/android/systemui/statusbar/StatusBarMobileView;->applyDarknessInternal()V
 Lcom/android/systemui/statusbar/MiuiStatusBarIconViewHelper;->transformResId(IZZ)I
 ```
 
-`initViewState` 和 `updateState` 调用 `Landroid/widget/ImageView;->setImageResource(I)V`。veux 的右控制器与视图命中来自 CRC 失败的 `classes2.dex`，左右控制器与视图绑定均待验。候选 APK 资源表、双卡样式和原生信号恢复待验证。
+`initViewState` 和 `updateState` 把原生 `strengthId` 用作 drawable ID。两个控制器都反转输入列表，再由 holder 和 `StatusBarIconController$IconManager` 将状态交给 `applyMobileState`。该入口内部复制状态，且原生状态相等时可跳过更新。`onDarkChanged` 在颜色变化时调用 `updateImageDrawable` 重画原生图标。
+
+A13 在控制器处复制两个状态，使用私有的可变列表。双排等级与原生资源 ID 分开，视图更新完成后绘制第二排。原生状态更新前恢复视图的 drawable 和可见性，以支持单卡、隐藏、飞行模式和漫游回退。veux 的右控制器与视图命中来自 CRC 失败的 `classes2.dex`，左右控制器与视图绑定均待验。
 
 **扩展电源菜单（#14）**。r13.14.1 资源表缺少过去存在的 `raw/extended_power_menu`。报告日志出现资源 ID 0 和原生电源菜单。xaga `MiuiSystemUI.apk!classes.dex` 的 `MiuiGlobalActions` 构造函数调用 `Lcom/miui/maml/util/ZipResourceLoader;-><init>(Ljava/lang/String;)V`，后者定义在 `classes2.dex`。`Lcom/android/systemui/plugins/PluginEnablerImpl;->isEnabled(Landroid/content/ComponentName;)Z` 定义在 `classes.dex`。veux 的有效 `classes.dex` 可确认这两个入口声明，调用和 ClassLoader 待验证。`ExtendedPowerMenuHook` 使用直接资源引用和完整文件检查，SystemUI 重建后的原生菜单交接仍待确认。
 
 **安全中心（#14）**。两份样本的 `classes2.dex` 均定义 `Lcom/miui/appmanager/ApplicationsDetailsActivity;->initView()V`、`Lcom/miui/appmanager/ApplicationsDetailsActivity;->onClick(Landroid/view/View;)V`，供默认打开方式 Hook 绑定。应用详情使用 Intent 的 `package_name`，禁用菜单依照 `miui.intent.extra.USER_ID` 保留原生跨用户操作。`Lcom/miui/powercenter/BatteryFragment$d;->handleMessage(Landroid/os/Message;)V` 定义在 xaga `classes2.dex`、veux `classes3.dex`，调用原生 `Landroid/os/Handler;->handleMessage(Landroid/os/Message;)V`，A13 温度 Hook 按弱所有者更新。报告的 11.1.6 的成员、类加载及菜单行为待对应 APK 或日志验证。
+
+应用信息页在 xaga 8.0.4、veux 8.9.4 的 `classes2.dex` 中都由
+`Lcom/miui/appmanager/fragment/AMAppInformationFragment;->onCreatePreferences(Landroid/os/Bundle;Ljava/lang/String;)V`
+初始化本 Fragment 的偏好和 `PackageInfo`。同类的 `onPreferenceTreeClick(Landroidx/preference/Preference;)Z` 处理点击。
+xaga 的 `c0()V` 调用 `b0(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V` 添加行，veux 用相同签名的 `h0()` → `g0(...)`。
+A13 绑定实际 Fragment 的生命周期、唯一签名和当前 Activity，不按混淆名猜测。11.1.6 未出现在本地两份样本中。
 
 **锁屏可视化（#14）**。xaga 有 CentralSurfaces、KeyguardStateController 和 NotificationMediaManager 对应入口。源码复用当前面板视图，替换面板时移除旧视图。仅允许控制器模式下，无活动会话则跳过音频服务查询。报告设备的失效点仍待定位。
 

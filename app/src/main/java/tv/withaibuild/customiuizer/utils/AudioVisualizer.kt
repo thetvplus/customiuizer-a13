@@ -884,7 +884,7 @@ class AudioVisualizer @JvmOverloads constructor(
         isMusicPlaying = isPlaying
         isOnKeyguard = isKeyguard
         isExpandedPanel = showInDrawer && !isOnKeyguard && isExpanded
-        isOnCustomLockScreen = customLockScreenFile.exists()
+        isOnCustomLockScreen = isPlaying && isKeyguard && customLockScreenFile.exists()
         updatePlaying()
     }
 
