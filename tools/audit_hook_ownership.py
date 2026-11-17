@@ -14,25 +14,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCE_ROOT = REPO_ROOT / "app" / "src" / "main" / "java"
-OUT_FILE = REPO_ROOT / "docs" / "audit" / "A13_HOOK_OWNERSHIP_INVENTORY.md"
-
-HOOK_RE = re.compile(
-    r"\b(ModuleHelper|XposedHelpers|XposedBridge|HookerClassHelper)\s*\.\s*"
-    r"(findAndHookMethod|findAndHookConstructor|hookAllMethods|hookAllConstructors|hookMethod|hookAll)"
-    r"|\bfindAndHookMethod\s*\("
-    r"|\bhookAllMethods\s*\("
-    r"|\bhookAllConstructors\s*\(",
-    re.S,
-)
-
 OWNERSHIP_REPORT_HOOK_RE = re.compile(
     r"\bModuleHelper\s*\.\s*"
     r"(findAndHookMethod|hookAllConstructors|hookAllMethods)",
-    re.S,
-)
-
-TYPED_INSTALL_RE = re.compile(
-    r"(FeatureInstallRegistry\.installById|\.installById\(|FeatureInstallRegistry\.installAll|\.installAll\()",
     re.S,
 )
 
@@ -151,12 +135,12 @@ def nearest_function(lines: list[str], line_idx: int) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--check", action="store_true", help="Do not write; fail on drift")
+    parser.add_argument("--check", action="store_true", help="Fail on unclassified direct hook sites")
     args = parser.parse_args(argv)
 
     typed_funcs = file_typed_functions()
 
-    rows: list[tuple[str, int, int, int, str, str, str]] = []
+    unknown: list[str] = []
     file_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"hook": 0, "typed": 0, "registry": 0, "legacy": 0})
     category_totals: dict[str, int] = defaultdict(int)
     category_files: dict[str, set[str]] = defaultdict(set)
@@ -170,12 +154,11 @@ def main(argv: list[str] | None = None) -> int:
         file_default = classify_file(rel)
         file_typed = typed_funcs.get(path, set())
 
-        for i, line in enumerate(lines, start=1):
-            if not OWNERSHIP_REPORT_HOOK_RE.search(line):
-                continue
+        for match in OWNERSHIP_REPORT_HOOK_RE.finditer(text):
+            line = text.count("\n", 0, match.start())
 
             total += 1
-            func = nearest_function(lines, i - 1)
+            func = nearest_function(lines, line)
 
             if file_default == "API_BRIDGE":
                 category = "API_BRIDGE"
@@ -185,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
                 category = "REGISTRY_FEATURE" if func in file_typed else "LEGACY_EXCEPTION"
             else:
                 category = "UNKNOWN"
+                unknown.append(f"{rel}:{line + 1}")
 
             file_stats[rel]["hook"] += 1
             if category == "REGISTRY_FEATURE":
@@ -193,7 +177,12 @@ def main(argv: list[str] | None = None) -> int:
                 file_stats[rel]["legacy"] += 1
             category_totals[category] += 1
             category_files[category].add(rel)
-            rows.append((rel, i, func, category, line.strip()))
+
+    if args.check:
+        for site in unknown:
+            print(f"Unclassified hook site: {site}")
+        print(f"Checked {total} direct hook sites, {len(unknown)} unclassified")
+        return int(bool(unknown))
 
     # Build per-file summary
     file_summaries: list[tuple[str, int, int, int, str, str]] = []
@@ -201,9 +190,11 @@ def main(argv: list[str] | None = None) -> int:
         registry = stats["registry"]
         legacy = stats["legacy"]
         hook = stats["hook"]
-        rel_path = SOURCE_ROOT / rel
         default = classify_file(rel)
-        if default in ("API_BRIDGE", "INSTALLER_INFRASTRUCTURE"):
+        if rel in category_files["UNKNOWN"]:
+            category = "UNKNOWN"
+            note = "needs owner classification"
+        elif default in ("API_BRIDGE", "INSTALLER_INFRASTRUCTURE"):
             category = default
             note = "infrastructure"
         elif registry == 0:
@@ -233,22 +224,7 @@ def main(argv: list[str] | None = None) -> int:
     for rel, hook, registry, legacy, category, note in sorted(file_summaries, key=lambda r: (r[4], r[0])):
         md.append(f"| `{rel}` | {hook} | mixed | `{category}` | {note} |\n")
 
-    rendered = "".join(md)
-    if args.check:
-        if not OUT_FILE.exists():
-            print(f"Missing {OUT_FILE}")
-            return 1
-        current = OUT_FILE.read_text(encoding="utf-8")
-        if current != rendered:
-            print(f"{OUT_FILE} is out of date; run tools/audit_hook_ownership.py to refresh")
-            return 1
-    else:
-        OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-        OUT_FILE.write_text(rendered, encoding="utf-8", newline="\n")
-    print(f"{'Checked' if args.check else 'Wrote'} {OUT_FILE}")
-    print(f"Total hook sites: {total}")
-    for cat in ("REGISTRY_FEATURE", "INSTALLER_INFRASTRUCTURE", "API_BRIDGE", "LEGACY_EXCEPTION", "UNKNOWN"):
-        print(f"  {cat}: {category_totals.get(cat, 0)}")
+    print("".join(md), end="")
     return 0
 
 

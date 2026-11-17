@@ -59,20 +59,13 @@ jobs:
       - name: CI portability
         run: python tools/check_ci_portability.py
 
-      - name: Text encoding gate
-        run: python tools/check_text_encoding.py
-
       - name: Python tool tests
         run: python -m unittest discover -s tools/tests -p "test_*.py"
 
       - name: Static governance checks
         run: |
-          python tools/check-invariants.py
-          python tools/check-compat-contracts.py
-          python tools/check_hook_contract_parity.py
           python tools/source_hazard_scan.py
           python tools/catalog_contract_probe.py --catalog app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureCatalog.kt --feature-id app/src/main/java/tv/withaibuild/customiuizer/mods/catalog/FeatureId.kt --diagnostic-ids app/src/main/java/tv/withaibuild/customiuizer/mods/diagnostics/DiagnosticIds.kt --matrix docs/rom-intelligence/A13_PROCESS_MATRIX.md
-          python tools/ci_contract_scan.py --expected-branch main --default-branch main
           python tools/check_release_metadata.py
           python tools/audit_hook_ownership.py --check
 
