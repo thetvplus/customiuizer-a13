@@ -48,7 +48,7 @@ class SourceAndCITest(unittest.TestCase):
     def test_native_workflow_run_requires_matching_head_and_attempt(self):
         path = ".github/workflows/a13-full-ci.yml"
         workflow = {"id": 9, "path": path, "state": "active"}
-        run = BUILD_RUN | {"name": "A13 Full CI", "event": "push", "path": path}
+        run = BUILD_RUN | {"name": "Dynamic Full CI run title", "event": "push", "path": path}
         with tempfile.TemporaryDirectory() as td:
             event = Path(td) / "event.json"
             event.write_text(json.dumps({"workflow_run": run}), encoding="utf-8")
@@ -58,6 +58,9 @@ class SourceAndCITest(unittest.TestCase):
             with patch.object(release, "api", side_effect=[workflow, run]), patch.object(release, "command", side_effect=[SOURCE.encode(), b""]):
                 self.assertEqual(SOURCE, release.native_source(env))
             with patch.object(release, "api", side_effect=[workflow, run | {"run_attempt": 3}]), self.assertRaisesRegex(ValueError, "attempt changed"):
+                release.native_source(env)
+            event.write_text(json.dumps({"workflow_run": run | {"workflow_id": 10}}), encoding="utf-8")
+            with patch.object(release, "api", return_value=workflow), self.assertRaisesRegex(ValueError, "not active or authentic"):
                 release.native_source(env)
             with self.assertRaisesRegex(ValueError, "exact-main"):
                 release.native_source(env | {"GITHUB_SHA": "b" * 40})
@@ -391,7 +394,8 @@ class PublishingTest(unittest.TestCase):
     def test_automatic_publication_only_accepts_its_own_completed_signed_run(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "event.json"
-            incoming = {"workflow_run": {"id": 123, "name": "A13 Signed Build", "event": "workflow_run",
+            incoming = {"workflow_run": {"id": 123, "name": f"A13 Signed Build / {SOURCE}",
+                         "path": release.WORKFLOW, "event": "workflow_run",
                          "status": "completed", "conclusion": "success", "head_sha": SOURCE, "run_attempt": 2}}
             path.write_text(json.dumps(incoming), encoding="utf-8")
             env = {"GITHUB_EVENT_NAME": "workflow_run", "GITHUB_WORKFLOW": "A13 Stable Release",
@@ -399,7 +403,7 @@ class PublishingTest(unittest.TestCase):
             with patch.dict(os.environ, env):
                 release.authorize(self.meta, "both", "")
                 for change in ({"id": 124}, {"head_sha": "b" * 40}, {"conclusion": "failure"}, {"run_attempt": 3},
-                               {"event": "workflow_dispatch"}):
+                               {"event": "workflow_dispatch"}, {"path": ".github/workflows/other.yml"}):
                     path.write_text(json.dumps({"workflow_run": incoming["workflow_run"] | change}), encoding="utf-8")
                     with self.assertRaises(ValueError):
                         release.authorize(self.meta, "both", "")

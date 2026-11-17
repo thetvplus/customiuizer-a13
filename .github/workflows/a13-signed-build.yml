@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   validate:
-    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Full CI' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'push'))
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.path == '.github/workflows/a13-full-ci.yml' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'push'))
     runs-on: ubuntu-24.04
     outputs:
       ready: ${{ steps.gate.outputs.ready }}
@@ -45,7 +45,7 @@ jobs:
 
   sign:
     needs: validate
-    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Full CI' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'push')) && needs.validate.outputs.ready == 'true'
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.path == '.github/workflows/a13-full-ci.yml' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'push')) && needs.validate.outputs.ready == 'true'
     environment: release-signing
     runs-on: ubuntu-24.04
     timeout-minutes: 60
