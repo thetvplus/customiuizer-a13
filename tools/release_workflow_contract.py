@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-SIGN_GUARD = "github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Full CI' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'push'))"
+SIGN_GUARD = "github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.path == '.github/workflows/a13-full-ci.yml' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'push'))"
 SIGN_JOB_GUARD = SIGN_GUARD + " && needs.validate.outputs.ready == 'true'"
-PROMOTE_GUARD = "github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Signed Build' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'workflow_run'))"
+PROMOTE_GUARD = "github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.path == '.github/workflows/a13-signed-build.yml' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'workflow_run'))"
 PUBLISH_GUARD = PROMOTE_GUARD + " && needs.verify.outputs.artifact_id != '' && (github.event_name == 'workflow_run' || (inputs.destination != 'actions-only' && inputs.authorization != ''))"
 FILES = {"a13-signed-build.yml", "a13-promote-release.yml"}
 TOKEN = {"GH_TOKEN": "${{ github.token }}"}

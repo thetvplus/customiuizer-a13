@@ -51,7 +51,7 @@ Secrets 仅检查名称和所在范围，不读取、打印或导出明文。
    runner 被强制终止时依赖 GitHub 托管临时 runner 的销毁，不使用自托管 runner。
 6. 校验正式标志、applicationId、版本、SDK、arm64-v8a、zipalign、v2 签名、证书、libxposed 入口、
    R8 输出，以及 APK 内完整 `sourceCommit`。APK 和元数据共同生成并验证 GitHub SLSA 来源证明。
-7. Artifact 名为 `a13-signed-<run_id>-<attempt>`，保留 30 天。严格保留以下五个文件：
+7. Artifact 名为 `a13-signed-<run_id>-<attempt>`，工作流请求保留 30 天，受仓库上限约束。实际到期时间见 Artifact 的 `expires_at`。严格保留以下五个文件：
 
    - `CustoMIUIzer-A13-<versionName>.apk`
    - `SHA256SUMS`
@@ -84,7 +84,7 @@ Secrets 仅检查名称和所在范围，不读取、打印或导出明文。
 - 源码成功、Xposed 失败会明确报告部分成功，保留已成功的 Release。重新运行 Promote Release，
   仍选择**原始成功 Signed Build**；不重新构建、不重新签名。源码已发布且完全一致时允许 main 前进后恢复同步。
 - 旧 Artifact 已过期、缺失，或重跑 Signed Build 导致 attempt 改变时，自动恢复失败，不能以重建冒充原始产物。
-  应在 30 天内恢复，并自行保存原始公开产物。现有流程不从未知本地 APK 恢复。
+  应在原始 Artifact 到期前恢复，并保存原始公开产物。现有流程不从未知本地 APK 恢复。
 - 新发布不能回退到已有更高版本；versionCode 必须高于现行正式版本。只支持正式发行状态，
   不自动改变现有 draft/prerelease 以绕过冲突。
 

@@ -103,11 +103,12 @@ def native_source(env: dict = os.environ) -> str:
         require(bool(path), "Missing GitHub workflow event")
         event = json.loads(Path(path).read_text(encoding="utf-8"))
         incoming = event.get("workflow_run", {})
-        expected = {"A13 Signed Build": ("A13 Full CI", "a13-full-ci.yml", "push"),
-                    "A13 Stable Release": ("A13 Signed Build", "a13-signed-build.yml", "workflow_run")}
+        expected = {"A13 Signed Build": ("a13-full-ci.yml", "push"),
+                    "A13 Stable Release": ("a13-signed-build.yml", "workflow_run")}
         require(env.get("GITHUB_WORKFLOW") in expected, "Untrusted auto-release workflow")
-        name, workflow_file, origin = expected[env["GITHUB_WORKFLOW"]]
-        require(incoming.get("name") == name and incoming.get("event") == origin
+        workflow_file, origin = expected[env["GITHUB_WORKFLOW"]]
+        workflow_path = f".github/workflows/{workflow_file}"
+        require(incoming.get("path") == workflow_path and incoming.get("event") == origin
                 and incoming.get("head_sha") == sha and incoming.get("head_branch") == "main"
                 and incoming.get("head_repository", {}).get("full_name") == REPO
                 and incoming.get("head_repository", {}).get("id") == POLICY["repository_id"]
@@ -116,7 +117,8 @@ def native_source(env: dict = os.environ) -> str:
         run_id = incoming.get("id")
         require(isinstance(run_id, int) and run_id > 0, "Auto-release trigger has no native run ID")
         workflow = api(f"repos/{REPO}/actions/workflows/{workflow_file}")
-        require(workflow.get("path") == f".github/workflows/{workflow_file}" and workflow.get("state") == "active",
+        require(workflow.get("path") == workflow_path and workflow.get("state") == "active"
+                and incoming.get("workflow_id") == workflow["id"],
                 "Auto-release trigger workflow is not active or authentic")
         fresh = api(f"repos/{REPO}/actions/runs/{run_id}")
         check_run(fresh, workflow, sha, {origin})
@@ -533,7 +535,7 @@ def authorize(metadata: dict, destination: str, authorization: str) -> None:
         require(os.environ.get("GITHUB_WORKFLOW") == "A13 Stable Release" and bool(event_path),
                 "Automatic publication requires the trusted stable release workflow")
         incoming = json.loads(Path(event_path).read_text(encoding="utf-8")).get("workflow_run", {})
-        require(destination == "both" and incoming.get("name") == "A13 Signed Build"
+        require(destination == "both" and incoming.get("path") == WORKFLOW
                 and incoming.get("event") == "workflow_run" and incoming.get("status") == "completed"
                 and incoming.get("conclusion") == "success" and incoming.get("id") == metadata["run_id"]
                 and incoming.get("run_attempt") == metadata["run_attempt"]

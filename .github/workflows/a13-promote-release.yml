@@ -32,7 +32,7 @@ concurrency:
 
 jobs:
   verify:
-    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Signed Build' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'workflow_run'))
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.path == '.github/workflows/a13-signed-build.yml' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'workflow_run'))
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -69,7 +69,7 @@ jobs:
 
   publish:
     needs: verify
-    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Signed Build' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'workflow_run')) && needs.verify.outputs.artifact_id != '' && (github.event_name == 'workflow_run' || (inputs.destination != 'actions-only' && inputs.authorization != ''))
+    if: github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.path == '.github/workflows/a13-signed-build.yml' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'workflow_run')) && needs.verify.outputs.artifact_id != '' && (github.event_name == 'workflow_run' || (inputs.destination != 'actions-only' && inputs.authorization != ''))
     environment: release-publishing
     runs-on: ubuntu-24.04
     timeout-minutes: 20
