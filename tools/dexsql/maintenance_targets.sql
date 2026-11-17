@@ -34,3 +34,36 @@ WHERE method_kind IS NOT NULL
   AND class_descriptor = 'Lcom/android/systemui/statusbar/notification/row/MiuiNotificationMenuRow;'
   AND name = 'onClickInfoItem'
 ORDER BY file_id, descriptor;
+
+-- SecurityCenter: app details and battery handler. Compare only validated DEX entries.
+SELECT d.entry_name, m.method_descriptor
+FROM class_methods m JOIN dex_files d USING (file_id)
+WHERE (m.class_descriptor = 'Lcom/miui/appmanager/ApplicationsDetailsActivity;' AND m.method_name IN ('initView', 'onClick'))
+   OR (m.class_descriptor LIKE 'Lcom/miui/powercenter/BatteryFragment$%;' AND m.method_name = 'handleMessage')
+ORDER BY d.entry_name, m.method_descriptor;
+
+-- SystemUI: #19 and #14 direct definitions. Keep the declaring DEX in the result.
+SELECT d.entry_name, m.method_descriptor
+FROM class_methods m JOIN dex_files d USING (file_id)
+WHERE (m.class_descriptor IN (
+        'Lcom/android/systemui/statusbar/phone/MiuiDripLeftStatusBarIconControllerImpl;',
+        'Lcom/android/systemui/statusbar/phone/StatusBarIconControllerImpl;')
+       AND m.method_name = 'setMobileIcons')
+   OR (m.class_descriptor = 'Lcom/android/systemui/statusbar/StatusBarMobileView;'
+       AND m.method_name IN ('initViewState', 'updateState', 'applyDarknessInternal'))
+   OR (m.class_descriptor = 'Lcom/android/systemui/statusbar/MiuiStatusBarIconViewHelper;' AND m.method_name = 'transformResId')
+   OR m.method_descriptor IN (
+        'Lcom/miui/maml/util/ZipResourceLoader;-><init>(Ljava/lang/String;)V',
+        'Lcom/android/systemui/plugins/PluginEnablerImpl;->isEnabled(Landroid/content/ComponentName;)Z')
+ORDER BY d.entry_name, m.method_descriptor;
+
+-- Confirm source-side wiring only from CRC- and header-verified defining entries.
+SELECT DISTINCT d.entry_name, method, callee
+FROM method_calls JOIN dex_files d USING (file_id)
+WHERE (method_class = 'Lcom/android/systemui/statusbar/StatusBarMobileView;'
+       AND method_name IN ('initViewState', 'updateState') AND callee = 'Landroid/widget/ImageView;->setImageResource(I)V')
+   OR (method_class = 'Lcom/android/systemui/globalactions/MiuiGlobalActions;'
+       AND callee = 'Lcom/miui/maml/util/ZipResourceLoader;-><init>(Ljava/lang/String;)V')
+   OR (method_class LIKE 'Lcom/miui/powercenter/BatteryFragment$%;' AND method_name = 'handleMessage'
+       AND callee = 'Landroid/os/Handler;->handleMessage(Landroid/os/Message;)V')
+ORDER BY d.entry_name, method, callee;

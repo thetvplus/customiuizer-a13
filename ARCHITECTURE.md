@@ -69,15 +69,10 @@ Observer、View 和短生命周期 controller 保持原有 owner / 弱引用 / �
 不启用热重载、显式 `replaceHook` 或 detach。Service SDK 随 APK 打包，Hook API 保持
 `compileOnly`；R8 验证两者的设置进程类加载边界。
 
-## 平台与构建
+## 运行时成本
 
-- MIUI 14 / Android 13 主支持；HyperOS 1 / Android 13 实验兼容。
-- `applicationId=tv.withaibuild.customiuizer.r13`，ABI `arm64-v8a`。
-- `minSdk=33`、`targetSdk=34`；`compileSdk=37` 不改变设备支持范围。
-- libxposed API / Service 102.0.0，最低和目标均为 API 102，`staticScope=true`。
-- AGP 9.4.1 / Gradle 9.8.1 / Kotlin 2.4.21 / JDK 25；Java/Kotlin 字节码目标 25。
-- 热路径只读已准备好的状态；反射、Binder、I/O 与兼容探测留在冷路径。
-- DexSQL 仅为开发工具，见 [查询入口](tools/dexsql/README.md)。
+依赖就绪后在所属 ClassLoader 准备稳定成员，避免预加载阻塞首帧。按需求激活，停用与替换时由所有者停止工作。相关输入变化时增量更新，保留业务事件、原调用次数、回调时序和参数改写。
 
-A13 / A14 共享产品意图与纯逻辑验证思路，不共享 ROM 合同、ClassLoader 假设、设备结论、
-生产分支、APK 或签名。功能分类与历史证据入口见 [A13_PARITY](docs/A13_PARITY.md)。
+热路径只读预计算的不可变或原子状态。反射、DexKit、磁盘 I/O、同步 Binder 与兼容探测留在冷路径。避免重复解析、临时集合链和日志洪泛。缓存有界并按 ClassLoader 隔离。设备性能判断需要对应场景的测量。
+
+平台与证据见 [COMPATIBILITY](COMPATIBILITY.md)，工具链见 [开发与构建](docs/DEVELOPMENT.md)。

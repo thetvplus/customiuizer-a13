@@ -15,6 +15,7 @@ import miui.app.MiuiFreeFormManager
 import miui.process.ForegroundInfo
 import miui.process.ProcessManager
 import tv.withaibuild.customiuizer.MainModule
+import tv.withaibuild.customiuizer.R
 import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper
 import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.AfterHookCallback
 import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.BeforeHookCallback
@@ -22,7 +23,6 @@ import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.MethodHook
 import tv.withaibuild.customiuizer.mods.utils.ModuleHelper
 import tv.withaibuild.customiuizer.mods.utils.PowerMenuResource
 import tv.withaibuild.customiuizer.mods.utils.XposedHelpers
-import tv.withaibuild.customiuizer.utils.HookUtils
 import tv.withaibuild.customiuizer.utils.PrefPair
 import java.io.File
 import java.lang.reflect.Field
@@ -417,8 +417,7 @@ object SystemUINotificationHooks {
                 // Once the native plugin is suppressed, ordinary cache eviction must
                 // not remove the replacement before its resource loader is created.
                 resource.prepare(File(context.filesDir, "extended_power_menu"), {
-                    val resources = ModuleHelper.getModuleRes(context)
-                    resources.openRawResource(resources.getIdentifier("extended_power_menu", "raw", HookUtils.modulePkg))
+                    ModuleHelper.getModuleRes(context).openRawResource(R.raw.extended_power_menu)
                 }) { file ->
                     ModuleHelper.findAndHookConstructor("com.miui.maml.util.ZipResourceLoader", lpparam.classLoader, String::class.java, object : MethodHook() {
                         override fun before(param: BeforeHookCallback) {

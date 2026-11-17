@@ -7,14 +7,13 @@ signing, no artifact upload.
 Usage:
     python tools/verify.py fast
     python tools/verify.py fast --tests PreferenceBootstrapTest
-    python tools/verify.py fast --tests ModuleHelperReceiverTest
+    python tools/verify.py fast --changed --base origin/main
     python tools/verify.py full
 """
 from __future__ import annotations
 
 import argparse
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -81,27 +80,38 @@ def run(cmd: list[str], task: str) -> int:
     return result.returncode
 
 
-def changed_files() -> list[str]:
-    names: list[str] = []
-    for git_cmd in ("diff --name-only", "diff --cached --name-only"):
-        result = subprocess.run(
-            ["git"] + git_cmd.split(),
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            names.extend(result.stdout.splitlines())
-    return names
+def git_output(*args: str) -> str:
+    result = subprocess.run(
+        ["git", *args], cwd=REPO_ROOT, capture_output=True, check=True,
+    )
+    return result.stdout.decode("utf-8", errors="surrogateescape")
 
 
-def relevant_to_android(names: list[str]) -> bool:
-    if not names:
-        return True  # no git diff available, be conservative
-    for name in names:
-        if name.startswith("app/src") or name.endswith(".gradle.kts") or name.startswith("gradle/"):
-            return True
-    return False
+def changed_files(base: str) -> set[str]:
+    base_sha = git_output("rev-parse", "--verify", "--end-of-options", f"{base}^{{commit}}").strip()
+    fork = git_output("merge-base", base_sha, "HEAD").strip()
+    # Report both sides of a rename, including moves out of build inputs.
+    diff = ("diff", "--no-renames", "--name-only", "-z")
+    outputs = (
+        git_output(*diff, fork, "HEAD", "--"),
+        git_output(*diff, "--cached", "--"),
+        git_output(*diff, "--"),
+        git_output("ls-files", "--others", "--exclude-standard", "-z", "--"),
+    )
+    return {name for output in outputs for name in output.split("\0") if name}
+
+
+def docs_only(base: str) -> bool:
+    try:
+        names = changed_files(base)
+    except (subprocess.CalledProcessError, OSError):
+        print(f"[verify] cannot compare against {base}; keeping Android checks", file=sys.stderr)
+        return False
+    return bool(names) and all(
+        name.endswith(".md")
+        and ("/" not in name or name.startswith(("docs/", ".agents/skills/", "tools/dexsql/")))
+        for name in names
+    )
 
 
 def gradle_cmd() -> str:
@@ -112,120 +122,72 @@ def gradle_cmd() -> str:
     return "./gradlew"
 
 
-def find_python() -> str:
-    python = shutil.which("python3") or shutil.which("python")
-    return python or sys.executable
-
-
 def check_invariants() -> int:
-    return run([find_python(), str(REPO_ROOT / "tools" / "check-invariants.py")], "check-invariants")
+    return run([sys.executable, str(REPO_ROOT / "tools" / "check-invariants.py")], "check-invariants")
 
 
 def check_compat_contracts() -> int:
     return run(
-        [find_python(), str(REPO_ROOT / "tools" / "check-compat-contracts.py")],
+        [sys.executable, str(REPO_ROOT / "tools" / "check-compat-contracts.py")],
         "check-compat-contracts",
     )
 
 
 def check_text_encoding() -> int:
     return run(
-        [find_python(), str(REPO_ROOT / "tools" / "check_text_encoding.py")],
+        [sys.executable, str(REPO_ROOT / "tools" / "check_text_encoding.py")],
         "check-text-encoding",
     )
 
 
 def check_hook_contract_parity() -> int:
     return run(
-        [find_python(), str(REPO_ROOT / "tools" / "check_hook_contract_parity.py")],
+        [sys.executable, str(REPO_ROOT / "tools" / "check_hook_contract_parity.py")],
         "check-hook-contract-parity",
     )
 
 
-def compile_debug() -> int:
-    gradle = gradle_cmd()
-    return run([gradle, ":app:compileDebugKotlin"], "compileDebugKotlin")
-
-
 def check_settings_coverage() -> int:
-    return run([find_python(), str(REPO_ROOT / "tools" / "check_settings_coverage.py")], "check-settings-coverage")
+    return run([sys.executable, str(REPO_ROOT / "tools" / "check_settings_coverage.py")], "check-settings-coverage")
 
 
-def compile_debug_java() -> int:
-    gradle = gradle_cmd()
-    return run([gradle, ":app:compileDebugJavaWithJavac"], "compileDebugJavaWithJavac")
-
-
-def run_tests(pattern: str | None = None) -> int:
-    gradle = gradle_cmd()
-    cmd = [gradle, ":app:testDebugUnitTest"]
+def check_android(mode: str, pattern: str | None) -> int:
+    if mode == "full":
+        return run([gradle_cmd(), ":app:testDebugUnitTest", ":app:lintDebug"], "gradle-full")
     if pattern:
-        cmd.append(f"--tests=*{pattern}*")
-    return run(cmd, f"testDebugUnitTest-{pattern or 'all'}")
+        return run([gradle_cmd(), ":app:testDebugUnitTest", f"--tests=*{pattern}*"], "gradle-tests")
+    return run([gradle_cmd(), ":app:compileDebugJavaWithJavac"], "gradle-compile")
 
 
-def run_lint() -> int:
-    gradle = gradle_cmd()
-    return run([gradle, ":app:lintDebug"], "lintDebug")
-
-
-def fast_mode(pattern: str | None, skip_android: bool) -> int:
-    if check_invariants() != 0:
-        return 1
-    if check_compat_contracts() != 0:
-        return 1
-    if check_hook_contract_parity() != 0:
-        return 1
-    if check_settings_coverage() != 0:
-        return 1
-    if skip_android:
-        print("[verify] no relevant source changes; skipping Android build tasks")
+def verify(mode: str, pattern: str | None, skip_android: bool) -> int:
+    for check in (check_invariants, check_compat_contracts, check_hook_contract_parity,
+                  check_settings_coverage, check_text_encoding):
+        if check() != 0:
+            return 1
+    if skip_android and pattern is None:
+        print("[verify] documentation-only changes; skipping Android build tasks")
         return 0
-    if compile_debug() != 0:
-        return 1
-    if compile_debug_java() != 0:
-        return 1
-    if pattern and run_tests(pattern) != 0:
-        return 1
-    return 0
-
-
-def full_mode() -> int:
-    if check_invariants() != 0:
-        return 1
-    if check_compat_contracts() != 0:
-        return 1
-    if check_hook_contract_parity() != 0:
-        return 1
-    if check_settings_coverage() != 0:
-        return 1
-    if check_text_encoding() != 0:
-        return 1
-    if compile_debug() != 0:
-        return 1
-    if compile_debug_java() != 0:
-        return 1
-    if run_tests(None) != 0:
-        return 1
-    if run_lint() != 0:
-        return 1
-    return 0
+    return check_android(mode, pattern)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="A13 local verification")
-    parser.add_argument("mode", choices=["fast", "full"], help="verification mode")
-    parser.add_argument("--tests", default=None, help="targeted test class name substring")
-    parser.add_argument("--changed", action="store_true", help="skip Android build tasks when only non-source files changed")
+    parser.add_argument("mode", choices=["fast", "full", "impact"], help="verification mode or print docs/build impact")
+    parser.add_argument("--tests", help="targeted test class name substring (fast only)")
+    parser.add_argument("--changed", action="store_true", help="skip Android work for a documentation-only diff")
+    parser.add_argument("--base", help="comparison ref for --changed or impact (default: origin/main)")
     args = parser.parse_args()
 
-    skip_android = False
-    if args.changed:
-        skip_android = not relevant_to_android(changed_files())
-
-    if args.mode == "fast":
-        return fast_mode(args.tests, skip_android)
-    return full_mode()
+    if args.tests is not None and (args.mode != "fast" or not args.tests):
+        parser.error("--tests requires fast mode and a non-empty pattern")
+    compare = args.changed or args.mode == "impact"
+    if args.base is not None and not compare:
+        parser.error("--base requires --changed or impact")
+    skip_android = compare and docs_only(args.base or "origin/main")
+    if args.mode == "impact":
+        print("docs" if skip_android else "build")
+        return 0
+    return verify(args.mode, args.tests, skip_android)
 
 
 if __name__ == "__main__":

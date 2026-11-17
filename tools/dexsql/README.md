@@ -1,8 +1,6 @@
 # DexSQL 开发查询
 
-使用官方 [DexSQL](https://github.com/LSPosed/dexsql-release) 0.1.1 的 CLI 或现有 MCP。
-只用于按需开发分析，不加入 Gradle、APK runtime 或默认 CI。
-查询参考 A14 `9feacdc6736de98232958ea24b8f722cfb3eff85`，已按 A13 的 Manifest 与启动路径调整。
+使用现有 [DexSQL](https://github.com/LSPosed/dexsql-release) CLI 或 MCP 做离线开发取证。查询已在 0.1.1 的表结构上使用，先以已安装版本的 `tables` 或 MCP `describe_table` 确认。ROM、DEX、私有索引和 mapping 留在仓库外。
 
 | 查询 | 输入与用途 |
 | --- | --- |
@@ -14,18 +12,11 @@
 | `native_hook_ids.sql` | 最终 R8 DEX 的两个 A13 基础设施 ID；结合相同产物 mapping 归属安装器，不证明设备回读结果。 |
 | `telephony_contract.sql` / `telephony_callers.sql` | 同一 ROM 的 services.jar；API 33 监听记录、分发器及直接调用链。 |
 | `notification_channel_contract.sql` | 同一 ROM 的 SystemUI、Settings、boot framework；渠道设置 ABI 与公开入口，配合 Manifest 与 decode。 |
-| `maintenance_targets.sql` | 本轮 services、Home、SecurityCenter 与通知菜单的定义复查；按输入使用对应查询，证据范围见 `docs/A13_CORE_MAINTENANCE.md`。 |
+| `maintenance_targets.sql` | services、Home、SecurityCenter 和 SystemUI 的定向定义、成员与调用核对。见 [样本结果](../../docs/rom-intelligence/A13_SAMPLES.md)。 |
 
-MCP 先 `list_tables` / `describe_table`，再 `open_dataset`；一次 `query.sql` 批量传入相关 SQL，
-复用 `dataset_id`。结果使用小 `limit` / `max_bytes`，页查询保持 `ORDER BY`，
-需要时才 `decode` 唯一方法；分析完 `close_dataset`。CLI 支持多条 `--sql` 和 compact 输出。
+1. 先查 [A13 样本](../../docs/rom-intelligence/A13_SAMPLES.md) 与 Hook 调用者。输入、范围和结果已确认则直接复用。来源更换或缺失的 DEX 影响结论时，核对 SHA-256、ZIP 条目 CRC 和有关 DEX 的头摘要。输出成功仍可能来自损坏条目。
+2. 先找定义，记录宿主、split 和 `dex_files.entry_name`；已知描述符直接筛选。发现候选可搜名称或具体调用者，再按完整成员描述符及 ClassLoader 绑定。依赖关系按 `file_id` 连接。比较不同 ROM 只用完整描述符与输入身份。
+3. 同一输入批量查询。CLI 每个 `--sql` 一条语句，MCP 复用 `dataset_id` 后关闭。只在调用、字段访问或常量仍不明确时 decode 选中的方法。Manifest 和资源用对应 DexSQL 接口。
+4. 只保存复查所需的依据，包含输入、定义 DEX、完整成员、用来确认语义的调用或字段、A13 Hook 和样本覆盖。损坏范围的正命中仅作线索，零结果仍未知。运行时结论依照 [证据等级](../../COMPATIBILITY.md#证据等级)。
 
-Manifest 使用 `get_manifest` / `get_manifest_components`，资源使用 `query_resources` / `read_resource`；
-无需自行解析 DEX 或解包 APK。APK / ROM / mapping 留在仓库外。
-所有跨 DEX 连接保留 `file_id`，跨样本比较完整描述符与样本哈希，不能比较局部 method_idx。
-
-先检查 ZIP CRC 并核对输入的 DEX 条目和 `definition_sources.sql` 行数；部分输入解析成功
-不能证明整个 APK 完整。已知样本及跳过范围见 [A13 样本](../../docs/rom-intelligence/A13_SAMPLES.md)。
-
-静态声明与直接调用不能证明 ART 实际 ClassLoader、间接加载、资源运行效果或设备行为。
-裸 R8 DEX 没有 Manifest / resources.arsc；这些检查需已有 APK 或独立的相关输入。
+资源表、Manifest 和产物类归属需要对应的 APK 或独立输入。裸 R8 DEX 可核对定义与直接引用。

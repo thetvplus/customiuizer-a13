@@ -9,8 +9,8 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Test
+import java.io.File
 import java.lang.reflect.Constructor
 
 /**
@@ -92,17 +92,15 @@ class NotificationMenuItemConstructorResolverTest {
     @Test
     fun constructor_enumeration_stays_in_resolver() {
         // Source-structure regression: constructor lookup helpers must only be
-        // invoked from the cold-path resolver, never from the createMenuViews
-        // after-callback. If the source file cannot be located, skip.
-        val source = java.io.File(
-            System.getProperty("user.dir"),
-            "app/src/main/java/tv/withaibuild/customiuizer/mods/SystemNotificationMoreHooks.kt"
-        )
-        assumeTrue("source file not found", source.exists())
+        // invoked from the cold-path resolver, never from the createMenuViews after-callback.
+        val path = "app/src/main/java/tv/withaibuild/customiuizer/mods/SystemNotificationMoreHooks.kt"
+        val source = generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
+            .map { it.resolve(path) }
+            .first { it.isFile }
 
         val text = source.readText()
         val resolverStart = text.indexOf("private fun resolveNotificationMenuItemConstructor")
-        assumeTrue("resolver not found in source", resolverStart >= 0)
+        assertTrue("resolver not found in source", resolverStart >= 0)
         val resolverEnd = text.indexOf("\n    private fun ", resolverStart + 1)
             .let { if (it >= 0) it else text.length }
 

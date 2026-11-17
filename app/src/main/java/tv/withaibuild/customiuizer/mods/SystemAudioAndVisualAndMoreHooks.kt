@@ -59,6 +59,7 @@ import tv.withaibuild.customiuizer.mods.utils.ModuleHelper
 import tv.withaibuild.customiuizer.mods.utils.RuntimeFatality
 import tv.withaibuild.customiuizer.mods.utils.XposedHelpers
 import tv.withaibuild.customiuizer.utils.HookUtils
+import java.lang.ref.WeakReference
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.lang.reflect.InvocationHandler
@@ -722,38 +723,41 @@ object SystemAudioAndVisualAndMoreHooks {
         })
     }
 
-    private var audioViz: AudioVisualizer? = null
+    private var audioViz: WeakReference<AudioVisualizer>? = null
     private var isKeyguardShowing = false
     private var isNotificationPanelExpanded = false
     private var mMediaController: MediaController? = null
 
     private fun updateAudioVisualizerState(context: Context) {
-        if (audioViz == null) return
-        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
-        val isMusicPlaying = am.isMusicActive
-        var isPlaying = false
-        if (mMediaController == null || mMediaController?.playbackState == null || mMediaController?.playbackState?.state != PlaybackState.STATE_PLAYING) {
-            if (!audioViz!!.showWithControllerOnly) isPlaying = isMusicPlaying
+        val visualizer = audioViz?.get() ?: return
+        val controllerPlaying = mMediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
+        val isPlaying = if (controllerPlaying || !visualizer.showWithControllerOnly) {
+            context.getSystemService(AudioManager::class.java)?.isMusicActive == true
         } else {
-            isPlaying = isMusicPlaying && mMediaController?.playbackState?.state == PlaybackState.STATE_PLAYING
+            false
         }
-        audioViz?.updateViewState(isPlaying, isKeyguardShowing, isNotificationPanelExpanded)
+        visualizer.updateViewState(isPlaying, isKeyguardShowing, isNotificationPanelExpanded)
     }
 
     @JvmStatic
     fun AudioVisualizerHook(lpparam: PackageReadyParam) {
         ModuleHelper.hookAllMethods(StatusBarCls, lpparam.classLoader, "makeStatusBarView", object : MethodHook() {
             override fun after(param: AfterHookCallback) {
+                if (param.throwable != null) return
                 val viewController = XposedHelpers.getObjectField(param.thisObject, "mNotificationPanelViewController")
                 val mNotificationPanel = XposedHelpers.getObjectField(viewController, "mView") as? FrameLayout ?: return
 
                 val mContext = XposedHelpers.getObjectField(param.thisObject, "mContext") as? Context ?: return
+                val oldFrame = audioViz?.get()?.parent as? FrameLayout
+                val oldPanel = oldFrame?.parent as? ViewGroup
+                if (oldPanel === mNotificationPanel) return
+
                 val visFrame = FrameLayout(mContext)
                 visFrame.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                audioViz = AudioVisualizer(mContext)
-                audioViz!!.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.BOTTOM)
-                audioViz!!.isClickable = false
-                visFrame.addView(audioViz)
+                val visualizer = AudioVisualizer(mContext)
+                visualizer.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.BOTTOM)
+                visualizer.isClickable = false
+                visFrame.addView(visualizer)
                 visFrame.isClickable = false
                 val wallpaper = mNotificationPanel.findViewById<View>(mContext.resources.getIdentifier("wallpaper", "id", lpparam.packageName))
                 val themebkg = mNotificationPanel.findViewById<View>(mContext.resources.getIdentifier("theme_background", "id", lpparam.packageName))
@@ -763,25 +767,27 @@ object SystemAudioAndVisualAndMoreHooks {
                 if (awesome != null) order = Math.max(order, mNotificationPanel.indexOfChild(awesome))
                 if (themebkg != null) order = Math.max(order, mNotificationPanel.indexOfChild(themebkg))
                 if (wallpaper != null) order = Math.max(order, mNotificationPanel.indexOfChild(wallpaper))
-                mNotificationPanel.addView(visFrame, order + 1)
+                mNotificationPanel.addView(visFrame, (order + 1).coerceAtMost(mNotificationPanel.childCount))
+                if (oldFrame != null) oldPanel?.removeView(oldFrame)
+                audioViz = WeakReference(visualizer)
             }
         })
 
         ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.phone.ScrimController", lpparam.classLoader, "onScreenTurnedOff", object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                audioViz?.updateScreenOn(false)
+                audioViz?.get()?.updateScreenOn(false)
             }
         })
 
         ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.phone.ScrimController", lpparam.classLoader, "onScreenTurnedOn", object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                audioViz?.updateScreenOn(true)
+                audioViz?.get()?.updateScreenOn(true)
             }
         })
 
         ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.policy.KeyguardStateControllerImpl", lpparam.classLoader, "notifyKeyguardState", Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                val isKeyguardShowingNew = param.args[0] as? Boolean ?: false
+                val isKeyguardShowingNew = param.getArg(0) as? Boolean ?: false
                 if (isKeyguardShowing != isKeyguardShowingNew) {
                     isKeyguardShowing = isKeyguardShowingNew
                     isNotificationPanelExpanded = false
@@ -802,14 +808,14 @@ object SystemAudioAndVisualAndMoreHooks {
 
         ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.NotificationMediaManager", lpparam.classLoader, "updateMediaMetaData", Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                if (audioViz == null) return
+                val visualizer = audioViz?.get() ?: return
                 val mContext = XposedHelpers.getObjectField(param.thisObject, "mContext") as? Context ?: return
                 val powerMgr = mContext.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
                 val isScreenOn = powerMgr.isInteractive
                 if (!isScreenOn) {
-                    audioViz!!.updateScreenOn(false)
+                    visualizer.updateScreenOn(false)
                     return
-                } else audioViz!!.isScreenOn = true
+                } else visualizer.isScreenOn = true
 
                 val mMediaMetadata = XposedHelpers.getObjectField(param.thisObject, "mMediaMetadata") as? MediaMetadata
                 var art: Bitmap? = null
@@ -836,7 +842,7 @@ object SystemAudioAndVisualAndMoreHooks {
 
                 mMediaController = XposedHelpers.getObjectField(param.thisObject, "mMediaController") as? MediaController
                 updateAudioVisualizerState(mContext)
-                audioViz!!.updateMusicArt(art)
+                visualizer.updateMusicArt(art)
             }
         })
     }

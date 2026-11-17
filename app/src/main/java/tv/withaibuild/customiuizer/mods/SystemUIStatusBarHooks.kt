@@ -17,6 +17,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import io.github.libxposed.api.XposedInterface
@@ -705,6 +706,21 @@ object SystemUIStatusBarHooks {
 
     @JvmStatic
     fun DualRowSignalHook(lpparam: PackageReadyParam) {
+        val loader = lpparam.classLoader
+        val mobileView = XposedHelpers.findClassIfExists("com.android.systemui.statusbar.StatusBarMobileView", loader) ?: return
+        val stateClass = XposedHelpers.findClassIfExists("com.android.systemui.statusbar.phone.StatusBarSignalPolicy\$MobileIconState", loader) ?: return
+        val initState = XposedHelpers.findMethodExactIfExists(mobileView, "initViewState", stateClass) ?: return
+        val updateState = XposedHelpers.findMethodExactIfExists(mobileView, "updateState", stateClass) ?: return
+        val applyDarkness = XposedHelpers.findMethodExactIfExists(mobileView, "applyDarknessInternal") ?: return
+        val transformResId = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.MiuiStatusBarIconViewHelper", loader, "transformResId",
+            Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, Boolean::class.javaPrimitiveType
+        ) ?: return
+        val moveSignalLeft = MainModule.mPrefs.getBoolean("system_statusbaricons_wifi_mobile_atleft")
+        val controllerName = if (moveSignalLeft) "MiuiDripLeftStatusBarIconControllerImpl" else "StatusBarIconControllerImpl"
+        val setMobileIcons = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.phone.$controllerName", loader, "setMobileIcons", String::class.java, List::class.java
+        ) ?: return
         val mobileTypeSingle = MainModule.mPrefs.getBoolean("system_statusbar_mobiletype_single")
         if (!mobileTypeSingle) {
             MainModule.getResHooks().setDensityReplacement("com.android.systemui", "dimen", "status_bar_mobile_type_half_to_top_distance", 3f)
@@ -712,133 +728,124 @@ object SystemUIStatusBarHooks {
             MainModule.getResHooks().setDensityReplacement("com.android.systemui", "dimen", "status_bar_mobile_type_middle_to_strength_start", -0.4f)
         }
 
-        val dualSignalResMap = HashMap<String, Int>()
-        val colorModeList = arrayOf("", "dark", "tint")
         val selectedIconStyle = MainModule.mPrefs.getString("system_statusbar_dualsimin2rows_style", "")
+        val styleSuffix = if (selectedIconStyle.isEmpty()) "" else "_$selectedIconStyle"
+        val colorSuffixes = if (selectedIconStyle == "theme") arrayOf("", "_dark") else arrayOf("", "_dark", "_tint")
+        val signalResToLevelMap = SparseIntArray(7)
+        var nativeRoamingId = 0
+        var signalDrawables: Array<IntArray>? = null
+        var rendererReady = false
 
         ModuleHelper.findAndHookMethod("com.android.systemui.SystemUIApplication", lpparam.classLoader, "onCreate", object : MethodHook() {
-            private var isHooked = false
             override fun after(param: AfterHookCallback) {
-                if (!isHooked) {
-                    isHooked = true
-                    val mContext = XposedHelpers.callMethod(param.getThisObject(), "getApplicationContext") as? Context ?: return
-                    val modRes = ModuleHelper.getModuleRes(mContext)
-                    for (slot in 1..2) {
-                        for (lvl in 0..5) {
-                            for (colorMode in colorModeList) {
-                                if (selectedIconStyle != "theme" || colorMode != "tint") {
-                                    val stylePart = if (selectedIconStyle.isNotEmpty()) "_$selectedIconStyle" else ""
-                                    val colorPart = if (colorMode.isNotEmpty()) "_$colorMode" else ""
-                                    val dualIconResName = "statusbar_signal_${slot}_${lvl}${colorPart}${stylePart}"
-                                    val iconResId = modRes.getIdentifier(dualIconResName, "drawable", HookUtils.modulePkg)
-                                    dualSignalResMap[dualIconResName] = MainModule.getResHooks().addResource(dualIconResName, iconResId)
-                                }
-                            }
-                        }
+                if (param.throwable != null || !rendererReady || signalDrawables != null) return
+                val context = param.thisObject as? Context ?: return
+                val modRes = ModuleHelper.getModuleRes(context)
+                val hostRes = context.resources
+                nativeRoamingId = hostRes.getIdentifier("stat_sys_data_connected_roam_small", "drawable", lpparam.packageName)
+                if (nativeRoamingId == 0) return
+                for (level in 0..6) {
+                    val name = if (level == 6) "stat_sys_signal_null" else "stat_sys_signal_$level"
+                    val id = hostRes.getIdentifier(name, "drawable", lpparam.packageName)
+                    if (id != 0) signalResToLevelMap.put(id, level)
+                }
+                signalDrawables = Array(colorSuffixes.size) { color ->
+                    IntArray(12) { index ->
+                        val name = "statusbar_signal_${index / 6 + 1}_${index % 6}${colorSuffixes[color]}$styleSuffix"
+                        val id = modRes.getIdentifier(name, "drawable", HookUtils.modulePkg)
+                        if (id == 0) return
+                        val fakeId = MainModule.getResHooks().addResource(name, id)
+                        if (fakeId == 0) return
+                        fakeId
                     }
                 }
             }
         })
 
-        val signalResToLevelMap = SparseIntArray()
-        val moveSignalLeft = MainModule.mPrefs.getBoolean("system_statusbaricons_wifi_mobile_atleft")
-        val ControllerImplName = if (moveSignalLeft) "MiuiDripLeftStatusBarIconControllerImpl" else "StatusBarIconControllerImpl"
-        ModuleHelper.hookAllMethods("com.android.systemui.statusbar.phone.$ControllerImplName", lpparam.classLoader, "setMobileIcons", object : MethodHook() {
-            private var isHooked = false
+        val mergeSignals = object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                if (!isHooked) {
-                    isHooked = true
-                    val mContext = XposedHelpers.getObjectField(param.getThisObject(), "mContext") as? Context ?: return
-                    val res = mContext.resources
-                    signalResToLevelMap.put(res.getIdentifier("stat_sys_signal_0", "drawable", lpparam.packageName), 0)
-                    signalResToLevelMap.put(res.getIdentifier("stat_sys_signal_1", "drawable", lpparam.packageName), 1)
-                    signalResToLevelMap.put(res.getIdentifier("stat_sys_signal_2", "drawable", lpparam.packageName), 2)
-                    signalResToLevelMap.put(res.getIdentifier("stat_sys_signal_3", "drawable", lpparam.packageName), 3)
-                    signalResToLevelMap.put(res.getIdentifier("stat_sys_signal_4", "drawable", lpparam.packageName), 4)
-                    signalResToLevelMap.put(res.getIdentifier("stat_sys_signal_5", "drawable", lpparam.packageName), 5)
-                    signalResToLevelMap.put(res.getIdentifier("stat_sys_signal_null", "drawable", lpparam.packageName), 6)
-                }
                 val iconStates = param.getArg(1) as? List<*> ?: return
-                if (iconStates.size == 2) {
-                    val mainIconState = iconStates[0]
-                    val subIconState = iconStates[1]
-                    val subDataConnected = XposedHelpers.getObjectField(subIconState, "dataConnected") as? Boolean ?: false
-                    XposedHelpers.setObjectField(subIconState, "visible", false)
+                if (signalDrawables != null && iconStates.size == 2) {
+                    val mainIconState = iconStates[0] ?: return
+                    val subIconState = iconStates[1] ?: return
+                    if (!XposedHelpers.getBooleanField(mainIconState, "visible") ||
+                        XposedHelpers.getBooleanField(mainIconState, "airplane")) return
                     val mainSignalResId = XposedHelpers.getObjectField(mainIconState, "strengthId") as? Int ?: return
                     val subSignalResId = XposedHelpers.getObjectField(subIconState, "strengthId") as? Int ?: return
-                    val mainLevel = signalResToLevelMap.get(mainSignalResId)
-                    val subLevel = signalResToLevelMap.get(subSignalResId)
+                    if (mainSignalResId == 0 || subSignalResId == 0) return
+                    val mainLevel = signalResToLevelMap.get(mainSignalResId, -1)
+                    val subLevel = signalResToLevelMap.get(subSignalResId, -1)
+                    if (mainLevel < 0 || subLevel < 0) return
                     val level: Int
-                    if (subDataConnected) {
+                    if (XposedHelpers.getBooleanField(subIconState, "dataConnected")) {
                         level = subLevel * 10 + mainLevel
-                        val syncFields = arrayOf("showName", "activityIn", "activityOut")
-                        for (field in syncFields) {
-                            XposedHelpers.setObjectField(mainIconState, field, XposedHelpers.getObjectField(subIconState, field))
-                        }
+                        XposedHelpers.setObjectField(mainIconState, "showName", XposedHelpers.getObjectField(subIconState, "showName"))
+                        XposedHelpers.setBooleanField(mainIconState, "activityIn", XposedHelpers.getBooleanField(subIconState, "activityIn"))
+                        XposedHelpers.setBooleanField(mainIconState, "activityOut", XposedHelpers.getBooleanField(subIconState, "activityOut"))
                         XposedHelpers.setObjectField(mainIconState, "dataConnected", true)
                     } else {
                         level = mainLevel * 10 + subLevel
                     }
-                    XposedHelpers.setObjectField(mainIconState, "strengthId", level)
-                    param.getArgs()[1] = iconStates
+                    XposedHelpers.setBooleanField(subIconState, "visible", false)
+                    // Zero represents a native state with no signal drawable.
+                    XposedHelpers.setIntField(mainIconState, "strengthId", level + 1)
                 }
             }
-        })
+        }
 
         val stateUpdateHook = object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                val mobileIconState = param.getArg(0)
-                val visible = XposedHelpers.getObjectField(mobileIconState, "visible") as? Boolean ?: false
-                val airplane = XposedHelpers.getObjectField(mobileIconState, "airplane") as? Boolean ?: false
-                val level = XposedHelpers.getObjectField(mobileIconState, "strengthId") as? Int ?: 0
-                if (!visible || airplane || level == 0 || level > 100) {
-                    XposedHelpers.setAdditionalInstanceField(param.getThisObject(), "subStrengthId", -1)
-                } else {
-                    XposedHelpers.setAdditionalInstanceField(param.getThisObject(), "subStrengthId", level % 10)
+                val state = param.getArg(0) ?: return
+                val strength = XposedHelpers.getIntField(state, "strengthId")
+                val level = if (signalDrawables != null && strength in 1..67 && (strength - 1) % 10 <= 6 &&
+                    XposedHelpers.getBooleanField(state, "visible") && !XposedHelpers.getBooleanField(state, "airplane")
+                ) strength - 1 else -1
+                val view = param.thisObject
+                val previous = XposedHelpers.setAdditionalInstanceField(view, "dualSignalLevel", level) as? Int ?: -1
+                if (level < 0 && previous >= 0) {
+                    // The native state update changes roaming visibility and keeps its drawable.
+                    val roaming = XposedHelpers.getObjectField(view, "mSmallRoaming") as? ImageView ?: return
+                    val useTint = XposedHelpers.getBooleanField(view, "mUseTint")
+                    val light = XposedHelpers.getBooleanField(view, "mLight")
+                    val nativeId = transformResId.invoke(null, nativeRoamingId, useTint, light) as Int
+                    roaming.setImageResource(nativeId)
                 }
             }
 
             override fun after(param: AfterHookCallback) {
-                val subStrengthId = XposedHelpers.getAdditionalInstanceField(param.getThisObject(), "subStrengthId") as? Int ?: return
-                if (subStrengthId < 0) return
-                val mSmallHd = XposedHelpers.getObjectField(param.getThisObject(), "mSmallHd")
-                XposedHelpers.callMethod(mSmallHd, "setVisibility", 8)
-                val mSmallRoaming = XposedHelpers.getObjectField(param.getThisObject(), "mSmallRoaming")
-                XposedHelpers.callMethod(mSmallRoaming, "setVisibility", 0)
+                if (param.throwable != null) return
+                val level = XposedHelpers.getAdditionalInstanceField(param.thisObject, "dualSignalLevel") as? Int ?: return
+                if (level < 0) return
+                (XposedHelpers.getObjectField(param.thisObject, "mSmallHd") as? View)?.visibility = View.GONE
+                (XposedHelpers.getObjectField(param.thisObject, "mSmallRoaming") as? View)?.visibility = View.VISIBLE
             }
         }
-        ModuleHelper.hookAllMethods("com.android.systemui.statusbar.StatusBarMobileView", lpparam.classLoader, "initViewState", stateUpdateHook)
-        ModuleHelper.hookAllMethods("com.android.systemui.statusbar.StatusBarMobileView", lpparam.classLoader, "updateState", stateUpdateHook)
+        if (ModuleHelper.hookMethod(initState, stateUpdateHook) == null ||
+            ModuleHelper.hookMethod(updateState, stateUpdateHook) == null) return
 
         val resetImageDrawable = object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                var subStrengthId = XposedHelpers.getAdditionalInstanceField(param.getThisObject(), "subStrengthId") as? Int ?: return
-                if (subStrengthId == 6) subStrengthId = 0
-                val mobileIconState = XposedHelpers.getObjectField(param.getThisObject(), "mState")
-                var level1 = XposedHelpers.getObjectField(mobileIconState, "strengthId") as? Int ?: return
-                level1 /= 10
-                if (level1 == 6) level1 = 0
+                val level = XposedHelpers.getAdditionalInstanceField(param.thisObject, "dualSignalLevel") as? Int ?: return
+                if (level < 0) return
+                val primary = level / 10
+                val secondary = level % 10
                 val mLight = XposedHelpers.getObjectField(param.getThisObject(), "mLight") as? Boolean ?: false
                 val mUseTint = XposedHelpers.getObjectField(param.getThisObject(), "mUseTint") as? Boolean ?: false
                 val mSmallRoaming = XposedHelpers.getObjectField(param.getThisObject(), "mSmallRoaming")
                 val mMobile = XposedHelpers.getObjectField(param.getThisObject(), "mMobile")
-                val colorMode = if (mUseTint && selectedIconStyle != "theme") {
-                    "_tint"
-                } else if (!mLight) {
-                    "_dark"
-                } else {
-                    ""
+                val drawables = signalDrawables ?: return
+                val color = when {
+                    mUseTint && drawables.size == 3 -> 2
+                    !mLight -> 1
+                    else -> 0
                 }
-                val iconStyle = if (selectedIconStyle.isNotEmpty()) "_$selectedIconStyle" else ""
-                val sim1IconId = "statusbar_signal_1_${level1}${colorMode}${iconStyle}"
-                val sim2IconId = "statusbar_signal_2_${subStrengthId}${colorMode}${iconStyle}"
-                val sim1ResId = dualSignalResMap[sim1IconId]
-                val sim2ResId = dualSignalResMap[sim2IconId]
-                if (sim1ResId != null) XposedHelpers.callMethod(mMobile, "setImageResource", sim1ResId)
-                if (sim2ResId != null) XposedHelpers.callMethod(mSmallRoaming, "setImageResource", sim2ResId)
+                (mMobile as? ImageView)?.setImageResource(drawables[color][if (primary == 6) 0 else primary])
+                (mSmallRoaming as? ImageView)?.setImageResource(drawables[color][6 + if (secondary == 6) 0 else secondary])
             }
         }
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.StatusBarMobileView", lpparam.classLoader, "applyDarknessInternal", resetImageDrawable)
+        if (ModuleHelper.hookMethod(applyDarkness, resetImageDrawable) == null) return
+        rendererReady = ModuleHelper.hookMethod(setMobileIcons, mergeSignals) != null
+        if (!rendererReady) return
         val rightMargin = MainModule.mPrefs.getInt("system_statusbar_dualsimin2rows_rightmargin", 0)
         val leftMargin = MainModule.mPrefs.getInt("system_statusbar_dualsimin2rows_leftmargin", 0)
         val iconScale = MainModule.mPrefs.getInt("system_statusbar_dualsimin2rows_scale", 10)

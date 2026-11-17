@@ -1,68 +1,14 @@
-# AGENTS.md — 米客 A13｜CustoMIUIzer A13
+# AGENTS.md · CustoMIUIzer A13
 
-适用于本仓库所有 Agent。用户当前明确要求优先；源码和本轮证据高于历史报告。
+**Judgment over Procedure.** 先确定触发、预期行为和完成条件。沿实际调用链检查输入、所有者、失败和释放，只有具体证据缺口才扩大范围。相关的同根因回归一并修复。复用已核实的来源和检查结果，完整审阅 diff、验证受影响合同后收口。
 
-## 产品边界
+- 当前用户要求与已授权任务合同优先。源码和实际结果说明当前行为，历史记录供追溯。
+- 正确性、兼容性、生命周期、稳定性优先。取消无效工作，复用原生能力和已有状态。成熟实现按实际收益调整。保留 PrefMap、ResourceHooks、ProcessRouter、PreferenceBootstrap 职责，Java 迁移小批量单独提交，保留 MainModule、XposedHelpers 和 MemberUtilsX 的 Java 边界。
+- 支持 Android 13，主目标 MIUI 14，HyperOS 1 为实验兼容。包名 `tv.withaibuild.customiuizer.r13`，ABI `arm64-v8a`。Hook API 以 [模块元数据](app/src/main/resources/META-INF/xposed/module.prop) 和 [兼容说明](COMPATIBILITY.md) 为准。A14 的生产分支、APK、签名和运行库独立，Android 14+ 与灵动额头不进入 A13。
+- 运行时保持原调用、异常与所有权合同。功能按所属进程和 ClassLoader 安装，关闭时不启动业务工作。冷路径准备稳定成员，热路径读取已准备的有界状态。详见 [架构](ARCHITECTURE.md)。
+- 已有功能改语义前依次核对 MonwF 上游、A13 历史、当前源码和 A14 参考。移植前在 [A13_PARITY](docs/A13_PARITY.md) 分类，独立证明 A13 的目标和回退。ROM 取证按需使用 [DexSQL](tools/dexsql/README.md)。
+- 按 [TESTING](docs/TESTING.md) 从 Quick 选到 Standard / Deep，保留有效断言和独立门禁。分别报告静态与构建结果，ROM、日志和设备结论遵循 [证据等级](COMPATIBILITY.md#证据等级)。
+- 从已确认的 exact SHA 建 `devin/a13-*`。保护未知修改和已有工作树，禁止 force push、破坏性 reset、改写公开历史和无差别 clean。开发授权覆盖 commit、push、PR 和必要 CI 跟进。合并 `main` 须用户要求，只读或本地停止点优先。交付记录 Base SHA、Final SHA 和 commits。
+- 仅在当前发行授权下变更正式版本、签名、打 tag 或发布，遵循 [A13_RELEASE](docs/A13_RELEASE.md)。正式版本名、单调递增的 versionCode 和双语 CHANGELOG 同步。APK、签名材料、ROM、DEX、原始日志、trace、mapping 和 profiler 数据留在仓库外。
 
-- Android 13 / API 33；主支持 MIUI 14，HyperOS 1 / Android 13 实验兼容。
-- Android 14+ 和灵动额头 / Dynamic Island 不进入 A13。
-- applicationId：`tv.withaibuild.customiuizer.r13`；ABI：`arm64-v8a`。
-- 纯 libxposed API 102：API / Service 102.0.0，min / target API 均为 102。
-- A13 / A14 不共享生产分支、APK或运行时库。
-- 签名以各自发布配置为准；更换发布证书须用户明确授权，并说明升级影响。
-
-## 实现原则
-
-正确性 > 兼容性 > 稳定性 > 生命周期 > 可维护性 > 内存与性能 > 结构整洁。
-少状态、少层、少重复、少后台行为。为实际问题服务，不为抽象或行数重构。
-
-- 不整体重做 PrefMap、ResourceHooks、ProcessRouter、PreferenceBootstrap。
-- 不引入 Compose、新 DI 或大型框架；不把整个 Java 树 Kotlin 化。
-- 默认保留 Java 的 MainModule、XposedHelpers、MemberUtilsX。
-- 无关进程不初始化功能；关闭功能不创建业务 Hook、监听或任务。
-- 每进程 / ClassLoader / Feature 只安装一次，偏好变化不重置安装状态。
-- 部分安装失败进入终端状态；不重试无法证明无副作用的安装。
-- 保持参数改写、回调时序、原方法调用次数与普通异常恢复语义。
-- 致命 JVM 错误及其包装原因必须传播，不可用 catch 掩盖根因。
-- Receiver / Observer / listener / controller 有所有者和替换、失效、释放闭环。
-- 不静态强持有 Activity、View 或短生命周期 controller；缓存按 ClassLoader 隔离且有界。
-- 热路径不做磁盘 I/O、同步 Binder、DexKit、重复反射、Regex 重建或日志洪泛。
-- 原生 Hook ID 只用于已定义的基础设施；不启用热重载、replaceHook 或 detach。
-- 设置进程可使用 Service SDK，不得依赖 compileOnly Hook API 的加载。
-
-## A14 与 ROM
-
-A14 参考产品意图和工程方法，不是整文件移植来源。已有功能先核对 MonwF 当前上游、
-A13 历史与当前实现，再看 A14。变更分类及必要差异记录在 `docs/A13_PARITY.md`。
-
-确认 Android 13 API、目标成员完整签名、进程 / ClassLoader、生命周期、资源 / preference
-和失败语义。不能拼接两个 ROM 的目标成员。缺少证据的高风险 ROM 热路径保持成熟实现。
-删除或改名先检查 Manifest、R8、反射、DexKit、资源和旧 preference key。
-
-ROM 与构建证据分别记录：STATIC_VERIFIED / BUILD_VERIFIED。A13 日志支持才算
-LOG_VERIFIED，A13 实机直接验收才算 DEVICE_VERIFIED；A14 设备和 ROM 样本不能替代。
-完整定义见 `COMPATIBILITY.md`。ROM、trace、mapping、profiler 数据留在仓库外。
-DexSQL 只作按需开发工具，不增加 APK 或默认 CI 依赖。
-
-## 验证与 Git
-
-开始核对工作区和远端，保护未知修改。Agent 分支使用 `devin/a13-*`，从 exact SHA 创建。
-不 force push、不破坏性 reset、不改写公开历史、不无差别 clean。
-接受开发任务后，默认自动完成该任务所需的修改、验证、commit、Agent 分支 push、PR 创建/更新和
-Fast / Full CI 的触发、跟进及失败修复，无需逐项向用户重复申请授权。工程检查由 Agent 自行执行、
-核对真实结果并收口，不把例行核对转交用户。
-用户要求合并 main 时，在 PR 和必要 CI 通过后自主完成，不再追加确认；未要求合并时保持专项分支。
-当前任务明确的只读、本地保留或停止点优先。正式签名、tag 和公开 release 仍遵循当前发行任务合同
-及既有受保护流水线；自动化不得跳过失败门禁或把未执行的检查写成通过。
-
-开发中按改动运行 `python tools/verify.py fast --changed`，必要时加 `--tests <TestClassName>`。
-收口一次运行 `python tools/verify.py full`、`python -m compileall tools`、
-`python -m unittest discover -s tools/tests -p "test_*.py"`、`git diff --check`。
-改动优化器或 Hook API 时另做 R8 验证，不重复 clean，不通过删测试、吞异常或关检查造通过。
-文档任务不编译 Android。最终报告 Base SHA、Final SHA、验证范围和遗留风险。
-
-正式发布只在明确授权时使用仓库外 A13 签名；普通验证不加载正式签名。
-不得提交 APK、keystore、密码或本地配置。Fast / Full CI 不使用正式 keystore；
-只有 main 精确 SHA、完整 CI 与 release-signing 审批通过的独立 A13 Signed Build 可临时加载正式签名。
-公开发布另经 release-publishing 审批和版本确认，恢复发布复用原始 Artifact。详见 `docs/A13_RELEASE.md`。
-不主动递增版本或伪造发行记录；如任务授权改版本，版本名、code、CHANGELOG 必须一致。
+按需入口见 [文档导航](docs/README.md) 与 [项目 Skills](.agents/skills/README.md)。
