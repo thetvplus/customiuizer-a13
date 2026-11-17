@@ -824,11 +824,12 @@ object SystemUIStatusBarHooks {
                     draw(view, renderer, assets)
                 }
             })) return
+            val shouldHide = ::shouldHideMobileSignal
             if (!hook(setIcons, object : MethodHook() {
                 override fun before(param: BeforeHookCallback) {
                     val assets = resources.get() ?: return
                     val states = param.getArg(1) as? List<*> ?: return
-                    val projected = state.project(states, assets.nativeLevels) ?: return
+                    val projected = state.project(states, assets.nativeLevels, shouldHide) ?: return
                     param.args[1] = projected
                 }
             })) return
@@ -1589,20 +1590,7 @@ object SystemUIStatusBarHooks {
         val beforeUpdate = object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
                 val mobileIconState = param.getArg(0)
-                if (MainModule.mPrefs.getBoolean("system_statusbaricons_signal")) {
-                    if (!MainModule.mPrefs.getBoolean("system_statusbaricons_signal_wificonnected") || XposedHelpers.getBooleanField(mobileIconState, "wifiAvailable")) {
-                        XposedHelpers.setObjectField(mobileIconState, "visible", false)
-                        return
-                    }
-                }
-                val subId = XposedHelpers.getObjectField(mobileIconState, "subId") as? Int ?: return
-                val dataSubId = android.telephony.SubscriptionManager.getDefaultDataSubscriptionId()
-                val slotId = android.telephony.SubscriptionManager.getSlotIndex(subId)
-                if (
-                    (MainModule.mPrefs.getBoolean("system_statusbaricons_sim1") && slotId == 0) ||
-                    (MainModule.mPrefs.getBoolean("system_statusbaricons_sim2") && slotId == 1) ||
-                    (MainModule.mPrefs.getBoolean("system_statusbaricons_sim_nodata") && subId != dataSubId)
-                ) {
+                if (shouldHideMobileSignal(mobileIconState ?: return)) {
                     XposedHelpers.setObjectField(mobileIconState, "visible", false)
                     return
                 }
@@ -1617,6 +1605,22 @@ object SystemUIStatusBarHooks {
         }
         ModuleHelper.hookAllMethods("com.android.systemui.statusbar.StatusBarMobileView", lpparam.classLoader, "initViewState", beforeUpdate)
         ModuleHelper.hookAllMethods("com.android.systemui.statusbar.StatusBarMobileView", lpparam.classLoader, "updateState", beforeUpdate)
+    }
+
+    private fun shouldHideMobileSignal(state: Any): Boolean {
+        val prefs = MainModule.mPrefs
+        if (prefs.getBoolean("system_statusbaricons_signal") &&
+            (!prefs.getBoolean("system_statusbaricons_signal_wificonnected") ||
+                XposedHelpers.getBooleanField(state, "wifiAvailable"))) return true
+        val hideFirst = prefs.getBoolean("system_statusbaricons_sim1")
+        val hideSecond = prefs.getBoolean("system_statusbaricons_sim2")
+        val hideWithoutData = prefs.getBoolean("system_statusbaricons_sim_nodata")
+        if (!hideFirst && !hideSecond && !hideWithoutData) return false
+        val subId = XposedHelpers.getIntField(state, "subId")
+        if (hideWithoutData && subId != SubscriptionManager.getDefaultDataSubscriptionId()) return true
+        if (!hideFirst && !hideSecond) return false
+        val slot = SubscriptionManager.getSlotIndex(subId)
+        return (hideFirst && slot == 0) || (hideSecond && slot == 1)
     }
 
     private fun checkSlot(slotName: String?): Boolean {

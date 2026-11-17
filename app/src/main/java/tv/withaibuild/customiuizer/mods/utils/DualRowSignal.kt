@@ -24,7 +24,7 @@ internal class DualRowSignal(stateClass: Class<*>) {
     private fun canMerge(state: Any): Boolean =
         visible.getBoolean(state) && !airplane.getBoolean(state) && !roaming.getBoolean(state)
 
-    fun project(states: List<*>, nativeLevels: SparseIntArray): List<Any>? {
+    fun project(states: List<*>, nativeLevels: SparseIntArray, shouldHide: (Any) -> Boolean = { false }): List<Any>? {
         if (states.size != 2) return null
         val first = states[0] ?: return null
         val second = states[1] ?: return null
@@ -35,7 +35,7 @@ internal class DualRowSignal(stateClass: Class<*>) {
         if (primarySub < 0 || secondarySub < 0 || primarySub == secondarySub) return null
         val firstLevel = nativeLevels.get(strength.getInt(first), -1)
         val secondLevel = nativeLevels.get(strength.getInt(second), -1)
-        if (firstLevel < 0 || secondLevel < 0) return null
+        if (firstLevel < 0 || secondLevel < 0 || shouldHide(first) || shouldHide(second)) return null
 
         val primary = copy.invoke(first) ?: return null
         val secondary = copy.invoke(second) ?: return null

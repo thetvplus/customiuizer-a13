@@ -2,6 +2,7 @@ package tv.withaibuild.customiuizer.mods
 
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.fail
 import org.junit.Before
@@ -39,6 +40,23 @@ class MediaHookFailureBoundaryTest {
         FakeXposedInterface.reset()
         XposedHelpers.moduleInst = null
         MainModule.mPrefs = PrefMap()
+    }
+
+    @Test
+    fun visualizerInstallationRollsBackIfPanelHookFails() {
+        FakeXposedInterface.failedHookName = "makeStatusBarView"
+        SystemAudioAndVisualAndMoreHooks.AudioVisualizerHook(lpparam(parentClassLoader))
+        assertEquals(emptyList<Any>(), FakeXposedInterface.recordedHooks)
+    }
+
+    @Test
+    fun visualizerDropsIncompleteScreenPairAndKeepsMetadataFallback() {
+        FakeXposedInterface.failedHookName = "onScreenTurnedOn"
+        SystemAudioAndVisualAndMoreHooks.AudioVisualizerHook(lpparam(parentClassLoader))
+        assertEquals(
+            listOf("notifyKeyguardState", "setPanelExpanded", "updateMediaMetaData", "makeStatusBarView"),
+            FakeXposedInterface.recordedHooks.map { it.executable.name }
+        )
     }
 
     @Test

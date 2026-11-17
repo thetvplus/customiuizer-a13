@@ -84,6 +84,17 @@ class DualRowSignalTest {
     }
 
     @Test
+    fun hidingEitherSimKeepsNativeControllerInputs() {
+        val first = Icon(1, TWO)
+        val second = Icon(2, FOUR)
+        for (hidden in listOf(first, second)) {
+            assertNull(signal.project(listOf(first, second), levels) { it === hidden })
+            assertTrue(first.visible)
+            assertTrue(second.visible)
+        }
+    }
+
+    @Test
     fun repeatedDrawsSkipImageWritesAndRestoreNativePresentationAcrossUpdates() {
         val primary = Image()
         val roaming = Image()
