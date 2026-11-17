@@ -8,13 +8,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-GUARD = "github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'"
-PUBLISH_GUARD = GUARD + " && inputs.destination != 'actions-only' && inputs.authorization != ''"
+SIGN_GUARD = "github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Full CI' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'push'))"
+SIGN_JOB_GUARD = SIGN_GUARD + " && needs.validate.outputs.ready == 'true'"
+PROMOTE_GUARD = "github.repository == 'thetvplus/customiuizer-a13' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'A13 Signed Build' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_sha == github.sha && github.event.workflow_run.event == 'workflow_run'))"
+PUBLISH_GUARD = PROMOTE_GUARD + " && (github.event_name == 'workflow_run' || (inputs.destination != 'actions-only' && inputs.authorization != ''))"
 FILES = {"a13-signed-build.yml", "a13-promote-release.yml"}
 TOKEN = {"GH_TOKEN": "${{ github.token }}"}
 SECRETS = {name: "${{ secrets." + name + " }}" for name in (
     "A13_KEYSTORE_BASE64", "A13_STORE_PASSWORD", "A13_KEY_ALIAS", "A13_KEY_PASSWORD")}
-PROMOTION = {"BUILD_RUN_ID": "${{ inputs.build_run_id }}", "RELEASE_DESTINATION": "${{ inputs.destination }}",
+PROMOTION = {"BUILD_RUN_ID": "${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.build_run_id }}", "RELEASE_DESTINATION": "${{ github.event_name == 'workflow_run' && 'both' || inputs.destination }}",
              "RELEASE_AUTHORIZATION": "${{ inputs.authorization }}"}
 RECEIPT = {"VERIFIED_" + key.upper(): "${{ needs.verify.outputs." + key + " }}"
            for key in ("source_sha", "apk_sha256", "run_attempt", "artifact_id")}
@@ -66,7 +68,11 @@ def protected_workflow_errors(path: Path, text: str) -> list[str]:
         data = parse_workflow(text)
         signing = path.name == "a13-signed-build.yml"
         check(set(data) <= {"name", "run-name", "on", "permissions", "concurrency", "jobs"}, "unexpected workflow scope")
-        check(set(data["on"]) == {"workflow_dispatch"}, "only manual workflow_dispatch is allowed")
+        check(set(data["on"]) == {"workflow_dispatch", "workflow_run"}, "expected manual and automatic triggers")
+        auto = data["on"]["workflow_run"]
+        check(auto == {"workflows": ["A13 Full CI" if signing else "A13 Signed Build"],
+                       "types": ["completed"], "branches": ["main"]},
+              "automatic trigger must be the successful native main predecessor")
         inputs = data["on"]["workflow_dispatch"]["inputs"]
         if signing:
             check(set(inputs) == {"source_sha"} and inputs["source_sha"]["required"] == "true"
@@ -83,7 +89,9 @@ def protected_workflow_errors(path: Path, text: str) -> list[str]:
         check(set(jobs) == ({"validate", "sign"} if signing else {"verify", "publish"}), "unexpected release jobs")
         for name, job in jobs.items():
             check(set(job) <= {"if", "runs-on", "timeout-minutes", "permissions", "steps", "environment", "needs", "outputs"}, f"{name}: unexpected job scope")
-            check(job["if"] == (PUBLISH_GUARD if name == "publish" else GUARD), f"{name}: native main guard changed")
+            expected_guard = (SIGN_GUARD if name == "validate" else SIGN_JOB_GUARD if name == "sign"
+                              else PROMOTE_GUARD if name == "verify" else PUBLISH_GUARD)
+            check(job["if"] == expected_guard, f"{name}: native main guard changed")
             check(job["runs-on"] == "ubuntu-24.04" and 0 < int(job["timeout-minutes"]) <= 60, f"{name}: runner/timeout changed")
             permissions = {"contents": "read", "actions": "read"}
             if name == "sign":
@@ -101,6 +109,8 @@ def protected_workflow_errors(path: Path, text: str) -> list[str]:
             if name == "verify":
                 check(job.get("outputs") == {key: "${{ steps.candidate.outputs." + key + " }}"
                       for key in ("source_sha", "apk_sha256", "run_attempt", "artifact_id")}, "immutable verification receipt changed")
+            elif name == "validate":
+                check(job.get("outputs") == {"ready": "${{ steps.gate.outputs.ready }}"}, "signing readiness receipt changed")
             else:
                 check("outputs" not in job, f"{name}: unexpected outputs")
 
@@ -132,7 +142,9 @@ def protected_workflow_errors(path: Path, text: str) -> list[str]:
                 label = step["name"]
                 check(set(step) <= {"name", "uses", "with", "env", "run", "if", "id"}, f"{label}: unexpected step controls")
                 check(step.get("if") == ("always()" if label == "Remove signing material" else None), f"{label}: verification/cleanup must not be skipped")
-                expected_id = "provenance" if label == "Attest APK and metadata" else "candidate" if label == "Verify original candidate" else None
+                expected_id = ("provenance" if label == "Attest APK and metadata"
+                               else "candidate" if label == "Verify original candidate"
+                               else "gate" if label == "Check exact main and CI" else None)
                 check(step.get("id") == expected_id, f"{label}: unexpected step id")
                 if label in setup_steps:
                     action, options = setup_steps[label]

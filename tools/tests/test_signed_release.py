@@ -92,13 +92,15 @@ class SourceAndCITest(unittest.TestCase):
 
 
 class EnvironmentAndSigningTest(unittest.TestCase):
-    def test_environment_requires_reviewers_no_bypass_and_only_main(self):
-        record = {"protection_rules": [{"type": "required_reviewers", "reviewers": [{"id": 1}]}],
+    def test_environment_requires_no_reviewers_no_bypass_and_only_main(self):
+        record = {"protection_rules": [],
                   "can_admins_bypass": False,
                   "deployment_branch_policy": {"protected_branches": False, "custom_branch_policies": True}}
         rules = {"total_count": 1, "branch_policies": [{"name": "main", "type": "branch"}]}
         release.check_environment(record, rules)
-        for bad in (record | {"can_admins_bypass": True}, record | {"protection_rules": []}, record | {"deployment_branch_policy": None}):
+        for bad in (record | {"can_admins_bypass": True},
+                    record | {"protection_rules": [{"type": "required_reviewers", "reviewers": [{"id": 1}]}]},
+                    record | {"deployment_branch_policy": None}):
             with self.assertRaises(ValueError):
                 release.check_environment(bad, rules)
         for rule in ({"name": "*", "type": "branch"}, {"name": "main", "type": "tag"}):
@@ -353,6 +355,25 @@ class PublishingTest(unittest.TestCase):
         for text in ("", "publish r13.13.0 from 123", "publish r13.14.1 from 124"):
             with self.assertRaises(ValueError):
                 release.authorize(self.meta, "source", text)
+
+    def test_automatic_publication_only_accepts_its_own_completed_signed_run(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "event.json"
+            incoming = {"workflow_run": {"id": 123, "name": "A13 Signed Build", "event": "workflow_run",
+                         "status": "completed", "conclusion": "success", "head_sha": SOURCE}}
+            path.write_text(json.dumps(incoming), encoding="utf-8")
+            env = {"GITHUB_EVENT_NAME": "workflow_run", "GITHUB_WORKFLOW": "A13 Stable Release",
+                   "GITHUB_EVENT_PATH": str(path), "GITHUB_SHA": SOURCE}
+            with patch.dict(os.environ, env):
+                release.authorize(self.meta, "both", "")
+                for change in ({"id": 124}, {"head_sha": "b" * 40}, {"conclusion": "failure"},
+                               {"event": "workflow_dispatch"}):
+                    path.write_text(json.dumps({"workflow_run": incoming["workflow_run"] | change}), encoding="utf-8")
+                    with self.assertRaises(ValueError):
+                        release.authorize(self.meta, "both", "")
+                path.write_text(json.dumps(incoming), encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    release.authorize(self.meta, "source", "")
 
     def test_same_name_different_content_rejected_and_draft_only_allows_missing_assets(self):
         with patch.object(release, "command", side_effect=self.asset_download):

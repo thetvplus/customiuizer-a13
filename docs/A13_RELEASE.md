@@ -2,8 +2,8 @@
 
 ## 范围与基线
 
-正式签名和晋升分别手动触发，使用当前版本的授权和 `main` 精确 SHA。
-GitHub 原生 `release-signing` / `release-publishing` 人工审批继续生效。
+正式版默认自动发布：最新 `main` 的 Full CI 成功后自动签名，签名构建成功后自动同步源码与 Xposed 两仓。
+人工 `workflow_dispatch` 保留为恢复入口，要求精确 SHA/原始 Run ID。两个 Environment 继续隔离签名与跨仓发布 Secrets，但不配置 required reviewers；仅允许 `main`。
 候选验证检查工作流、来源、证书、Artifact 与原始 attempt。
 用户安装与签名迁移见 [兼容说明](../COMPATIBILITY.md#签名与升级)。
 
@@ -20,8 +20,8 @@ r13.14.1 的封版与单次授权属于 [历史交接](https://github.com/thetvp
 
 ## Environment 与权限
 
-两个 Environment 均要求：人工 reviewer、禁止管理员绕过、仅允许类型为 branch 的精确 `main`，
-不允许 tag 或通配分支。脚本在签名前及发布前读回实际规则，缺失即失败。
+两个 Environment 均要求：**无 required reviewers**、禁止管理员绕过、仅允许类型为 branch 的精确 `main`，
+不允许 tag 或通配分支。首次启用时，在 GitHub Settings → Environments 中移除两个环境的 Required reviewers（保留 main-only 分支限制和 Secrets）；脚本在签名前及发布前读回规则，配置仍有人审则失败。
 Secrets 仅检查名称和所在范围，不读取、打印或导出明文。
 
 | Environment | Secrets | 使用范围 |
@@ -39,8 +39,8 @@ Secrets 仅检查名称和所在范围，不读取、打印或导出明文。
 2. 等待最终 main 的 Fast 和 Full 均成功。Full CI 对每次 main push 执行。
    签名脚本独立核对仓库 ID、workflow ID/path、原生 main、完整 SHA、当前 attempt、job 及必要步骤，
    不接受 PR Merge SHA、历史 SHA、Fork、取消、失败或 skipped job。
-3. 在 main 手动运行 **A13 Signed Build**，`source_sha` 输入最终 main 的完整 40 位 SHA。
-   无密钥 validate 先检查，然后人工审批 `release-signing`；build 步骤再次检查 main 和 CI。
+3. 默认由 **A13 Full CI** 在 main 成功后通过 `workflow_run` 自动触发 **A13 Signed Build**。无密钥 validate 校验事件源、原生 main/CI、版本及环境；只有新版本才进入签名。可选从 main 手动运行 Signed Build，提供最终 main 的完整 SHA。
+   `release-signing` 不再需要逐次人工审批；签名前重新检查 main、CI、Environment 和发布版本。
 4. 先在临时 Gradle home/project cache 运行无密钥 `:app:help -PofficialRelease=false`，
    公开其下载/配置诊断；子进程不继承签名 Secret、GitHub Token 或签名配置路径，预检失败不加载密钥。
    之后才将 Base64 严格还原到临时 `release.p12`，用 PKCS12 导出公开证书并核验指纹，
@@ -62,11 +62,10 @@ Secrets 仅检查名称和所在范围，不读取、打印或导出明文。
    构建元数据使用 schema 2，仍绑定完整 source SHA、原始 Run ID/attempt、APK 大小、hash、证书
    以及双语说明 hash。改名不放宽来源校验；旧 schema / SHA 后缀文件名会被拒绝。
 
-8. 签名验证成功后，在当前授权下从 main 运行 **A13 Stable Release**，选择原始 `build_run_id`。
-   默认 `actions-only` 仅验证 Artifact。选择 `source` 或 `both` 时输入精确确认语句
-   `publish <versionName> from <build_run_id>`，并人工审批 `release-publishing`。
+8. 自动签名构建成功后，`workflow_run` 自动启动 **A13 Stable Release**，绑定触发它的原始 `build_run_id`，验证 Artifact、来源证明、SHA、证书及两仓发布权限，然后自动选择 `both`。
+   `release-publishing` 不再需要逐次人工审批。保留手动恢复模式：默认 `actions-only` 只验证；选择 `source` 或 `both` 时仍须填写 `publish <versionName> from <build_run_id>`。
 
-发布 job 在审批后重新获取原始 Artifact，比较审批前的 source SHA、APK hash、run attempt、Artifact ID。
+发布 job 在验证后重新获取原始 Artifact，比较前后 source SHA、APK hash、run attempt、Artifact ID。
 下载还核对 Artifact ZIP digest、APK、元数据、完整来源证明（包括仓库 ID、workflow、ref、SHA、run、attempt）
 和精确源码的版本、双语日志。文件集合为严格白名单，不接受被替换或损坏的产物。
 
@@ -90,30 +89,12 @@ Secrets 仅检查名称和所在范围，不读取、打印或导出明文。
 
 ## English operations
 
-Fast and Full CI remain unsigned. Full CI runs on every main push. Signing is a separate manual main dispatch
-with an exact SHA, successful native Fast/Full runs and human `release-signing` approval. Both Environments
-require reviewers, no admin bypass and exactly the main branch. The four A13 signing secrets are confined to
-the build step, decoded as PKCS#12, certificate-checked and erased afterwards. Official Gradle output is not
-printed or uploaded; private signing inputs never become artifacts or saved caches.
+By default, a successful native A13 Full CI on the latest main triggers A13 Signed Build via workflow_run; a successful signed build triggers A13 Stable Release, which promotes the original verified artifact to both source and Xposed repositories. No per-release human Environment reviewers or authorization phrase are required for this trusted chain. Manual dispatch remains for recovery and still requires explicit source SHA or original signed build ID, and manual publication authorization.
 
-An unsigned Gradle bootstrap runs before loading signing files. It excludes private variables
-and prints public diagnostics. The signing step checks main and CI again after bootstrap.
+Both Environment secrets remain isolated. Before enabling unattended releases, remove Required reviewers in GitHub Settings → Environments for release-signing and release-publishing, while retaining exact main-only deployment branch policies, disabled admin bypass, scoped secrets, and all provenance and certificate verification. An Environment with reviewers still configured fails release preflight rather than silently bypassing policy.
 
-The successful signed candidate is attested and retained for 30 days. Promotion is a separate manual workflow;
-`actions-only` is the default. For publication select `source` or `both`, type
-`publish <versionName> from <build_run_id>` and approve `release-publishing`. Both repositories receive the same
-binary and metadata, titled with the verified version name, with identical bilingual notes. Checksums and attestation remain in the
-original five-file artifact. Promotion re-verifies the immutable Artifact ID/attempt and all content after
-approval, uploads to a draft, downloads assets to verify their bytes, then publishes a stable release.
+Fast and Full CI remain unsigned. The signed artifact uses one exact source SHA, native CI proof, a fixed Android signing certificate, GitHub provenance, strict five-file allowlist, and immutable attempt/artifact checks. Both repositories receive exactly the same verified bytes. A partial Xposed failure must be recovered from the original artifact, without rebuild or re-sign.
 
-If Xposed fails after source publication, keep the source Release and retry promotion of the original successful
-build. Matching published releases remain unchanged; matching drafts gain only missing files. Conflicting tags,
-assets, metadata, notes or expired original artifacts stop recovery. Never rebuild, re-sign, overwrite or delete
-an existing release to hide a failure. Use current release authorization and native Environment approvals. Record real run IDs and verification results before claiming publication.
-
-Implementation references: [GitHub Environment security](https://docs.github.com/en/actions/reference/security/secure-use),
-[attestation verification](https://cli.github.com/manual/gh_attestation_verify),
-[offline bundle/repository identity](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/verify-attestations-offline).
 
 ## main Ruleset
 

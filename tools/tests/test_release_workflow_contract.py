@@ -55,6 +55,14 @@ class ReleaseWorkflowContractTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 parse_workflow(text)
 
+    def test_auto_release_chains_are_guarded(self):
+        signed = parse_workflow((ROOT / ".github/workflows/a13-signed-build.yml").read_text(encoding="utf-8"))
+        stable = parse_workflow((ROOT / ".github/workflows/a13-promote-release.yml").read_text(encoding="utf-8"))
+        self.assertEqual(["A13 Full CI"], signed["on"]["workflow_run"]["workflows"])
+        self.assertEqual(["A13 Signed Build"], stable["on"]["workflow_run"]["workflows"])
+        self.assertIn("needs.validate.outputs.ready == 'true'", signed["jobs"]["sign"]["if"])
+        self.assertIn("github.event.workflow_run.head_sha == github.sha", stable["jobs"]["publish"]["if"])
+
     def test_full_ci_no_longer_depends_on_commit_marker_and_stays_secretless(self):
         for name in ("a13-fast-ci.yml", "a13-full-ci.yml"):
             data = parse_workflow((ROOT / ".github/workflows" / name).read_text(encoding="utf-8"))

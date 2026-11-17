@@ -94,10 +94,32 @@ def summary(message: str) -> None:
 def native_source(env: dict = os.environ) -> str:
     require(env.get("GITHUB_REPOSITORY") == REPO
             and env.get("GITHUB_REPOSITORY_ID") == str(POLICY["repository_id"])
-            and env.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
-            and env.get("GITHUB_REF") == "refs/heads/main", "Only native main workflow_dispatch is trusted")
+            and env.get("GITHUB_EVENT_NAME") in {"workflow_dispatch", "workflow_run"}
+            and env.get("GITHUB_REF") == "refs/heads/main", "Only native main release workflows are trusted")
     sha = env.get("GITHUB_SHA", "")
     require(SHA.fullmatch(sha) is not None, "A full native source SHA is required")
+    if env["GITHUB_EVENT_NAME"] == "workflow_run":
+        path = env.get("GITHUB_EVENT_PATH")
+        require(bool(path), "Missing GitHub workflow event")
+        event = json.loads(Path(path).read_text(encoding="utf-8"))
+        incoming = event.get("workflow_run", {})
+        expected = {"A13 Signed Build": ("A13 Full CI", "a13-full-ci.yml", "push"),
+                    "A13 Stable Release": ("A13 Signed Build", "a13-signed-build.yml", "workflow_run")}
+        require(env.get("GITHUB_WORKFLOW") in expected, "Untrusted auto-release workflow")
+        name, workflow_file, origin = expected[env["GITHUB_WORKFLOW"]]
+        require(incoming.get("name") == name and incoming.get("event") == origin
+                and incoming.get("head_sha") == sha and incoming.get("head_branch") == "main"
+                and incoming.get("head_repository", {}).get("full_name") == REPO
+                and incoming.get("head_repository", {}).get("id") == POLICY["repository_id"]
+                and incoming.get("conclusion") == "success" and incoming.get("status") == "completed",
+                "Auto-release trigger is not a successful native exact-main workflow")
+        run_id = incoming.get("id")
+        require(isinstance(run_id, int) and run_id > 0, "Auto-release trigger has no native run ID")
+        workflow = api(f"repos/{REPO}/actions/workflows/{workflow_file}")
+        require(workflow.get("path") == f".github/workflows/{workflow_file}" and workflow.get("state") == "active",
+                "Auto-release trigger workflow is not active or authentic")
+        fresh = api(f"repos/{REPO}/actions/runs/{run_id}")
+        check_run(fresh, workflow, sha, {origin})
     require(command("git", "rev-parse", "HEAD").decode().strip() == sha, "Checkout differs from native source SHA")
     require(not command("git", "status", "--porcelain", "--untracked-files=no").strip(), "Tracked checkout is dirty")
     return sha
@@ -109,8 +131,9 @@ def current_main(sha: str) -> None:
 
 
 def check_environment(record: dict, branches: dict) -> None:
-    require(any(rule.get("type") == "required_reviewers" and rule.get("reviewers")
-                for rule in record.get("protection_rules", [])), "Environment requires human reviewers")
+    require(not any(rule.get("type") == "required_reviewers" and rule.get("reviewers")
+                    for rule in record.get("protection_rules", [])),
+            "Remove required reviewers from the A13 release Environment for automatic publication")
     require(record.get("can_admins_bypass") is False, "Environment must disable admin bypass")
     require(record.get("deployment_branch_policy") == {"protected_branches": False, "custom_branch_policies": True},
             "Environment requires an explicit main-only branch policy")
@@ -179,18 +202,27 @@ def source_version(text: str) -> tuple[str, int]:
 def preflight() -> str:
     sha = native_source()
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-    require(event.get("inputs", {}).get("source_sha") == sha, "Confirmed source SHA differs from native main SHA")
+    if os.environ.get("GITHUB_EVENT_NAME", "workflow_dispatch") == "workflow_dispatch":
+        require(event.get("inputs", {}).get("source_sha") == sha, "Confirmed source SHA differs from native main SHA")
     current_main(sha)
     environment_policy("release-signing")
     main_ci(sha)
     name, code = source_version((ROOT / "app/build.gradle.kts").read_text(encoding="utf-8"))
     require(code > POLICY["baseline_version_code"] and name != POLICY["baseline_version"], "Bump version before signing a new candidate")
-    require(find_release(REPO, name, {"version_name": name, "version_code": code}, dict(os.environ)) is None
-            and optional_api(f"repos/{REPO}/git/ref/tags/{name}") is None,
-            "Version already has a release/tag; recover its original signed candidate instead of rebuilding")
+    existing = find_release(REPO, name, {"version_name": name, "version_code": code}, dict(os.environ))
+    tagged = optional_api(f"repos/{REPO}/git/ref/tags/{name}")
+    if existing is not None or tagged is not None:
+        require(existing is not None and tagged is not None and existing.get("draft") is False,
+                "Incomplete release/tag; recover its original signed candidate instead of rebuilding")
+        check_tag(REPO, name, sha, dict(os.environ), must_exist=True)
+        require(existing.get("target_commitish") == sha,
+                "Published release source differs; version bump required")
+        output(source_sha=sha, ready="false")
+        summary(f"Already released: {name} ({code}), exact source `{sha}`; no new signing required.")
+        return sha
     current_main(sha)
-    output(source_sha=sha)
-    summary(f"Signing request: {name} ({code}), exact main `{sha}`. Native Fast/Full CI and release-signing protection verified; native Environment approval is required.")
+    output(source_sha=sha, ready="true")
+    summary(f"Signing request: {name} ({code}), exact main `{sha}`. Native Fast/Full CI, certificate and main-only Environment policy will be enforced.")
     return sha
 
 
@@ -252,7 +284,7 @@ def prepare_signing(env: dict = os.environ) -> Path:
 
 
 def build() -> None:
-    # Revalidate after approval, immediately before touching any signing secret.
+    # Revalidate immediately before touching any signing secret.
     sha = preflight()
     try:
         # Bootstrap the cold toolchain before any signing file exists. Its output
@@ -420,7 +452,7 @@ def fetch_candidate(run_id: str, folder: Path) -> dict:
     workflow = api(f"repos/{REPO}/actions/workflows/a13-signed-build.yml")
     record = api(f"repos/{REPO}/actions/runs/{run_id}")
     require(workflow["path"] == WORKFLOW and SHA.fullmatch(record.get("head_sha", "")) is not None, "Wrong build workflow/source")
-    check_run(record, workflow, record["head_sha"], {"workflow_dispatch"})
+    check_run(record, workflow, record["head_sha"], {"workflow_dispatch", "workflow_run"})
     successful_jobs(record, {"validate": {"Check exact main and CI"}, "sign": {
         "Build official APK once", "Verify signed APK", "Attest APK and metadata", "Verify attestation", "Upload signed candidate"}})
     artifacts = api(f"repos/{REPO}/actions/runs/{run_id}/artifacts?per_page=100")
@@ -451,8 +483,21 @@ def fetch_candidate(run_id: str, folder: Path) -> dict:
 
 def authorize(metadata: dict, destination: str, authorization: str) -> None:
     require(destination in {"actions-only", "source", "both"}, "Unknown release destination")
-    if destination != "actions-only":
-        require(authorization == f"publish {metadata['version_name']} from {metadata['run_id']}", "Explicit version/build publication authorization is required")
+    if destination == "actions-only":
+        return
+    if os.environ.get("GITHUB_EVENT_NAME") == "workflow_run":
+        event_path = os.environ.get("GITHUB_EVENT_PATH")
+        require(os.environ.get("GITHUB_WORKFLOW") == "A13 Stable Release" and bool(event_path),
+                "Automatic publication requires the trusted stable release workflow")
+        incoming = json.loads(Path(event_path).read_text(encoding="utf-8")).get("workflow_run", {})
+        require(destination == "both" and incoming.get("name") == "A13 Signed Build"
+                and incoming.get("event") == "workflow_run" and incoming.get("status") == "completed"
+                and incoming.get("conclusion") == "success" and incoming.get("id") == metadata["run_id"]
+                and incoming.get("head_sha") == metadata["source_sha"] == os.environ.get("GITHUB_SHA"),
+                "Automatic publication must use its own successfully verified signed build")
+        return
+    require(authorization == f"publish {metadata['version_name']} from {metadata['run_id']}",
+            "Explicit version/build publication authorization is required for manual promotion")
 
 
 def check_receipt(metadata: dict, env: dict = os.environ) -> None:
