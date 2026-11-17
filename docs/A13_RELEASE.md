@@ -38,7 +38,7 @@ Secrets 仅检查名称和所在范围，不读取、打印或导出明文。
 1. PR 通过 Fast CI 后，在获得当前合并授权并完成检查的前提下 Squash merge。普通 CI 始终无签名。
 2. 等待最终 main 的 Fast 和 Full 均成功。Full CI 对每次 main push 执行。
    签名脚本独立核对仓库 ID、workflow ID/path、原生 main、完整 SHA、当前 attempt、job 及必要步骤，
-   不接受 PR Merge SHA、历史 SHA、Fork、取消、失败或 skipped job。
+   不接受 PR Merge SHA、历史 SHA、Fork、取消、失败或 skipped job。Fast 与 Full 独立运行，自动预检可等待同一 SHA 的 Fast 完成。
 3. 默认由 **A13 Full CI** 在 main 成功后通过 `workflow_run` 自动触发 **A13 Signed Build**。无密钥 validate 校验事件源、原生 main/CI、版本及环境；只有新版本才进入签名。可选从 main 手动运行 Signed Build，提供最终 main 的完整 SHA。
    `release-signing` 不再需要逐次人工审批；签名前重新检查 main、CI、Environment 和发布版本。
 4. 先在临时 Gradle home/project cache 运行无密钥 `:app:help -PofficialRelease=false`，
@@ -78,7 +78,8 @@ Secrets 仅检查名称和所在范围，不读取、打印或导出明文。
   attestation 保留于原始 Actions Artifact；发布前仍必须验证全部五个文件和来源证明。
   双仓使用相同标题、双语正文和完全相同的 APK/元数据；恢复时也只接受这个精确附件集合。
 - 已存在的 tag 指向不同 SHA，或同名资源内容不同，立即终止；绝不 force push、覆盖资源或删除正式 Release。
-- 该版本已有源码 tag 或 Release 时，拒绝新的 Signed Build，转为恢复原始候选产物。
+- 已有完整正式源码 Release 时跳过签名与晋升。只有 tag 或存在 draft 时，停止签名并使用原始候选产物恢复。
+- 相同 SHA 已有成功签名的候选产物时，重复触发跳过签名与晋升。恢复时使用原成功 Signed Build 的 Run ID，不重跑该构建。
 - 已有完全一致的正式 Release 只读验证；已有一致的 draft 仅补上传缺失文件，下载全部核验后发布。
 - 源码成功、Xposed 失败会明确报告部分成功，保留已成功的 Release。重新运行 Promote Release，
   仍选择**原始成功 Signed Build**；不重新构建、不重新签名。源码已发布且完全一致时允许 main 前进后恢复同步。

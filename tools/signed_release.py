@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Protected A13 signing and promotion. Ordinary CI never invokes signing.
 
-Manual main dispatch -> exact Fast/Full CI -> approved signing -> immutable
-attested candidate. A separate approved promotion consumes that candidate.
-No replacement keys, force pushes, asset replacement, or automatic publication.
+Successful main Full CI triggers signing after exact Fast/Full CI checks.
+A separate promotion verifies and publishes the original attested candidate.
 """
 from __future__ import annotations
 
@@ -18,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from urllib.parse import quote
@@ -120,6 +120,8 @@ def native_source(env: dict = os.environ) -> str:
                 "Auto-release trigger workflow is not active or authentic")
         fresh = api(f"repos/{REPO}/actions/runs/{run_id}")
         check_run(fresh, workflow, sha, {origin})
+        require(incoming.get("run_attempt") == fresh["run_attempt"],
+                "Auto-release trigger attempt changed")
     require(command("git", "rev-parse", "HEAD").decode().strip() == sha, "Checkout differs from native source SHA")
     require(not command("git", "status", "--porcelain", "--untracked-files=no").strip(), "Tracked checkout is dirty")
     return sha
@@ -157,17 +159,22 @@ def check_run(record: dict, workflow: dict, sha: str, events: set[str]) -> None:
             and record.get("conclusion") == "success", "Run is not successful native exact-main CI/build")
 
 
-def successful_jobs(record: dict, expected: dict[str, set[str]]) -> None:
+def successful_jobs(record: dict, expected: dict[str, set[str]], *, allow_unsigned: bool = False) -> bool:
     jobs = api(f"repos/{REPO}/actions/runs/{record['id']}/attempts/{record['run_attempt']}/jobs?per_page=100")
     require(jobs.get("total_count") == len(expected) and len(jobs["jobs"]) == len(expected), "Unexpected or missing jobs")
     require({job["name"] for job in jobs["jobs"]} == set(expected), "Wrong CI/build jobs")
+    signed = True
     for job in jobs["jobs"]:
+        if allow_unsigned and job["name"] == "sign" and job.get("status") == "completed" and job.get("conclusion") == "skipped":
+            signed = False
+            continue
         require(job.get("status") == "completed" and job.get("conclusion") == "success", "A required job was skipped or failed")
         passed = {step["name"] for step in job.get("steps", []) if step.get("conclusion") == "success"}
         require(expected[job["name"]] <= passed, "A required verification/build step was skipped or failed")
+    return signed
 
 
-def main_ci(sha: str) -> dict:
+def main_ci(sha: str, *, wait_for_fast: bool = False) -> dict:
     receipts = {}
     for filename, job, required_steps in (
         ("a13-fast-ci.yml", "fast", {"Full local verifier", "Python tool tests", "Static governance checks", "Release graph without signing or APK assembly"}),
@@ -175,7 +182,14 @@ def main_ci(sha: str) -> dict:
     ):
         workflow = api(f"repos/{REPO}/actions/workflows/{filename}")
         require(workflow["path"] == f".github/workflows/{filename}" and workflow.get("state") == "active", "Wrong CI workflow")
-        records = api(f"repos/{REPO}/actions/workflows/{filename}/runs?head_sha={sha}&branch=main&per_page=100")["workflow_runs"]
+        endpoint = f"repos/{REPO}/actions/workflows/{filename}/runs?head_sha={sha}&branch=main&per_page=100"
+        deadline = time.monotonic() + 420 if wait_for_fast and job == "fast" else 0
+        while True:
+            records = api(endpoint)["workflow_runs"]
+            if (time.monotonic() >= deadline or any(record.get("conclusion") == "success" for record in records)
+                    or (records and all(record.get("status") == "completed" for record in records))):
+                break
+            time.sleep(15)
         found = None
         for record in records:
             try:
@@ -199,14 +213,15 @@ def source_version(text: str) -> tuple[str, int]:
     return name[1], int(code[1])
 
 
-def preflight() -> str:
+def preflight(*, wait_for_fast: bool = False) -> str | None:
     sha = native_source()
-    event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-    if os.environ.get("GITHUB_EVENT_NAME") != "workflow_run":
+    automatic = os.environ["GITHUB_EVENT_NAME"] == "workflow_run"
+    if not automatic:
+        event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
         require(event.get("inputs", {}).get("source_sha") == sha, "Confirmed source SHA differs from native main SHA")
     current_main(sha)
     environment_policy("release-signing")
-    main_ci(sha)
+    main_ci(sha, wait_for_fast=wait_for_fast and automatic)
     name, code = source_version((ROOT / "app/build.gradle.kts").read_text(encoding="utf-8"))
     require(code > POLICY["baseline_version_code"] and name != POLICY["baseline_version"], "Bump version before signing a new candidate")
     existing = find_release(REPO, name, {"version_name": name, "version_code": code}, dict(os.environ))
@@ -214,16 +229,39 @@ def preflight() -> str:
     if existing is not None or tagged is not None:
         require(existing is not None and tagged is not None and existing.get("draft") is False,
                 "Incomplete release/tag; recover its original signed candidate instead of rebuilding")
-        check_tag(REPO, name, sha, dict(os.environ), must_exist=True)
-        require(existing.get("target_commitish") == sha,
-                "Published release source differs; version bump required")
-        output(source_sha=sha, ready="false")
-        summary(f"Already released: {name} ({code}), exact source `{sha}`; no new signing required.")
-        return sha
+        published_sha = existing.get("target_commitish", "")
+        require(existing.get("prerelease") is False and SHA.fullmatch(published_sha) is not None,
+                "Existing release is not a stable release with a full source SHA")
+        check_tag(REPO, name, published_sha, dict(os.environ), must_exist=True)
+        output(ready="false")
+        summary(f"Already released: {name} ({code}), source `{published_sha}`. Use the original candidate to recover Xposed publication if needed.")
+        return None
+    run_id = previous_candidate(sha)
+    if run_id is not None:
+        output(ready="false")
+        summary(f"A signed candidate already exists for `{sha}`. Use original build {run_id} to recover publication.")
+        return None
     current_main(sha)
     output(source_sha=sha, ready="true")
     summary(f"Signing request: {name} ({code}), exact main `{sha}`. Native Fast/Full CI, certificate and main-only Environment policy will be enforced.")
     return sha
+
+
+def previous_candidate(sha: str) -> int | None:
+    endpoint = f"repos/{REPO}/actions/workflows/a13-signed-build.yml/runs?head_sha={sha}&branch=main&status=success&per_page=100"
+    records = api(endpoint)
+    require(records["total_count"] <= 100, "Too many signed build runs to establish candidate absence")
+    for record in records["workflow_runs"]:
+        jobs = api(f"repos/{REPO}/actions/runs/{record['id']}/attempts/{record['run_attempt']}/jobs")
+        if any(job["name"] == "sign" and job.get("conclusion") == "success" for job in jobs["jobs"]):
+            return record["id"]
+    if int(os.environ.get("GITHUB_RUN_ATTEMPT", "1")) > 1:
+        run_id = int(os.environ["GITHUB_RUN_ID"])
+        records = api(f"repos/{REPO}/actions/runs/{run_id}/artifacts?per_page=100")
+        require(records["total_count"] <= 100, "Too many artifacts to establish candidate absence")
+        if any(re.fullmatch(rf"a13-signed-{run_id}-[1-9][0-9]*", item["name"]) for item in records["artifacts"]):
+            return run_id
+    return None
 
 
 def property_escape(value: str) -> str:
@@ -286,6 +324,7 @@ def prepare_signing(env: dict = os.environ) -> Path:
 def build() -> None:
     # Revalidate immediately before touching any signing secret.
     sha = preflight()
+    require(sha is not None, "Signing is no longer needed; recover publication from the original candidate")
     try:
         # Bootstrap the cold toolchain before any signing file exists. Its output
         # is safe to show and diagnoses download/configuration failures directly.
@@ -298,7 +337,7 @@ def build() -> None:
                     "--project-cache-dir", str(Path(temporary) / "project-cache"))
             bootstrap = subprocess.run([*args, "-PofficialRelease=false", ":app:help"], cwd=ROOT, env=dict(build_env))
             require(bootstrap.returncode == 0, "Unsigned Gradle bootstrap failed; signing was not started")
-            preflight()  # Cold downloads may outlive the original main/CI check.
+            require(preflight() == sha, "Signing is no longer needed after Gradle bootstrap")
             config = prepare_signing()
             build_env["CUSTOMIUIZER_A13_KEYSTORE_PROPERTIES"] = str(config)
             # Official output stays private, and all inputs/caches are temporary.
@@ -446,15 +485,19 @@ def extract_candidate(data: bytes, folder: Path) -> None:
             (folder / entry.filename).write_bytes(archive.read(entry))
 
 
-def fetch_candidate(run_id: str, folder: Path) -> dict:
+def fetch_candidate(run_id: str, folder: Path, *, allow_unsigned: bool = False) -> dict | None:
     require(run_id.isdecimal() and int(run_id) > 0, "Build run ID must be a positive integer")
     native_source()
     workflow = api(f"repos/{REPO}/actions/workflows/a13-signed-build.yml")
     record = api(f"repos/{REPO}/actions/runs/{run_id}")
     require(workflow["path"] == WORKFLOW and SHA.fullmatch(record.get("head_sha", "")) is not None, "Wrong build workflow/source")
     check_run(record, workflow, record["head_sha"], {"workflow_dispatch", "workflow_run"})
-    successful_jobs(record, {"validate": {"Check exact main and CI"}, "sign": {
-        "Build official APK once", "Verify signed APK", "Attest APK and metadata", "Verify attestation", "Upload signed candidate"}})
+    signed = successful_jobs(record, {"validate": {"Check exact main and CI"}, "sign": {
+        "Build official APK once", "Verify signed APK", "Attest APK and metadata", "Verify attestation", "Upload signed candidate"}},
+        allow_unsigned=allow_unsigned)
+    if not signed:
+        summary(f"Build {run_id} skipped signing after successful validation; no new candidate to promote.")
+        return None
     artifacts = api(f"repos/{REPO}/actions/runs/{run_id}/artifacts?per_page=100")
     require(artifacts.get("total_count", 0) <= 100, "Ambiguous artifact listing")
     matches = [item for item in artifacts["artifacts"]
@@ -493,6 +536,7 @@ def authorize(metadata: dict, destination: str, authorization: str) -> None:
         require(destination == "both" and incoming.get("name") == "A13 Signed Build"
                 and incoming.get("event") == "workflow_run" and incoming.get("status") == "completed"
                 and incoming.get("conclusion") == "success" and incoming.get("id") == metadata["run_id"]
+                and incoming.get("run_attempt") == metadata["run_attempt"]
                 and incoming.get("head_sha") == metadata["source_sha"] == os.environ.get("GITHUB_SHA"),
                 "Automatic publication must use its own successfully verified signed build")
         return
@@ -503,7 +547,7 @@ def authorize(metadata: dict, destination: str, authorization: str) -> None:
 def check_receipt(metadata: dict, env: dict = os.environ) -> None:
     expected = {"VERIFIED_SOURCE_SHA": "source_sha", "VERIFIED_APK_SHA256": "apk_sha256",
                 "VERIFIED_RUN_ATTEMPT": "run_attempt", "VERIFIED_ARTIFACT_ID": "artifact_id"}
-    require(all(env.get(key) == str(metadata[value]) for key, value in expected.items()), "Original verified candidate/attempt/artifact changed after approval")
+    require(all(env.get(key) == str(metadata[value]) for key, value in expected.items()), "Original verified candidate/attempt/artifact changed after verification")
 
 
 def check_tag(repository: str, tag: str, sha: str, env: dict, *, must_exist: bool = False) -> bool:
@@ -641,7 +685,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.command == "preflight":
-            preflight()
+            preflight(wait_for_fast=True)
         elif args.command == "build":
             build()
         elif args.command == "cleanup":
@@ -651,8 +695,10 @@ def main() -> int:
         elif args.command == "attest":
             attest(args.directory, json.loads((args.directory / "build-metadata.json").read_text(encoding="utf-8")))
         else:
-            native_source()
-            metadata = fetch_candidate(os.environ["BUILD_RUN_ID"], args.directory)
+            allow_unsigned = args.command == "fetch" and os.environ.get("GITHUB_EVENT_NAME") == "workflow_run"
+            metadata = fetch_candidate(os.environ["BUILD_RUN_ID"], args.directory, allow_unsigned=allow_unsigned)
+            if metadata is None:
+                return 0
             destination = os.environ["RELEASE_DESTINATION"]
             authorize(metadata, destination, os.environ.get("RELEASE_AUTHORIZATION", ""))
             if args.command == "publish":

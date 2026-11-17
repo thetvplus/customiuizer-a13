@@ -1,5 +1,5 @@
 name: A13 Signed Build
-run-name: A13 Signed Build / ${{ inputs.source_sha }}
+run-name: A13 Signed Build / ${{ github.sha }}
 
 on:
   workflow_dispatch:
