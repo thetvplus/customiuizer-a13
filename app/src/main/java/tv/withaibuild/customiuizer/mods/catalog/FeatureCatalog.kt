@@ -1803,11 +1803,10 @@ object FeatureCatalog {
             processScope = ProcessScope.SYSTEM_SERVER,
             installPhase = InstallPhase.SYSTEM_SERVER_STARTING,
             processTarget = ProcessTarget.SystemServer,
-            preferenceKeys = setOf("system_notify_openinfw", "system_fw_forcein_actionsend", "system_betterpopups_allowfloat"),
+            preferenceKeys = setOf("system_notify_openinfw", "system_fw_forcein_actionsend"),
             condition = { prefs ->
                 prefs.getBoolean("system_notify_openinfw", false) ||
-                prefs.getBoolean("system_fw_forcein_actionsend", false) ||
-                prefs.getBoolean("system_betterpopups_allowfloat", false)
+                prefs.getBoolean("system_fw_forcein_actionsend", false)
             },
             installer = { runtime, compatResult ->
                 legacyInstall(

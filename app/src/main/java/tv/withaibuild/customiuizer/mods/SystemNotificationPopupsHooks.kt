@@ -84,6 +84,14 @@ object SystemNotificationPopupsHooks {
 
     @JvmStatic
     fun BetterPopupsSwipeDownHook(lpparam: PackageReadyParam) {
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.notification.policy.AppMiniWindowManager", lpparam.classLoader, "canNotificationSlide", String::class.java, PendingIntent::class.java, HookerClassHelper.returnConstant(false))
+        if (!MainModule.mPrefs.getBoolean("system_betterpopups_swipedown")) return
+        val canSlide = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.notification.policy.AppMiniWindowManager",
+            lpparam.classLoader, "canNotificationSlide", String::class.java, PendingIntent::class.java
+        ) ?: return
+        if (canSlide.returnType == Boolean::class.javaPrimitiveType) {
+            // The native heads-up touch helper takes over when the mini-window gesture declines.
+            ModuleHelper.hookMethod(canSlide, HookerClassHelper.returnConstant(false))
+        }
     }
 }

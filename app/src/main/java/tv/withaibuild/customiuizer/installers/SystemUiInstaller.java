@@ -319,7 +319,6 @@ public final class SystemUiInstaller {
 
             if (MainModule.mPrefs.getBoolean("system_notify_openinfw")
                 || MainModule.mPrefs.getBoolean("system_notifrowmenu")
-                || MainModule.mPrefs.getBoolean("system_betterpopups_allowfloat")
             ) {
                 SystemUINotificationHooks.FixOpenNotifyInFreeFormHook(lpparam);
             }

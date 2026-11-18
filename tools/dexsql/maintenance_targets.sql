@@ -261,3 +261,11 @@ FROM class_fields f JOIN dex_files d USING (file_id)
 WHERE f.class_descriptor LIKE '%HeadsUpEntry%'
   AND f.field_name IN ('expanded', 'remoteInputActive', 'mMenuShownPinned', 'mGutsShownPinned')
 ORDER BY f.field_descriptor;
+
+-- MiuiSystemUI.apk: distinguish slide allow-list, native mini-window policy and drawer fallback.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE (callee_name IN ('canSlide', 'canNotificationSlide', 'canSlidePackage', 'canSlideToMiniWindow',
+                       'launchMiniWindowActivity') AND callee_class LIKE '%notification/%')
+   OR (method_class LIKE '%HeadsUpTouchHelper;'
+       AND callee_name IN ('onInterceptTouchEvent', 'startExpandMotion'))
+ORDER BY method, callee;

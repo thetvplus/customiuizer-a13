@@ -127,6 +127,14 @@ MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 
 
 第 9 轮用对应 A13 签名恢复原生计时，保持其它常驻查询的可见结果。当前 MonwF 使用另一套带取消原因的入口。A14 参考使用原生计时但菜单字段不同。A13 属于 `A13_COMPAT_VARIANT`，证据限上述 xaga 路径。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
 
+## 浮动通知下滑与小窗资格
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `MiuiExpandableNotificationRow.updateMiniWindowBar()` 把 `AppMiniWindowManager.canNotificationSlide(String, PendingIntent)` 的结果写入行状态。该方法调用 `NotificationSettingsManager.canSlide(String)` 读取原生名单，随后校验 Activity 型 PendingIntent、分屏应用和固定模式，再交给 `MiniWindowPolicy.canSlidePackage(...)` 处理窗口冲突。A13 按包调整名单结果，移除原先对整个窗口冲突方法的统一放行。
+- 小窗手势通过 `AppMiniWindowRowTouchHelper` 调用原生 `launchMiniWindowActivity(String, PendingIntent)`。该方法生成小窗 ActivityOptions，设置原生 Intent 参数并发送已有 PendingIntent。单独允许下滑小窗时沿用此路径。
+- `MiuiHeadsUpTouchHelper` 根据小窗手势是否接管，决定是否继续到父类 `HeadsUpTouchHelper`。父类下滑分支调用 `PanelViewController.startExpandMotion`。启用设置中的下滑手势后，小窗分支让出触摸处理，交给原生通知抽屉路径。
+
+两项均保持 A13 偏好契约。MonwF 与 A14 当前名单调整在行更新时进行，本轮使用 A13 静态确认的直接名单入口。分类为 `A13_COMPAT_VARIANT`。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。

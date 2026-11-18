@@ -39,7 +39,6 @@ public final class SystemServerInstaller {
 
         if (MainModule.mPrefs.getBoolean("system_notify_openinfw")
             || MainModule.mPrefs.getBoolean("system_fw_forcein_actionsend")
-            || MainModule.mPrefs.getBoolean("system_betterpopups_allowfloat")
         ) {
             FeatureDispatcher.installById("openAppInFreeForm", serverRuntime);
         }
