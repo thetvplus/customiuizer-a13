@@ -72,6 +72,14 @@ xaga `MiuiSystemUI.apk!classes2.dex` 的 `HeadsUpManagerPhone$HeadsUpEntryPhone.
 
 A13 在手机浮动条目的更新成功后复用 `removeAutoRemovalCallbacks()V`，仅取消已绑定、非 Doze 条目的自动关闭回调。原生显式移除、通知更新和 Doze 计时照常执行。安装前解析所需 Field 和 Method，视图或成员缺失时保持原生行为。核对查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。veux 对应 DEX 校验失败，实际行为待日志或设备验证。
 
+## 插件加载和音量计时
+
+xaga 宿主 `MiuiSystemUI.apk!classes.dex` 中，`PluginInstance$Factory.create` 调用 `getClassLoader(ApplicationInfo, ClassLoader):ClassLoader`。该入口可返回 null，也可从按包名的缓存返回 loader。模块在成功返回后绑定 `miui.systemui.plugin` 的实际 loader，空结果和异常可等待下一次宿主加载。各消费者保留进程内一次安装语义。
+
+两个样本的 `product/app/MIUISystemUIPlugin/MIUISystemUIPlugin.apk!classes.dex` 都显示 `MiuiVolumeDialogImpl.rescheduleTimeoutH()V` 调用 `computeTimeoutH()I`。原生折叠 2000ms、展开 5000ms、鼠标悬停 16000ms 都使用无障碍 controls 标志，安全音量提示的 5000ms 使用 controls 和 text。自定义时长依旧以原有偏好值为毫秒数，优先使用原生无障碍推荐值。未配置、悬停或必要成员缺失时交给插件原方法。
+
+这两处属于 `A13_COMPAT_VARIANT`。时长语义参考 MonwF 当前主线、A13 初始时长设置及 A14 当前实现，实际入口与分支依据 A13 插件 Smali。xaga 和 veux 插件各 DEX 的 ZIP CRC 与 Adler-32 通过，头部 SHA-1 不匹配。结论覆盖所核对的成员和控制流。veux 宿主的同名入口来自 CRC 失败的 `classes2.dex`，其宿主加载链保持待验。复查 SQL 见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。

@@ -27,3 +27,15 @@
 | 浮动通知显示时长、隐藏更多图标 | xaga 旧字段或目标缺失。继续查当前推荐时长链和图标溢出机制，验证语义后修改。 |
 
 浮动通知本批证据来自 xaga 静态 DEX 与宿主模型测试。veux 的相关 SystemUI DEX 待补。实机优先验证持续显示、手势或点击关闭、通知撤回和 AOD 脉冲回退。
+
+## 第 2 轮 SystemUI 插件
+
+| 功能 | 静态复查与处理 |
+| --- | --- |
+| 插件加载 | xaga 宿主的 `PluginInstance$Factory.create` 调用精确的 `getClassLoader(ApplicationInfo, ClassLoader)`，然后使用返回的插件 loader。音量和控制中心外观、网格、状态栏手势的插件入口都使用这一个签名，仅在匹配包名且成功取到 loader 后各安装一次。 |
+| 音量面板自动隐藏 | 插件的 `rescheduleTimeoutH()V` 调用 `computeTimeoutH()I`。展开和折叠自定义时长走原生无障碍换算，悬停及未配置时沿用原生结果。关闭静音震动绑定插件的 `vibrateH()V`。 |
+| 独立通知滑杆 | xaga `MiuiVolumeDialogImpl` 构造及设置变更走 `Util.isNotificationSingle(Context, int)`，字段 `sIsNotificationSingle:Z` 存在。原生 `addColumn` 有四参和五参两种，现有旧版分支限定四参入口。 |
+| 控制中心网格与手势 | xaga 插件定义 `QSPager(Context, AttributeSet)`、`distributeTiles()V`、`StandardTileView.createLabel(Z)V` 和 `ControlCenterWindowViewImpl.handleMotionEvent(MotionEvent, boolean)Z`。 |
+| 控制中心样式 | xaga 插件定义 `MainPanelHeaderController` 的可见性、约束和时钟更新方法。双参 `PluginComponentFactory.create` 指向插件启动路径，委托单参重载并绑定宿主 Context。 |
+
+样本来源、时长分支和复查查询见 [插件加载和音量计时](A13_SAMPLES.md#插件加载和音量计时)。后续覆盖其余插件资源、动态目标和实机回调。

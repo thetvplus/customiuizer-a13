@@ -89,3 +89,35 @@ WHERE f.field_descriptor IN (
     'Lcom/android/systemui/statusbar/AlertingNotificationManager$AlertEntry;->mEntry:Lcom/android/systemui/statusbar/notification/collection/NotificationEntry;',
     'Lcom/android/systemui/statusbar/notification/collection/NotificationEntry;->row:Lcom/android/systemui/statusbar/notification/row/ExpandableNotificationRow;'
 ) ORDER BY f.field_descriptor;
+
+-- Host SystemUI APK: confirm the factory declaration and its real caller.
+SELECT d.entry_name, m.method_descriptor
+FROM class_methods m JOIN dex_files d USING (file_id)
+WHERE m.class_descriptor = 'Lcom/android/systemui/shared/plugins/PluginInstance$Factory;'
+  AND m.method_name IN ('create', 'getClassLoader')
+ORDER BY m.method_descriptor;
+
+SELECT DISTINCT d.entry_name, method, callee
+FROM method_calls JOIN dex_files d USING (file_id)
+WHERE callee_class = 'Lcom/android/systemui/shared/plugins/PluginInstance$Factory;'
+  AND callee_name = 'getClassLoader'
+ORDER BY d.entry_name, method;
+
+-- MIUISystemUIPlugin.apk: decode computeTimeoutH for native flags and timing.
+SELECT d.entry_name, m.method_descriptor
+FROM class_methods m JOIN dex_files d USING (file_id)
+WHERE (m.class_descriptor = 'Lcom/android/systemui/miui/volume/MiuiVolumeDialogImpl;'
+       AND m.method_name IN ('addColumn', 'vibrateH', 'computeTimeoutH', 'rescheduleTimeoutH'))
+   OR (m.class_descriptor = 'Lcom/android/systemui/miui/volume/Util;'
+       AND m.method_name = 'isNotificationSingle')
+   OR (m.class_descriptor = 'Lmiui/systemui/controlcenter/qs/QSPager;'
+       AND m.method_name IN ('<init>', 'distributeTiles'))
+   OR (m.class_descriptor = 'Lmiui/systemui/controlcenter/qs/tileview/StandardTileView;'
+       AND m.method_name = 'createLabel')
+   OR (m.class_descriptor = 'Lmiui/systemui/controlcenter/windowview/ControlCenterWindowViewImpl;'
+       AND m.method_name = 'handleMotionEvent')
+   OR (m.class_descriptor = 'Lmiui/systemui/controlcenter/windowview/MainPanelHeaderController;'
+       AND m.method_name IN ('updateVisibility', 'updateConstraint', 'addClockViews', 'updateClocksAppearance'))
+   OR (m.class_descriptor = 'Lmiui/systemui/dagger/PluginComponentFactory;'
+       AND m.method_name = 'create')
+ORDER BY m.method_descriptor;
