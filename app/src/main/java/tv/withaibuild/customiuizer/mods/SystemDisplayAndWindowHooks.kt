@@ -76,23 +76,29 @@ object SystemDisplayAndWindowHooks {
 
     @JvmStatic
     fun NoLightUpOnChargeHook(lpparam: SystemServerStartingParam) {
+        val service = XposedHelpers.findClass("com.android.server.power.PowerManagerService", lpparam.classLoader)
         val methodName = "wakePowerGroupLocked"
-        ModuleHelper.hookAllMethods("com.android.server.power.PowerManagerService", lpparam.classLoader, methodName, object : MethodHook() {
+        val target = service.declaredMethods.singleOrNull { it.name == methodName }
+        require(target != null && target.returnType == Void.TYPE &&
+            target.parameterTypes.map { it.name } == listOf(
+                "com.android.server.power.PowerGroup", "long", "int", "java.lang.String",
+                "int", "java.lang.String", "int"
+            )) { "Unsupported A13 wakePowerGroupLocked target" }
+
+        ModuleHelper.hookAllMethods(service, methodName, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                val reason = param.args[3] as? String ?: return
-                val option = MainModule.mPrefs.getString("system_nolightuponcharges", "1").toInt()
-                if (option == 3 && (reason == "android.server.power:POWER" || reason.startsWith("android.server.power:PLUGGED"))) {
-                    param.returnAndSkip(false)
-                    return
-                }
-                if (option == 2 && (
-                    reason == "android.server.power:POWER" ||
+                val reason = param.getArg(3) as? String ?: return
+                val option = MainModule.mPrefs.getStringAsInt("system_nolightuponcharges", 1)
+                if (option != 2 && option != 3) return
+                if (reason == "android.server.power:POWER" ||
                     reason.startsWith("android.server.power:PLUGGED") ||
-                    reason == "com.android.systemui:RAPID_CHARGE" ||
-                    reason == "com.android.systemui:WIRELESS_CHARGE" ||
-                    reason == "com.android.systemui:WIRELESS_RAPID_CHARGE"
-                )) {
-                    param.returnAndSkip(false)
+                    (option == 2 && (
+                        reason == "com.android.systemui:RAPID_CHARGE" ||
+                        reason == "com.android.systemui:WIRELESS_CHARGE" ||
+                        reason == "com.android.systemui:WIRELESS_RAPID_CHARGE"
+                    ))
+                ) {
+                    param.returnAndSkip(null)
                 }
             }
         })
@@ -398,53 +404,45 @@ object SystemDisplayAndWindowHooks {
 
     @JvmStatic
     fun RotationAnimationHook(lpparam: SystemServerStartingParam) {
-        val animEnter = object : MethodHook() {
+        val loader = lpparam.classLoader
+        val factory = XposedHelpers.findClass("com.android.server.wm.ScreenRotationAnimationImpl", loader)
+        val quarterTurnArgs = Array(4) { Int::class.javaPrimitiveType!! }
+        val factories = listOf(
+            factory.getDeclaredMethod("createRotation180Enter"),
+            factory.getDeclaredMethod("createRotation180Exit"),
+            factory.getDeclaredMethod("createRotationEnterAnimation", *quarterTurnArgs),
+            factory.getDeclaredMethod("createRotationExitAnimation", *quarterTurnArgs)
+        )
+        require(factories.all { it.returnType == Animation::class.java }) { "Unsupported A13 rotation animation factories" }
+
+        val interpolator = XposedHelpers.findClassIfExists("com.android.server.wm.AppTransitionInjector", loader)?.let {
+            ModuleHelper.getStaticObjectFieldSilently(it, "QUART_EASE_OUT_INTERPOLATOR") as? Interpolator
+        }
+        fun adjustAnimation(finalAlpha: Float) = object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                val opt = MainModule.mPrefs.getString("system_rotateanim", "1").toInt()
-                val anim = param.result as? Animation ?: return
-                if (opt == 2) {
-                    anim.duration = 0
-                    param.setResult(anim)
-                } else if (opt == 3) {
-                    val alphaAnim = AlphaAnimation(1.0f, 1.0f)
-                    alphaAnim.interpolator = XposedHelpers.getStaticObjectField(
-                        XposedHelpers.findClass("com.android.server.wm.AppTransitionInjector", lpparam.classLoader),
-                        "QUART_EASE_OUT_INTERPOLATOR"
-                    ) as? Interpolator
-                    alphaAnim.duration = 300
-                    alphaAnim.fillAfter = true
-                    alphaAnim.fillBefore = true
-                    alphaAnim.isFillEnabled = true
-                    param.setResult(alphaAnim)
+                if (param.throwable != null || param.isSkipped) return
+                val native = param.result as? Animation ?: return
+                when (MainModule.mPrefs.getStringAsInt("system_rotateanim", 1)) {
+                    2 -> native.duration = 0
+                    3 -> {
+                        if (interpolator == null) return
+                        val fade = AlphaAnimation(1.0f, finalAlpha)
+                        fade.interpolator = interpolator
+                        fade.duration = 300
+                        fade.fillAfter = true
+                        fade.fillBefore = true
+                        fade.isFillEnabled = true
+                        param.setResult(fade)
+                    }
                 }
             }
         }
 
-        val animExit = object : MethodHook() {
-            override fun after(param: AfterHookCallback) {
-                val opt = MainModule.mPrefs.getString("system_rotateanim", "1").toInt()
-                if (opt == 2) {
-                    val anim = param.result as? Animation ?: return
-                    anim.duration = 0
-                } else if (opt == 3) {
-                    val alphaAnim = AlphaAnimation(1.0f, 0.0f)
-                    alphaAnim.interpolator = XposedHelpers.getStaticObjectField(
-                        XposedHelpers.findClass("com.android.server.wm.AppTransitionInjector", lpparam.classLoader),
-                        "QUART_EASE_OUT_INTERPOLATOR"
-                    ) as? Interpolator
-                    alphaAnim.duration = 300
-                    alphaAnim.fillAfter = true
-                    alphaAnim.fillBefore = true
-                    alphaAnim.isFillEnabled = true
-                    param.setResult(alphaAnim)
-                }
-            }
+        val enter = adjustAnimation(1.0f)
+        val exit = adjustAnimation(0.0f)
+        for (method in factories) {
+            val hook = if ("Enter" in method.name) enter else exit
+            ModuleHelper.findAndHookMethod(factory, method.name, *method.parameterTypes, hook)
         }
-
-        ModuleHelper.findAndHookMethod("com.android.server.wm.ScreenRotationAnimationImpl", lpparam.classLoader, "createRotation180Enter", animEnter)
-        ModuleHelper.findAndHookMethod("com.android.server.wm.ScreenRotationAnimationImpl", lpparam.classLoader, "createRotation180Exit", animExit)
-        ModuleHelper.hookAllMethods("com.android.server.wm.ScreenRotationAnimationImpl", lpparam.classLoader, "createRotationEnter", animEnter)
-        ModuleHelper.hookAllMethods("com.android.server.wm.ScreenRotationAnimationImpl", lpparam.classLoader, "createRotationEnterWithBackColor", animEnter)
-        ModuleHelper.hookAllMethods("com.android.server.wm.ScreenRotationAnimationImpl", lpparam.classLoader, "createRotationExit", animExit)
     }
 }

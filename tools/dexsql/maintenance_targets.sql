@@ -142,3 +142,29 @@ WHERE (m.class_descriptor = 'Lcom/android/systemui/miui/volume/MiuiVolumeDialogI
    OR (m.class_descriptor = 'Lmiui/systemui/dagger/PluginComponentFactory;'
        AND m.method_name = 'create')
 ORDER BY m.method_descriptor;
+
+-- miui-services.jar: four rotation factories and the native loader calls.
+SELECT d.entry_name, m.method_descriptor
+FROM class_methods m JOIN dex_files d USING (file_id)
+WHERE (m.class_descriptor = 'Lcom/android/server/wm/ScreenRotationAnimationImpl;'
+       AND m.method_name LIKE 'createRotation%')
+   OR (m.class_descriptor = 'Lcom/android/server/wm/AppTransitionInjector;'
+       AND m.method_name = 'createAnimation')
+ORDER BY m.method_descriptor;
+
+SELECT DISTINCT method, callee FROM method_calls
+WHERE callee_class = 'Lcom/android/server/wm/ScreenRotationAnimationImpl;'
+  AND callee_name LIKE 'createRotation%'
+ORDER BY method, callee;
+
+-- services.jar: confirm the wake method, including the void return.
+SELECT d.entry_name, m.method_descriptor
+FROM class_methods m JOIN dex_files d USING (file_id)
+WHERE m.class_descriptor = 'Lcom/android/server/power/PowerManagerService;'
+  AND m.method_name IN ('wakePowerGroupLocked', 'updateIsPoweredLocked')
+ORDER BY m.method_descriptor;
+
+SELECT DISTINCT method, callee FROM method_calls
+WHERE method_class = 'Lcom/android/server/power/PowerManagerService;'
+  AND method_name = 'updateIsPoweredLocked'
+  AND callee_name = 'wakePowerGroupLocked';

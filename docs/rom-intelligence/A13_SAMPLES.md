@@ -90,6 +90,13 @@ xaga 宿主 `MiuiSystemUI.apk!classes.dex` 中，`PluginInstance$Factory.create`
 
 两项入口调整属于 `A13_COMPAT_VARIANT`。设备上的长按菜单跳转、多用户、文件夹旋转和折叠切换仍待验证。复查查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
 
+## 系统服务旋转与充电唤醒
+
+- **旋转动画**。xaga、veux 的 `system_ext/framework/miui-services.jar!classes.dex` 由 `ScreenRotationAnimationImpl.loadEnterAnimation` 和 `loadExitAnimation` 调用四参 `createRotationEnterAnimation(IIII)` 和 `createRotationExitAnimation(IIII)`。`loadRotation180Enter` 和 `loadRotation180Exit` 调用各自无参工厂。四个工厂均返回 `Animation`。进场 loader 还执行 Surface 隐藏。旧门禁查询的 `AppTransitionInjector.createAnimation` 在两个扩展输入中无定义，其 `QUART_EASE_OUT_INTERPOLATOR` 字段仍存在。原生工厂完成后才调整成功结果，保留空结果和异常。关闭动画仍设为 0ms，淡入淡出保留 300ms 和原有插值器。
+- **充电唤醒**。两份 `services.jar!classes2.dex` 都定义 `PowerManagerService.wakePowerGroupLocked(PowerGroup, long, int, String, int, String, int):void`。`updateIsPoweredLocked(int)` 调用它并传入 `android.server.power:PLUGGED:` 前缀。模块检查唯一声明的全部参数及返回类型，保留 A13 两种充电选项原有的原因范围。仅在匹配时跳过原生唤醒并返回 null。其它唤醒仍调用原方法。
+
+两项均属于 `A13_COMPAT_VARIANT`。旋转设置保留 A13 初始功能的模式，充电时使用与 MonwF 当前实现相同的 void 跳过值，并保留 A13 自有的选项 3 语义。A14 的选项 3 使用不同产品语义。复用已核实的两个 services 和 MIUI 扩展输入，结论限上述调用。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。

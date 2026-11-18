@@ -1051,19 +1051,34 @@ object CatalogContracts {
     )
     }
 
-    val rotationAnimation: HookTargetContract by lazy(kotlin.LazyThreadSafetyMode.NONE) { HookTargetContract(
-        featureId = "rotationAnimation",
-        requirements = listOf(
-            SingleTargetRequirement(
+    val rotationAnimation: HookTargetContract by lazy(kotlin.LazyThreadSafetyMode.NONE) {
+        val factoryClass = "com.android.server.wm.ScreenRotationAnimationImpl"
+        val quarterTurn = List(4) { INT }
+        HookTargetContract(
+            featureId = "rotationAnimation",
+            requirements = listOf(
+                "createRotation180Enter" to emptyList(),
+                "createRotation180Exit" to emptyList(),
+                "createRotationEnterAnimation" to quarterTurn,
+                "createRotationExitAnimation" to quarterTurn
+            ).map { (name, parameters) ->
+                SingleTargetRequirement(HookTargetSpec(
+                    id = "ScreenRotationAnimationImpl.$name",
+                    operation = HookOperation.EXACT_METHOD,
+                    className = factoryClass,
+                    memberName = name,
+                    parameterTypes = parameters
+                ))
+            } + SingleTargetRequirement(
                 target = HookTargetSpec(
-                    id = "AppTransitionInjector.createAnimation",
-                    operation = HookOperation.ALL_METHODS_BY_NAME,
+                    id = "AppTransitionInjector.QUART_EASE_OUT_INTERPOLATOR",
+                    operation = HookOperation.FIELD_RESOLUTION,
                     className = "com.android.server.wm.AppTransitionInjector",
-                    memberName = "createAnimation"
-                )
+                    memberName = "QUART_EASE_OUT_INTERPOLATOR"
+                ),
+                criticality = Criticality.OPTIONAL
             )
         )
-    )
     }
 
     val notificationVolume: HookTargetContract by lazy(kotlin.LazyThreadSafetyMode.NONE) { HookTargetContract(
