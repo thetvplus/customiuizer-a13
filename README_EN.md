@@ -2,48 +2,32 @@
 
 [简体中文](README.md) | English
 
-CustoMIUIzer A13 customizes the system UI and interactions on **MIUI 14 / Android 13**, with capability-based compatibility paths for **HyperOS 1 / Android 13**. It uses an independent package, release line, and modern libxposed API.
+CustoMIUIzer A13 is an Xposed module for customizing the system UI, launcher, and interactions on **MIUI 14 / Android 13**. It supports `arm64-v8a` and requires a framework that provides **libxposed API 102**. **HyperOS 1 / Android 13** support is experimental; features depend on the ROM and system app versions. See the [compatibility matrix](COMPATIBILITY.md) for platform details.
 
-> Official publishing enforces continuity with the r13.13.0 signing certificate. When migrating from r13.12.2 or earlier, export settings, uninstall the old app, install and restore. See the [compatibility notes](COMPATIBILITY.md#签名与升级).
+[Download the stable release](https://github.com/thetvplus/customiuizer-a13/releases/latest) · [Xposed module repository](https://github.com/Xposed-Modules-Repo/tv.withaibuild.customiuizer.r13/releases/latest) · [Changelog](CHANGELOG_EN.md)
 
-> **Maintenance status**
->
-> Actively maintained, with correctness, compatibility and stability on Android 13 taking priority.
+## Features
 
-- Current version: `r13.14.1` (versionCode `142`); see [Releases](https://github.com/thetvplus/customiuizer-a13/releases) for publication status
-- Application ID: `tv.withaibuild.customiuizer.r13`
-- Source repository: <https://github.com/thetvplus/customiuizer-a13>
-- User downloads: <https://github.com/thetvplus/customiuizer-a13/releases>
-- Deployed framework: LSPosed / Vector
-
-## Core Features
-
-- Status-bar clock, date, temperature, network speed, battery, signal, and icon layout;
-- Control center, notifications, volume, brightness, lock screen, media, and charging UI;
-- Launcher icons, folders, Dock, recents, gestures, and animations;
-- Navigation keys, button actions, power menu, floating windows, multi-window behavior, installer, sharing, and app permissions.
-
-## Compatibility
-
-| Item | Supported range |
+| Area | Features |
 | --- | --- |
-| Primary system | MIUI 14 / Android 13 |
-| Capability-detected target | HyperOS 1 / Android 13; feature availability depends on the ROM and system-app versions |
-| SDK | minSdk 33 / targetSdk 34 |
-| ABI | `arm64-v8a` |
-| Xposed framework | LSPosed / Vector |
-| Module metadata | `minApiVersion=102`, `targetApiVersion=102`, `staticScope=true` |
+| System UI | Status bar, signal icons, Control Center, notifications, volume, lock screen, and charging UI |
+| Launcher | Icons, folders, Dock, recents, gestures, and animations |
+| Actions and apps | Navigation and button actions, power menu, floating windows, multi-window, installer, and sharing |
 
-Requires a framework providing libxposed API 102. Android 14 and later are not supported. Do not enable this module together with upstream or another CustoMIUIzer-derived module.
+## Installation and upgrades
 
-Historical deployed baseline: Redmi Note 11T Pro (`xaga`), MIUI `V14.0.10.0.TLOINXM`. This is not device acceptance for `r13.14.1`.
+1. Download and install the official APK from the release page. Versions signed with the same certificate support in-place upgrades.
+2. Enable the module in the framework, grant scope to the host apps needed for your features, then reboot.
+3. Enable the features you want in the module settings. Follow the prompt to restart the target process or device after changing an option that installs a hook.
 
-## Development
+To upgrade from r13.12.2 or an earlier release signed with the old certificate, export your settings first. Uninstall the old version, install the new one, restore the backup, and enable the module again. See [signing and upgrades](COMPATIBILITY.md#签名与升级). Enable only one CustoMIUIzer module per device.
 
-Use JDK 25 and the checked-in Gradle wrapper. See the [engineering guide](docs/README.md) for SDK setup, verification, and runtime architecture. Published changes are recorded in the [changelog](CHANGELOG_EN.md).
+## Development and support
 
-## Support and contact
+The application ID is `tv.withaibuild.customiuizer.r13`. The [release page](https://github.com/thetvplus/customiuizer-a13/releases/latest) records the current official version and its source; the [build configuration](app/build.gradle.kts) defines the source version.
 
-If this project helps you, you can support continued development via [PayPal](https://paypal.me/Jinjitv).
+Maintenance prioritizes correctness, compatibility, and stability on Android 13. When reporting a problem on [GitHub Issues](https://github.com/thetvplus/customiuizer-a13/issues), include the module version, ROM, host app version, and reproduction steps. Remove personal information from logs before sharing; see the [privacy notes](PRIVACY.md).
 
-Distributed under GPL-3.0. Derived from Mikanoshi/CustoMIUIzer and informed by MonwF/customiuizer's Android 13 work.
+See the [engineering guide](docs/README.md) for build setup, verification, ROM evidence, and releases. You can support maintenance via [PayPal](https://paypal.me/Jinjitv).
+
+Distributed under the [GPL-3.0](LICENSE). Derived from [Mikanoshi/CustoMIUIzer](https://code.highspec.ru/Mikanoshi/CustoMIUIzer) and informed by [MonwF/customiuizer](https://github.com/MonwF/customiuizer)'s Android 13 work.

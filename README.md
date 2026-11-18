@@ -2,48 +2,32 @@
 
 简体中文 | [English](README_EN.md)
 
-CustoMIUIzer A13 是面向 **MIUI 14 / Android 13** 的系统界面与交互定制模块，并为 **HyperOS 1 / Android 13** 提供基于能力探测的兼容路径。项目使用独立包名、版本线和现代 libxposed API。
+米客 A13 是用于定制 **MIUI 14 / Android 13** 系统界面、桌面与交互的 Xposed 模块。支持 `arm64-v8a`，需要提供 **libxposed API 102** 的框架。**HyperOS 1 / Android 13** 为实验兼容，功能取决于 ROM 与系统应用版本。其他平台见[兼容矩阵](COMPATIBILITY.md)。
 
-> 正式发布流程强制延续 r13.13.0 的签名证书。由 r13.12.2 或更早版本迁移时，请先备份，卸载旧版后安装并恢复。详见 [兼容说明](COMPATIBILITY.md#签名与升级)。
+[下载正式版](https://github.com/thetvplus/customiuizer-a13/releases/latest) · [Xposed 模块仓库](https://github.com/Xposed-Modules-Repo/tv.withaibuild.customiuizer.r13/releases/latest) · [更新日志](CHANGELOG.md)
 
-> **维护状态**
->
-> 持续维护，优先修复 Android 13 目标上的正确性、兼容性与稳定性问题。
+## 功能概览
 
-- 当前版本：`r13.14.1`（versionCode `142`）；正式发行状态见 [Releases](https://github.com/thetvplus/customiuizer-a13/releases)
-- 应用 ID：`tv.withaibuild.customiuizer.r13`
-- 源码仓库：<https://github.com/thetvplus/customiuizer-a13>
-- 用户下载：<https://github.com/thetvplus/customiuizer-a13/releases>
-- 实装框架：LSPosed / Vector
-
-## 核心功能
-
-- 状态栏时钟、日期、温度、网速、电池、信号与图标布局；
-- 控制中心、通知、音量、亮度、锁屏、媒体与充电界面；
-- Launcher 图标、文件夹、Dock、最近任务、手势与动画；
-- 导航键、按键动作、电源菜单、浮窗、多窗口、安装器、分享与应用权限。
-
-## 兼容范围
-
-| 项目 | 支持范围 |
+| 范围 | 主要功能 |
 | --- | --- |
-| 主要系统 | MIUI 14 / Android 13 |
-| 兼容探测目标 | HyperOS 1 / Android 13，具体功能取决于 ROM 与系统应用版本 |
-| SDK | minSdk 33 / targetSdk 34 |
-| ABI | `arm64-v8a` |
-| Xposed 框架 | LSPosed / Vector |
-| 模块元数据 | `minApiVersion=102`、`targetApiVersion=102`、`staticScope=true` |
+| 系统界面 | 状态栏、信号、控制中心、通知、音量、锁屏与充电界面 |
+| 桌面 | 图标、文件夹、Dock、最近任务、手势与动画 |
+| 操作与应用 | 导航键与按键动作、电源菜单、浮窗、多窗口、安装器与分享 |
 
-需要提供 libxposed API 102 的框架。不支持 Android 14 及以上版本，也不建议与上游版或其他 CustoMIUIzer 派生模块同时启用。
+## 安装与升级
 
-历史实装基线：Redmi Note 11T Pro（`xaga`）、MIUI `V14.0.10.0.TLOINXM`；不代表 `r13.14.1` 已完成实机验收。
+1. 从发布页下载并安装正式 APK。使用相同证书的版本可覆盖升级。
+2. 在框架中启用模块，按所需功能授予宿主作用域，并重启设备。
+3. 在模块设置中启用所需功能。安装型开关变更后，按页面提示重启目标进程或设备。
 
-## 开发
+从使用旧证书的 r13.12.2 或更早版本升级时，先导出设置，然后卸载旧版、安装并恢复，最后重新启用模块。详见[签名与升级](COMPATIBILITY.md#签名与升级)。同一设备仅启用一个 CustoMIUIzer 模块。
 
-使用 JDK 25 和仓库的 Gradle Wrapper。[工程文档](docs/README.md) 提供 SDK 配置、验证和运行架构入口。已发布版本的变化见 [更新日志](CHANGELOG.md)。
+## 开发与支持
 
-## 支持与联系
+应用 ID 为 `tv.withaibuild.customiuizer.r13`。当前正式版本和来源见[发布页](https://github.com/thetvplus/customiuizer-a13/releases/latest)；源码版本以[构建配置](app/build.gradle.kts)为准。
 
-如果这个项目对你有帮助，可以通过 [PayPal](https://paypal.me/Jinjitv) 支持后续开发与维护。
+项目优先修复 Android 13 上的正确性、兼容性与稳定性问题。通过 [GitHub Issues](https://github.com/thetvplus/customiuizer-a13/issues) 报告问题，请注明模块版本、ROM、宿主版本和重现步骤。分享日志前请先脱敏，参见[隐私说明](PRIVACY.md)。
 
-项目依据 GPL-3.0 分发，派生自 Mikanoshi/CustoMIUIzer，并参考 MonwF/customiuizer 的 Android 13 实现。
+从[工程文档](docs/README.md)进入构建、验证、ROM 证据与发行流程。可通过 [PayPal](https://paypal.me/Jinjitv) 支持维护。
+
+项目依据 [GPL-3.0](LICENSE) 分发，派生自 [Mikanoshi/CustoMIUIzer](https://code.highspec.ru/Mikanoshi/CustoMIUIzer)，并参考 [MonwF/customiuizer](https://github.com/MonwF/customiuizer) 的 Android 13 实现。

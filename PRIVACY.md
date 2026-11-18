@@ -1,40 +1,8 @@
-**Privacy Policy**
+# Privacy · CustoMIUIzer A13
 
-CustoMIUIzer app as an Open Source app created by Mikanoshi. It is provided at no cost and is intended for use as is.
+- **Settings and app selection.** The module stores settings on the device. The settings app reads installed apps for pickers and selected features. When connected to the Xposed framework, it synchronizes module settings through libxposed so the scoped host processes can read their options.
+- **Backup and restore.** Exports are settings files written to the location you select in Android's document picker. They can contain package names and custom values. The format does not encrypt the contents. If you select a cloud document provider, that provider handles the file under its own terms.
+- **Diagnostics.** The current A13 source does not include the original CustoMIUIzer crash report uploader. The module can write diagnostics to framework or device logs. Review and redact logs before attaching them to a public issue.
+- **External services.** Release, support, and other external links are handled by the app or service you open. Their own privacy terms apply.
 
-This page is used to inform visitors regarding policies with the collection, use, and disclosure of personal information.
-
-If you choose to use this app, then you agree to the collection and use of information in relation to this policy. Collected information is used exclusively for improving the app, and it is not being shared with any third party.
-
-**Detailed reports and crash reports**
-
-The only time any personal information is collected is when you decide to send a report after app crash or manually by using "Send detailed report" function. Data that is being sent:
-- Unique installation ID (generated on first app install)
-- Crash time and stack trace
-- Device model, OS version, ROM name and build config, kernel version, MIUI version
-- Amount of total and free storage
-- Display configuration
-- Environment paths
-- Android system settings
-- Xposed framework version, launcher version
-- CustoMIUIzer preferences
-- Xposed log, last 500 lines of logcat
-- Contact information provided by the user
-
-**Links to other sites**
-
-This app contains links to other sites. If you click on a third-party link, you will be directed to that site. Note that these external sites are not operated by the author. Therefore, it is strongly advised to refer to the Privacy Policy of these websites. Author of this app has no control over and assume no responsibility for the content, privacy policies or practices of any third-party sites or services.
-
-**Children's privacy**
-
-CustoMIUIzer app does not collect personally identifiable information from children. All children are encouraged to never submit any personally identifiable information through the Application and/or Services. If you have a reason to believe that a child has provided personally identifiable information to us through the Application and/or Services, please contact us.
-
-**Changes to Privacy Policy**
-
-This Privacy Policy can be updated from time to time. Thus, you are advised to review this page periodically for any changes. I will notify you of any changes by posting the new Privacy Policy on this page.
-
-This policy is effective as of 2022-04-27
-
-**Contact us**
-
-If you have any questions or suggestions about this Privacy Policy, do not hesitate to contact me at iam@mikanoshi.name.
+Report a privacy concern through the [A13 repository](https://github.com/thetvplus/customiuizer-a13). Avoid posting private logs or settings exports publicly.
