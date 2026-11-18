@@ -3,7 +3,10 @@ package com.android.systemui.statusbar
 import com.android.systemui.statusbar.notification.collection.NotificationEntry
 
 class AlertingNotificationManager {
-    open class AlertEntry(@JvmField val mEntry: NotificationEntry?) {
+    open class AlertEntry(@JvmField var mEntry: NotificationEntry?) {
+        @JvmField var mRemoveAlertRunnable: Runnable? = object : Runnable {
+            override fun run() = Unit
+        }
         var updates = 0
             private set
         var timerPending = false

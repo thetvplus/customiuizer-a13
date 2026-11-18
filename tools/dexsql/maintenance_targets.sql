@@ -280,3 +280,16 @@ WHERE (callee_class = 'Lcom/android/systemui/statusbar/policy/HeadsUpManagerInje
        AND method_name = 'onAlertEntryAdded'
        AND callee_name IN ('setHeadsUp', 'setEntryPinned', 'onHeadsUpStateChanged'))
 ORDER BY method, callee;
+
+-- MiuiSystemUI.apk: auto-expansion admission, recycling, and native click decisions.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE (method_class = 'Lcom/android/systemui/statusbar/AlertingNotificationManager;'
+       AND method_name IN ('addAlertEntry', 'removeAlertEntry')
+       AND callee_name IN ('setEntry', 'put', 'remove', 'onAlertEntryAdded', 'onAlertEntryRemoved', 'reset'))
+   OR (method_class LIKE '%HeadsUpManagerPhone$HeadsUpEntryPhone;'
+       AND method_name = 'setEntry' AND callee_name = 'setEntry')
+   OR (method_class LIKE '%ExpandableNotificationRow$%;'
+       AND method_name = 'onClick'
+       AND callee_name IN ('isGroupSummary', 'isGroupExpanded', 'toggleGroupExpansion',
+                           'isPinned', 'isExpanded', 'setUserExpanded'))
+ORDER BY method, callee;

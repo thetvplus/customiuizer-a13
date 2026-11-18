@@ -7,6 +7,7 @@ class NotificationEntry {
     var mSbn: Any? = null
     var row: ExpandableNotificationRow? = null
     var rowPinned = false
+    var key = "notification-key"
 
     fun getSbn(): ExpandedNotification? = mSbn as? ExpandedNotification
 

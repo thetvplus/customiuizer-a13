@@ -138,7 +138,9 @@ MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 
 ## 浮动通知位置与展开入口
 
 - xaga 的 `HeadsUpManagerInjector.miuiHeadsUpInset(Context):int` 由通知面板、浮动条目管理器、通知栈及布局算法在加载尺寸时调用。原生横屏返回 `heads_up_status_bar_padding`，竖屏加实际状态栏高度。样本资源表含 `heads_up_status_bar_padding` 和 `notification_max_heads_up_height`，默认值分别约 7.27dp 和 136dp。第 11 轮保留初始 A13 的居中公式，每次从本次调用的资源取像素值，并按原生顶部偏移和可用空间夹定。该修正属于 `A13_COMPAT_VARIANT`。
-- xaga 的 `HeadsUpManager.onAlertEntryAdded` 先设置浮动态，再确定固定状态并通知监听器。通知层级刷新也会调用 `ExpandableNotificationRow.setHeadsUp(boolean)`。原生 `expandNotification()` 调用展开点击监听器，固定时会反转 `mExpandedWhenPinned`，通知组使用自己的切换路径。自动展开的延迟所有权与重复事件仍待校准。
+- xaga 的 `AlertingNotificationManager.addAlertEntry(NotificationEntry):void` 先写入活动条目表，再调用 `HeadsUpManager.onAlertEntryAdded(AlertEntry):void`。该回调先设置浮动态，再确定固定状态并通知监听器。通知层级刷新也会调用 `ExpandableNotificationRow.setHeadsUp(boolean)`。第 12 轮改在管理器入队回调后调度展开，属于 `A13_COMPAT_VARIANT`。
+- xaga 的 `HeadsUpEntryPhone.setEntry(NotificationEntry):void` 为每次入队新建原生移除任务，`AlertEntry.reset():void` 清除它，管理器移除条目时先从活动表取出条目，再回收对象。延迟展开执行时通过 `getHeadsUpEntry(String):HeadsUpEntry` 取当前条目并核对移除任务的身份。原生 `expandNotification():void` 经点击监听器切换组状态、`mExpandedWhenPinned` 或普通展开状态。目标及上述方法体位于 `classes2.dex`。
+- veux 的对应入队、活动项查找、移除任务重建及点击分支可局部解码，和 xaga 结果一致。样本 `classes2.dex` 存在完整性缺口，本轮把这些结果保留为兼容线索。
 
 证据来自 xaga `MiuiSystemUI.apk!classes2.dex` 及其资源表，veux 相应条目待完整输入。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
 

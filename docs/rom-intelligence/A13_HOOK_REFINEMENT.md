@@ -114,4 +114,10 @@ xaga 的双参 `shouldPeek(NotificationEntry, ExpandedNotification)` 参与普�
 
 在 xaga 的 `HeadsUpManagerInjector.miuiHeadsUpInset(Context)` 原生计算成功后，从当前资源读取屏高、顶部留白和浮动通知高度。竖屏用原有居中公式，并以原生顶部偏移为下界。横屏、缺资源或空间不足时沿用原生值。密度和配置变化由 SystemUI 自己的尺寸刷新路径触发。
 
-自动展开补查确认 `setHeadsUp(true)` 同时用于通知展示和层级刷新，`expandNotification()` 的原生点击会切换状态。重复回调与延迟期间的行复用仍需单独校准。veux 对应 DEX 及实机几何待验证。见 [浮动通知位置与展开入口](A13_SAMPLES.md#浮动通知位置与展开入口)。
+自动展开补查确认 `setHeadsUp(true)` 同时用于通知展示和层级刷新，`expandNotification()` 的原生点击会切换状态。自动展开时序在第 12 轮校准。veux 对应 DEX 及实机几何待验证。见 [浮动通知位置与展开入口](A13_SAMPLES.md#浮动通知位置与展开入口)。
+
+## 第 12 轮浮动通知自动展开
+
+自动展开在 `HeadsUpManager.onAlertEntryAdded(AlertEntry)` 成功返回后调度一次，保留 60ms 延迟、原生展开点击和两种应用名单模式。到时核对当前活动条目的原生移除任务，以及同一通知绑定的行，防止旧任务作用于复用条目。
+
+展开前按原生点击会走的普通、固定或组通知分支读取当前状态。已展开、行已移除、未附着或处于锁屏时跳过。xaga 静态核对已完成，veux 相关方法体可读且吻合，样本完整性和实机行为待验证。见 [浮动通知位置与展开入口](A13_SAMPLES.md#浮动通知位置与展开入口)。
