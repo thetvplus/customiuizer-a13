@@ -144,6 +144,12 @@ MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 
 
 证据来自 xaga `MiuiSystemUI.apk!classes2.dex` 及其资源表，veux 相应条目待完整输入。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
 
+## 通知抽屉展开状态
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `NotificationViewHierarchyManager.updateRowStatesInternal():void` 在非锁屏分支为每个通知行调用 `ExpandableNotificationRow.setSystemExpanded(boolean):void`，随后调用 `setFeedbackIcon(FeedbackIcon):void`。该展开方法在样本中的直接调用者只有行状态更新。原生传入 false 且应用符合展开规则时，旧 Hook 会经反馈图标再次改变同一轮布局写入的状态。
+- 原生 setter 仅在布尔值改变时更新高度、通知展开变化和组溢出状态。`isExpanded(boolean):boolean` 在用户已手动改变展开时优先读取用户状态。第 13 轮让已有名单规则调整原生 setter 的入参，保留这些副作用和手动操作。MonwF 当前上游、A13 初始实现和 A14 参考均通过反馈图标应用系统展开状态，A13 入口校准属于 `A13_COMPAT_VARIANT`。
+- veux 的 `classes2.dex` 中局部解码显示相同的非锁屏 setter 与反馈图标顺序，展开布尔值由该 ROM 自己的布局策略决定。样本完整性缺口仍在。复查查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。

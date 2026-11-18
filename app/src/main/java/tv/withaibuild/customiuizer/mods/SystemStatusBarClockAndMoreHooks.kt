@@ -707,18 +707,31 @@ object SystemStatusBarClockAndMoreHooks {
 
     @JvmStatic
     fun ExpandNotificationsHook(lpparam: PackageReadyParam) {
-        val feedbackMethod = "setFeedbackIcon"
-        ModuleHelper.hookAllMethods("com.android.systemui.statusbar.notification.row.ExpandableNotificationRow", lpparam.classLoader, feedbackMethod, object : MethodHook() {
+        if (MainModule.mPrefs.getStringAsInt("system_expandnotifs", 1) !in 2..3) return
+        val rowClass = XposedHelpers.findClassIfExists(
+            "com.android.systemui.statusbar.notification.row.ExpandableNotificationRow", lpparam.classLoader
+        ) ?: return
+        val setter = XposedHelpers.findMethodExactIfExists(
+            rowClass, "setSystemExpanded", Boolean::class.javaPrimitiveType
+        ) ?: return
+        if (setter.returnType != Void.TYPE) return
+        val onKeyguard = XposedHelpers.findMethodExactIfExists(rowClass, "isOnKeyguard") ?: return
+        val getEntry = XposedHelpers.findMethodExactIfExists(rowClass, "getEntry") ?: return
+        val getSbn = XposedHelpers.findMethodExactIfExists(getEntry.returnType, "getSbn") ?: return
+
+        ModuleHelper.hookMethod(setter, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                val mOnKeyguard = XposedHelpers.callMethod(param.thisObject, "isOnKeyguard") as? Boolean ?: false
-                if (!mOnKeyguard) {
-                    val notification = XposedHelpers.getObjectField(XposedHelpers.callMethod(param.thisObject, "getEntry"), "mSbn")
-                    val pkgName = XposedHelpers.callMethod(notification, "getPackageName") as? String ?: return
-                    val opt = MainModule.mPrefs.getString("system_expandnotifs", "1").toInt()
-                    val isSelected = MainModule.mPrefs.getStringSet("system_expandnotifs_apps").contains(pkgName)
-                    if (opt == 2 && !isSelected || opt == 3 && isSelected)
-                        XposedHelpers.callMethod(param.thisObject, "setSystemExpanded", true)
-                }
+                if (param.getArg(0) != false) return
+                val values = MainModule.mPrefs.asMap()
+                val rawMode = values["pref_key_system_expandnotifs"]
+                val mode = (rawMode as? Number)?.toInt() ?: (rawMode as? String)?.toIntOrNull()
+                if (mode != 2 && mode != 3) return
+                val row = param.thisObject
+                if (onKeyguard.invoke(row) != false) return
+                val entry = getEntry.invoke(row) ?: return
+                val packageName = (getSbn.invoke(entry) as? StatusBarNotification)?.packageName ?: return
+                val selected = (values["pref_key_system_expandnotifs_apps"] as? Set<*>)?.contains(packageName) == true
+                if (selected == (mode == 3)) param.args[0] = true
             }
         })
     }

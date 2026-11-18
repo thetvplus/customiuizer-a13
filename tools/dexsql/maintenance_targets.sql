@@ -293,3 +293,15 @@ WHERE (method_class = 'Lcom/android/systemui/statusbar/AlertingNotificationManag
        AND callee_name IN ('isGroupSummary', 'isGroupExpanded', 'toggleGroupExpansion',
                            'isPinned', 'isExpanded', 'setUserExpanded'))
 ORDER BY method, callee;
+
+-- MiuiSystemUI.apk: shade expansion writes and feedback dispatch.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE (method_class = 'Lcom/android/systemui/statusbar/NotificationViewHierarchyManager;'
+       AND method_name = 'updateRowStatesInternal'
+       AND callee_name = 'setFeedbackIcon')
+   OR (callee_class = 'Lcom/android/systemui/statusbar/notification/row/ExpandableNotificationRow;'
+       AND callee_name = 'setSystemExpanded')
+   OR (method_class = 'Lcom/android/systemui/statusbar/notification/row/ExpandableNotificationRow;'
+       AND method_name = 'isExpanded'
+       AND callee_name IN ('hasUserChangedExpansion', 'isUserExpanded', 'isSystemExpanded'))
+ORDER BY method, callee;

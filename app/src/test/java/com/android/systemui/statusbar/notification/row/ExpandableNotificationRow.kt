@@ -26,6 +26,10 @@ class ExpandableNotificationRow : View(null) {
     var attached = true
     var expansionClicks = 0
         private set
+    var systemExpandedState = false
+        private set
+    var systemExpansionChanges = 0
+        private set
 
     override fun isAttachedToWindow(): Boolean = attached
     fun setHeadsUp(value: Boolean) { headsUp = value }
@@ -36,6 +40,13 @@ class ExpandableNotificationRow : View(null) {
     fun isOnKeyguard(): Boolean = onKeyguard
     fun isRemoved(): Boolean = removed
     fun shouldShowPublic(): Boolean = redacted
+    fun getEntry(): NotificationEntry? = mEntry
+
+    fun setSystemExpanded(value: Boolean) {
+        if (systemExpandedState == value) return
+        systemExpandedState = value
+        systemExpansionChanges++
+    }
 
     fun expandNotification() {
         expansionClicks++
