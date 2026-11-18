@@ -268,4 +268,14 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.libxposed.api)
+
+    constraints {
+        // AGP resolves lint's host dependencies separately from the buildscript.
+        listOf(libs.host.guava, libs.commons.lang3, libs.host.bcprov, libs.host.bcpkix,
+            libs.host.bcutil, libs.host.httpclient).forEach {
+            add("androidLintTool", it) {
+                because("Keep lint's host dependencies on the patched build-tool versions")
+            }
+        }
+    }
 }

@@ -478,8 +478,8 @@ object SystemNotificationMoreHooks {
     private fun checkVibration(pkgName: String, thisObject: Any): Boolean {
         return try {
             val opt = XposedHelpers.getAdditionalInstanceField(thisObject, "mVibrationMode") as? Int ?: 0
-            val selectedApps = XposedHelpers.getAdditionalInstanceField(thisObject, "mVibrationApps") as? Set<String>
-            val isSelected = selectedApps != null && selectedApps.contains(pkgName)
+            val selectedApps = XposedHelpers.getAdditionalInstanceField(thisObject, "mVibrationApps") as? Set<*>
+            val isSelected = selectedApps?.contains(pkgName) == true
             opt == 2 && !isSelected || opt == 3 && isSelected
         } catch (t: Throwable) {
             rethrowFatal(t)

@@ -76,6 +76,7 @@ class SelectorDiagnosticsContractTest(unittest.TestCase):
             "AppSelector.applock.toggle",
             "AppSelector.loadApps",
             "AppSelector.loadApps.start",
+            "ShortcutSelector.readResult",
             "ShortcutSelector.loadIconResource",
             "ShortcutSelector.persistIcon",
             "SortableList.loadDragShadow",
@@ -91,8 +92,7 @@ class SelectorDiagnosticsContractTest(unittest.TestCase):
         all_found = []
         for text in self.texts.values():
             all_found.extend(re.findall(r'SettingsDiagnostics\.failure\("([^"]+)",', text))
-        self.assertEqual(9, len(all_found))
-        self.assertEqual(9, len(set(all_found)), "operation names must be unique")
+        self.assertCountEqual(operations, all_found, "operation names must be unique")
 
     def test_all_catch_blocks_have_full_fatal_guard(self):
         operations = [
@@ -102,6 +102,7 @@ class SelectorDiagnosticsContractTest(unittest.TestCase):
             "AppSelector.applock.toggle",
             "AppSelector.loadApps",
             "AppSelector.loadApps.start",
+            "ShortcutSelector.readResult",
             "ShortcutSelector.loadIconResource",
             "ShortcutSelector.persistIcon",
             "SortableList.loadDragShadow",
@@ -171,11 +172,23 @@ class SelectorDiagnosticsContractTest(unittest.TestCase):
         self.assertIn("Bitmap.CompressFormat.PNG", try_body)
         self.assertIn("100", try_body)
         self.assertIn("FileOutputStream", try_body)
-        self.assertIn('"shortcut_icon"', try_body)
+        self.assertIn("File.createTempFile", try_body)
 
         catch_body = self._extract_catch_body_after_call("ShortcutSelector.persistIcon")
         self.assertIsNotNone(catch_body)
         self.assertNotIn("shortcut_icon", catch_body)
+
+        delivery_start = text.index("fun deliver(pendingIcon: File?) {")
+        delivery = self._brace_body(text, text.index("{", delivery_start))
+        self.assertIn("request != shortcutRequest", delivery)
+        self.assertIn("view !== sourceView", delivery)
+        self.assertIn("targetFragment !== target", delivery)
+        self.assertNotIn("target.isAdded", delivery, "MultiAction is on the back stack")
+        self.assertIn("pendingIcon?.delete()", delivery)
+        self.assertIn('File(pendingIcon.parentFile, "tmp.png")', delivery)
+        self.assertIn('if (pendingIcon.renameTo(iconFile)) result.putExtra("shortcut_icon",', delivery)
+        self.assertLess(delivery.index("request != shortcutRequest"), delivery.index("pendingIcon.renameTo"))
+        self.assertLess(delivery.index("pendingIcon.renameTo"), delivery.index("target.onActivityResult"))
 
     def test_shortcut_persist_icon_continues_after_catch(self):
         text = self.texts["ShortcutSelector"]

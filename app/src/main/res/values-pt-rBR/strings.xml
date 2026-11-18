@@ -976,7 +976,6 @@
     <string name="soft_reboot">Reinicialização suave</string>
     <string name="soft_reboot_ask">Executar reinicialização suave agora?</string>
     <string name="restart_launcher">Reiniciar launcher</string>
-    <string name="open_inweb">Abra no navegador</string>
     <string name="restart_systemui">Reiniciar systemui</string>
     <string name="restart_securitycenter">Reiniciar centro de segurança</string>
     <string name="backup_restore">Gerenciar configurações</string>

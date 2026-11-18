@@ -39,7 +39,7 @@ class CatalogBatch1Test {
 
     private fun serverRuntime(prefs: PrefMap<String, Any>): FeatureRuntime {
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val classLoader = this.javaClass.classLoader!!
         val lpparam = newSystemServerParam(classLoader)
         return FeatureDispatcher.createRuntime("android", lpparam, classLoader, prefs)
@@ -47,7 +47,7 @@ class CatalogBatch1Test {
 
     private fun systemuiRuntime(prefs: PrefMap<String, Any>): FeatureRuntime {
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val classLoader = this.javaClass.classLoader!!
         val lpparam = newPackageReadyParam("com.android.systemui", classLoader)
         return FeatureDispatcher.createRuntime("com.android.systemui", lpparam, classLoader, prefs)
@@ -59,7 +59,7 @@ class CatalogBatch1Test {
         classLoader: ClassLoader = javaClass.classLoader!!
     ): FeatureRuntime {
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val lpparam = newPackageReadyParam(packageName, classLoader)
         return FeatureDispatcher.createRuntime(packageName, lpparam, classLoader, prefs)
     }
@@ -198,7 +198,7 @@ class CatalogBatch1Test {
         prefs["pref_key_system_dimtime"] = 40
 
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val classLoader = ClassLoader.getSystemClassLoader().parent
         val lpparam = newSystemServerParam(classLoader)
         val server = FeatureDispatcher.createRuntime("android", lpparam, classLoader, prefs)
@@ -228,7 +228,7 @@ class CatalogBatch1Test {
         } as PackageReadyParam
 
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val classLoader = this.javaClass.classLoader!!
         val launcher = FeatureDispatcher.createRuntime("com.miui.home", throwingLpparam, classLoader, prefs)
 

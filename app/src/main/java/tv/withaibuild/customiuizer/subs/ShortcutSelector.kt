@@ -1,17 +1,16 @@
 package tv.withaibuild.customiuizer.subs
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.view.View
 import android.widget.AdapterView
+import androidx.annotation.WorkerThread
 import tv.withaibuild.customiuizer.R
 import tv.withaibuild.customiuizer.SubFragmentWithSearch
 import tv.withaibuild.customiuizer.utils.AppHelper
@@ -26,6 +25,7 @@ class ShortcutSelector : SubFragmentWithSearch() {
 
     private var key: String? = null
     private var keyContents: String? = null
+    private var shortcutRequest = 0
     private lateinit var shortcuts: ArrayList<ResolveInfo>
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,6 +52,7 @@ class ShortcutSelector : SubFragmentWithSearch() {
             val cn = ComponentName(app.activityInfo.packageName, app.activityInfo.name)
             createShortcutIntent.component = cn
             keyContents = app.activityInfo.packageName + "|" + app.activityInfo.name
+            shortcutRequest++
             startActivityForResult(createShortcutIntent, 7350)
         }
 
@@ -66,46 +67,80 @@ class ShortcutSelector : SubFragmentWithSearch() {
                 return
             }
 
-            val iconResId = data?.getParcelableExtra<Intent.ShortcutIconResource>(Intent.EXTRA_SHORTCUT_ICON_RESOURCE)
-
-            var icon: Bitmap? = null
-            if (iconResId != null) try {
-                val mContext = ctx.createPackageContext(iconResId.packageName, Context.CONTEXT_IGNORE_SECURITY)
-                val resId = mContext.resources.getIdentifier(iconResId.resourceName, "drawable", iconResId.packageName)
-                icon = BitmapFactory.decodeResource(mContext.resources, resId)
-            } catch (t: Throwable) {
-                if (t is OutOfMemoryError || t is ThreadDeath || t is VirtualMachineError) throw t
-                SettingsDiagnostics.failure("ShortcutSelector.loadIconResource", t)
-            }
-            if (icon == null) icon = data?.getParcelableExtra<Bitmap>(Intent.EXTRA_SHORTCUT_ICON)
-
-            val intent = Intent(ctx, this.javaClass)
-
-            if (icon != null && key != null) try {
-                val dir = ctx.filesDir?.absolutePath + "/shortcuts"
-                val fileName = "$dir/tmp.png"
-
-                val shortcutsDir = File(dir)
-                shortcutsDir.mkdirs()
-                val shortcutFileName = File(fileName)
-                FileOutputStream(shortcutFileName, false).use { shortcutOutStream ->
-                    if (icon.compress(Bitmap.CompressFormat.PNG, 100, shortcutOutStream)) {
-                        intent.putExtra("shortcut_icon", fileName)
-                    }
+            val target = targetFragment
+            if (target != null && isAdded) {
+                val result = Intent(ctx, this.javaClass)
+                    .putExtra("shortcut_contents", keyContents)
+                try {
+                    result.putExtra("shortcut_name", data?.getStringExtra(Intent.EXTRA_SHORTCUT_NAME))
+                    result.putExtra("shortcut_intent", data?.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT, Intent::class.java))
+                } catch (failure: Throwable) {
+                    if (failure is OutOfMemoryError || failure is ThreadDeath || failure is VirtualMachineError) throw failure
+                    SettingsDiagnostics.failure("ShortcutSelector.readResult", failure)
                 }
-            } catch (t: Throwable) {
-                if (t is OutOfMemoryError || t is ThreadDeath || t is VirtualMachineError) throw t
-                SettingsDiagnostics.failure("ShortcutSelector.persistIcon", t)
-            }
+                val targetRequest = targetRequestCode
+                val request = ++shortcutRequest
+                val sourceView = view
+                fun deliver(pendingIcon: File?) {
+                    if (request != shortcutRequest || view !== sourceView || targetFragment !== target || !isAdded) {
+                        pendingIcon?.delete()
+                        return
+                    }
+                    if (pendingIcon != null) {
+                        // MultiAction promotes tmp.png when the user saves the selection.
+                        val iconFile = File(pendingIcon.parentFile, "tmp.png")
+                        if (pendingIcon.renameTo(iconFile)) result.putExtra("shortcut_icon", iconFile.absolutePath)
+                        else pendingIcon.delete()
+                    }
+                    target.onActivityResult(targetRequest, Activity.RESULT_OK, result)
+                    finish()
+                }
 
-            intent.putExtra("shortcut_contents", keyContents)
-            intent.putExtra("shortcut_name", data?.getStringExtra(Intent.EXTRA_SHORTCUT_NAME))
-            intent.putExtra("shortcut_intent", data?.getParcelableExtra<Intent>(Intent.EXTRA_SHORTCUT_INTENT))
-            if (SelectorResultDelivery.canDeliverFromSource(isAdded, targetFragment != null)) {
-                targetFragment?.onActivityResult(targetRequestCode, Activity.RESULT_OK, intent)
-                finish()
+                if (key == null || data == null) {
+                    deliver(null)
+                } else {
+                    val appContext = ctx.applicationContext
+                    Thread({
+                        val pendingIcon = prepareIcon(appContext, data)
+                        appContext.mainExecutor.execute { deliver(pendingIcon) }
+                    }, "A13-shortcut-icon").start()
+                }
             }
         }
         super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    @WorkerThread
+    private fun prepareIcon(context: Context, data: Intent): File? {
+        val resourceIcon = try {
+            val resource = data.getParcelableExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, Intent.ShortcutIconResource::class.java)
+            resource?.let {
+                val resources = context.createPackageContext(it.packageName, 0).resources
+                val resId = resources.getIdentifier(it.resourceName, "drawable", it.packageName)
+                BitmapFactory.decodeResource(resources, resId)
+            }
+        } catch (failure: Throwable) {
+            if (failure is OutOfMemoryError || failure is ThreadDeath || failure is VirtualMachineError) throw failure
+            SettingsDiagnostics.failure("ShortcutSelector.loadIconResource", failure)
+            null
+        }
+        var pending: File? = null
+        var complete = false
+        try {
+            val icon = resourceIcon ?: data.getParcelableExtra(Intent.EXTRA_SHORTCUT_ICON, Bitmap::class.java) ?: return null
+            val filesDir = context.filesDir ?: return null
+            val dir = File(filesDir, "shortcuts")
+            dir.mkdirs()
+            pending = File.createTempFile("pending-", ".png", dir)
+            complete = FileOutputStream(pending).use { icon.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            return pending.takeIf { complete }
+        } catch (failure: Throwable) {
+            if (failure is OutOfMemoryError || failure is ThreadDeath || failure is VirtualMachineError) throw failure
+            SettingsDiagnostics.failure("ShortcutSelector.persistIcon", failure)
+            return null
+        } finally {
+            if (!complete) pending?.delete()
+            resourceIcon?.recycle()
+        }
     }
 }

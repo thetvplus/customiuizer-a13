@@ -122,7 +122,7 @@ def protected_workflow_errors(path: Path, text: str) -> list[str]:
                 setup_steps.pop("Set up Android SDK")
                 runs = {"Check exact main and CI": ("python tools/signed_release.py preflight", TOKEN)}
             elif name == "sign":
-                setup_steps.update({"Set up JDK 25": ("actions/setup-java", {"distribution": "temurin", "java-version": "25"}),
+                setup_steps.update({"Set up JDK 25": ("actions/setup-java", {"distribution": "temurin", "java-version": "25.0.5"}),
                                     "Attest APK and metadata": ("actions/attest", ATTEST),
                                     "Upload signed candidate": ("actions/upload-artifact", UPLOAD)})
                 runs.update({"Build official APK once": ("python tools/signed_release.py build", TOKEN | SECRETS),

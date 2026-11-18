@@ -7,15 +7,15 @@ open class Looper {
         private val sMainLooper by lazy { Looper() }
 
         @JvmStatic
-        open fun prepare() {
+        fun prepare() {
             sThreadLocal.set(Looper())
         }
 
         @JvmStatic
-        open fun myLooper(): Looper? = sThreadLocal.get()
+        fun myLooper(): Looper? = sThreadLocal.get()
 
         @JvmStatic
-        open fun getMainLooper(): Looper? = sMainLooper
+        fun getMainLooper(): Looper? = sMainLooper
     }
 
     open fun getQueue(): MessageQueue? = null

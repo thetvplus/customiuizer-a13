@@ -934,7 +934,6 @@
     <string name="soft_reboot">軟重啟</string>
     <string name="soft_reboot_ask">現在執行軟重啟嗎？</string>
     <string name="restart_launcher">重啟桌面</string>
-    <string name="open_inweb">在瀏覽器中打開</string>
     <string name="restart_systemui">重啟系統界面</string>
     <string name="restart_securitycenter">重啟手機管家</string>
     <string name="backup_restore">設置管理</string>

@@ -975,7 +975,6 @@
     <string name="soft_reboot">Reinicio rápido</string>
     <string name="soft_reboot_ask">¿Aplicar reinicio rápido ahora?</string>
     <string name="restart_launcher">Reiniciar navegador</string>
-    <string name="open_inweb">Abrir en el navegador</string>
     <string name="restart_systemui">Reiniciar SystemUI</string>
     <string name="restart_securitycenter">Reiniciar centro de seguridad</string>
     <string name="backup_restore">Administrar ajustes</string>

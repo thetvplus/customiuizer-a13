@@ -113,7 +113,7 @@ class MainFragment : PreferenceFragmentBase() {
                 override fun onMenuItemActionCollapse(searchItem: MenuItem): Boolean {
                     for (i in 0 until menu.size()) {
                         val it = menu.getItem(i)
-                        it.isVisible = it.itemId != R.id.edit_confirm && it.itemId != R.id.openinweb
+                        it.isVisible = it.itemId != R.id.edit_confirm
                     }
                     return true
                 }

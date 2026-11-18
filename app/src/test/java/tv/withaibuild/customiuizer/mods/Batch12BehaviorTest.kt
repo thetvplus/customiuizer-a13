@@ -48,7 +48,7 @@ class Batch12BehaviorTest {
 
     private fun runtime(prefs: PrefMap<String, Any>): FeatureRuntime {
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val classLoader = this.javaClass.classLoader!!
         val lpparam = Proxy.newProxyInstance(
             classLoader,

@@ -44,12 +44,7 @@ class BTList : SubFragment() {
     private val devicesReceiver = object : BroadcastReceiver() {
         @SuppressLint("MissingPermission")
         override fun onReceive(context: Context?, intent: Intent?) {
-            val deviceList: ArrayList<BluetoothDevice>? = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                intent?.getParcelableArrayListExtra("device_list", BluetoothDevice::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                intent?.getParcelableArrayListExtra("device_list")
-            }
+            val deviceList = intent?.getParcelableArrayListExtra("device_list", BluetoothDevice::class.java)
             val newList = ArrayList<Pair<String, String>>()
             if (deviceList != null) {
                 for (device in deviceList) {
@@ -100,9 +95,7 @@ class BTList : SubFragment() {
 
             val fetchStub: ViewStub = view.findViewById(R.id.fetch_devices)
             fetchStub.setLayoutResource(R.layout.pref_item)
-            fetchStub.inflate()
-
-            val fetch: View = view.findViewById(R.id.fetch_devices)
+            val fetch = fetchStub.inflate()
             (fetch.findViewById<TextView>(android.R.id.title)).setText(R.string.bt_fetch_devices_title)
             (fetch.findViewById<TextView>(android.R.id.summary)).setText(R.string.bt_fetch_devices_summ)
             fetch.setOnClickListener {

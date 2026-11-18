@@ -32,7 +32,7 @@ jobs:
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: '25.0.5'
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
@@ -91,4 +91,4 @@ jobs:
             app/build/outputs/mapping/release/usage.txt
             app/build/outputs/mapping/release/configuration.txt
           if-no-files-found: ignore
-          retention-days: 30
+          retention-days: 14

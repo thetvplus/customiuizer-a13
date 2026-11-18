@@ -984,7 +984,6 @@
     <string name="soft_reboot">Měkký restart systému</string>
     <string name="soft_reboot_ask">Provést nyní měkký restart\?</string>
     <string name="restart_launcher">Restartovat spouštěč</string>
-    <string name="open_inweb">Otevřít v prohlížeči</string>
     <string name="restart_systemui">Restartovat SystemUI</string>
     <string name="restart_securitycenter">Restartovat bezpečnostní centrum</string>
     <string name="backup_restore">Správa nastavení</string>

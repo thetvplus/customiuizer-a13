@@ -22,7 +22,6 @@ import androidx.recyclerview.widget.RecyclerView
 import java.io.InputStream
 import java.io.OutputStream
 import tv.withaibuild.customiuizer.mods.GlobalActions
-import tv.withaibuild.customiuizer.subs.WebPage
 import tv.withaibuild.customiuizer.utils.AppHelper
 import tv.withaibuild.customiuizer.utils.AppLocaleController
 import tv.withaibuild.customiuizer.utils.BackupRestore
@@ -60,9 +59,6 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
     protected var tailLayoutId = 0
 
     @JvmField
-    protected var pageUrl: String? = null
-
-    @JvmField
     protected val mapKeys = HashMap<Int, String>().apply {
         put(R.id.search_btn, "search")
         put(R.id.restartlauncher, "launcher")
@@ -73,7 +69,6 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
         put(R.id.backuprestore, "settings")
         put(R.id.resetsettings, "reset")
         put(R.id.about, "about")
-        put(R.id.openinweb, "openinweb")
     }
 
     protected fun getActionBar(): ActionBar? {
@@ -97,7 +92,7 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
                 val menuId = item.itemId
                 val menuKey = mapKeys[menuId]
                 when {
-                    activeMenus == "all" && (menuId == R.id.edit_confirm || menuId == R.id.openinweb) -> item.isVisible = false
+                    activeMenus == "all" && menuId == R.id.edit_confirm -> item.isVisible = false
                     activeMenus == "all" -> item.isVisible = true
                     menuKey != null && activeMenus.contains(menuKey) -> item.isVisible = true
                     else -> item.isVisible = false
@@ -150,10 +145,6 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
             }
             R.id.backuprestore -> {
                 showBackupRestoreDialog()
-                return true
-            }
-            R.id.openinweb -> {
-                Helpers.openURL(getValidContext(), pageUrl)
                 return true
             }
             R.id.softreboot -> {
@@ -297,11 +288,6 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
         cardList = null
         navigationPending = false
         super.onDestroyView()
-    }
-
-    fun openWebPage(url: String) {
-        val args = Bundle().apply { putString("pageUrl", url) }
-        openSubFragment(WebPage(), args, Helpers.SettingsType.Edit, Helpers.ActionBarType.HomeUp, "", R.layout.fragment_webpage)
     }
 
     fun openSubFragment(fragment: Fragment, args: Bundle?, settingsType: Helpers.SettingsType, abType: Helpers.ActionBarType, titleResId: Int, contentResId: Int) {
