@@ -328,3 +328,10 @@ SELECT DISTINCT method, field FROM method_field_accesses
 WHERE field_class = 'Lcom/android/systemui/statusbar/phone/NotificationIconContainer;'
   AND field_name IN ('MAX_DOTS', 'MAX_STATIC_ICONS', 'MAX_ICONS_ON_LOCKSCREEN')
 ORDER BY method, field;
+
+-- MiuiSystemUI.apk: initial and repeat binding of low-priority notification rows.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE callee_name IN ('shouldUseLowPriorityView', 'recheckLowPriorityViewAndInflate', 'setUseLowPriority')
+   OR (method_class LIKE '%LowPriorityInflationHelper;' AND callee_name IN ('isAmbient', 'isChildInGroup'))
+   OR (method_class LIKE '%NotificationContentInflater;' AND callee_name = 'makeLowPriorityContentView')
+ORDER BY method, callee;

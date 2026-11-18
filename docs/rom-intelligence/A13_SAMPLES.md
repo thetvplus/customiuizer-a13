@@ -168,6 +168,12 @@ MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 
 - xaga `MiuiSystemUI.apk!classes2.dex` 的 `NotificationIconAreaController.onNotificationIconChanged(boolean):void` 对状态栏容器调用 `miuiShowNotificationIcons(boolean):void`。可见时把三项上限设为 3，隐藏时设为 0，然后调用原生 `updateState():void`。veux 对应方法体可局部解码，可见时日常图标上限为 1。这就是默认值回退要使用原生可见性回调的原因。
 - `calculateIconXTranslations():void` 在普通静态布局读取 `MAX_STATIC_ICONS`，锁屏分支使用固定值 3。`calculateWidthFor(float):float` 读取 `MAX_ICONS_ON_LOCKSCREEN` 计算宽度。第 16 轮保持 A13 自定义值的原有字段映射和系统定位规则，属于 `A13_COMPAT_VARIANT`。veux 样本完整性有缺口，结论限兼容线索。[复查 SQL](../../tools/dexsql/maintenance_targets.sql)
 
+## 低优先级通知绑定
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 中，初次绑定的 `NotificationRowBinderImpl.inflateContentViews` 和行状态变化时的 `LowPriorityInflationHelper.recheckLowPriorityViewAndInflate` 都读取 `shouldUseLowPriorityView(NotificationEntry):boolean`。原生判断要求 `NotificationEntry.isAmbient()` 为 true 且条目不在组内。样本的 `isAmbient()` 固定返回 false，条目的 `getImportance()` 则读取当前 Ranking。
+- 原生绑定把判断结果写入 `RowContentBindParams.setUseLowPriority(boolean)` 后发起绑定。`NotificationContentInflater.createContentView` 在对应分支调用 `Notification.Builder.makeLowPriorityContentView(boolean)`。第 17 轮在原生成功返回 false 时，仅为最低重要性且符合分组条件的条目启用这个分支。
+- A13 初始版本与 MonwF 当前实现使用旧 `StatusBar.updateNotification` 路径。xaga 未找到对应入口。本轮采用 A13 已核实的绑定链，属于 `A13_COMPAT_VARIANT`。veux 局部解码显示相同的低优先级判断与模板分支，样本完整性有缺口。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/main/app/src/main/java/name/monwf/customiuizer/mods/System.java#L3171) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。

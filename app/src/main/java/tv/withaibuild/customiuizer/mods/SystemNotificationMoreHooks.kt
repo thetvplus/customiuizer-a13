@@ -3,6 +3,7 @@ package tv.withaibuild.customiuizer.mods
 import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 
@@ -845,21 +846,34 @@ object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun MinimalNotificationViewHook(lpparam: PackageReadyParam) {
-        ModuleHelper.hookAllMethods("com.android.systemui.statusbar.phone.StatusBar", lpparam.classLoader, "updateNotification", object : MethodHook() {
+        val preference = "system_minimalnotifview"
+        if (!MainModule.mPrefs.getBoolean(preference)) return
+        val loader = lpparam.classLoader
+        val entryClass = XposedHelpers.findClassIfExists(
+            "com.android.systemui.statusbar.notification.collection.NotificationEntry", loader
+        ) ?: return
+        val decision = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.notification.collection.legacy.LowPriorityInflationHelper",
+            loader, "shouldUseLowPriorityView", entryClass
+        ) ?: return
+        if (decision.returnType != Boolean::class.javaPrimitiveType) return
+        val getImportance = XposedHelpers.findMethodExactIfExists(entryClass, "getImportance") ?: return
+        val getSbn = XposedHelpers.findMethodExactIfExists(entryClass, "getSbn") ?: return
+        val groupManager = XposedHelpers.findFieldIfExists(decision.declaringClass, "mGroupManager") ?: return
+        val isChildInGroup = XposedHelpers.findMethodExactIfExists(
+            groupManager.type, "isChildInGroup", entryClass
+        ) ?: return
+
+        ModuleHelper.hookMethod(decision, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                if (param.getArgsCount() != 3) return
-                val entry = param.getArg(0)
-                val ranking = param.getArg(1)
-                val expandableRow = XposedHelpers.getObjectField(entry, "row")
-                val mNotificationData = XposedHelpers.getObjectField(param.thisObject, "mNotificationData")
-                val newLowPriority = XposedHelpers.callMethod(mNotificationData, "isAmbient", XposedHelpers.callMethod(ranking, "getKey")) as? Boolean == true &&
-                        !(XposedHelpers.callMethod(XposedHelpers.callMethod(ranking, "getNotification"), "isGroupSummary") as? Boolean ?: false)
-                val hasEntry = XposedHelpers.callMethod(mNotificationData, "get", XposedHelpers.getObjectField(entry, "key")) != null
-                val isLowPriority = XposedHelpers.callMethod(expandableRow, "isLowPriority") as? Boolean ?: false
-                XposedHelpers.callMethod(expandableRow, "setIsLowPriority", newLowPriority)
-                val hasLowPriorityChanged = hasEntry && isLowPriority != newLowPriority
-                XposedHelpers.callMethod(expandableRow, "setLowPriorityStateUpdated", hasLowPriorityChanged)
-                XposedHelpers.callMethod(expandableRow, "updateNotification", entry)
+                if (param.throwable != null || param.isSkipped || param.result != false) return
+                if (!MainModule.mPrefs.getBoolean(preference)) return
+                val entry = param.getArg(0) ?: return
+                if (getImportance.invoke(entry) != NotificationManager.IMPORTANCE_MIN) return
+                val notification = (getSbn.invoke(entry) as? StatusBarNotification)?.notification ?: return
+                if ((notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
+                val groups = groupManager.get(param.thisObject) ?: return
+                if (isChildInGroup.invoke(groups, entry) == false) param.result = true
             }
         })
     }
