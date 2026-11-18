@@ -950,7 +950,6 @@ ss - iki basamaklı saniye(09)</string>
     <string name="soft_reboot">Sistemi yeniden başlat</string>
     <string name="soft_reboot_ask">Sistem şimdi yeniden başlatılsın mı?</string>
     <string name="restart_launcher">Başlatıcıyı yeniden başlat</string>
-    <string name="open_inweb">Tarayıcıda aç</string>
     <string name="restart_systemui">Arayüzü yeniden başlat</string>
     <string name="restart_securitycenter">Güvenlik merkezini yeniden başlat</string>
     <string name="backup_restore">Ayarlar yönetimi</string>

@@ -78,6 +78,11 @@ object SystemAudioAndVisualAndMoreHooks {
     fun NoCallInterruptionHook(lpparam: SystemServerStartingParam) {
         val recordClass = XposedHelpers.findClass("com.android.server.TelephonyRegistry\$Record", lpparam.classLoader)
         val callingPackageField = XposedHelpers.findField(recordClass, "callingPackage")
+        // Both API 33 samples expose a String caller and a boolean event predicate.
+        // Check before either hook so a different ROM shape retains native behavior.
+        check(callingPackageField.type == String::class.java)
+        val eventMatcher = XposedHelpers.findMethodExact(recordClass, "matchTelephonyCallbackEvent", Int::class.javaPrimitiveType)
+        check(eventMatcher.returnType == Boolean::class.javaPrimitiveType)
 
         // API 33 stores event IDs in eventList. Filter dispatch without modifying
         // the listener's subscriptions, so removing an app from the list restores it.
@@ -98,9 +103,11 @@ object SystemAudioAndVisualAndMoreHooks {
             override fun before(param: BeforeHookCallback) {
                 if (param.getArgsCount() <= 4) return
                 if (!MainModule.mPrefs.getBoolean("system_ignorecalls")) return
-                if ("AudioFocus_For_Phone_Ring_And_Calls" == param.getArg(4) && audioFocusPkg != null &&
-                    MainModule.mPrefs.getStringSet("system_ignorecalls_apps").contains(audioFocusPkg))
-                    param.returnAndSkip(1)
+                if ("AudioFocus_For_Phone_Ring_And_Calls" != param.getArg(4)) return
+                val focusedPackage = audioFocusPkg ?: return
+                if (focusedPackage in MainModule.mPrefs.getStringSet("system_ignorecalls_apps")) {
+                    param.returnAndSkip(AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+                }
             }
 
             override fun after(param: AfterHookCallback) {

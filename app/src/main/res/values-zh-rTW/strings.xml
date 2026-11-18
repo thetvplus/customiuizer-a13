@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">米客 A13</string>
     <string name="app_about">關於</string>
+    <string name="about_project">專案</string>
+    <string name="about_repository">原始碼</string>
+    <string name="about_releases">正式版本</string>
+    <string name="about_support">透過 PayPal 支持專案</string>
+    <string name="about_link_unavailable">沒有可開啟此連結的應用程式。</string>
+    <string name="about_notes">使用說明</string>
+    <string name="about_compatibility">相容範圍</string>
+    <string name="about_platform">適用於 MIUI 14 / Android 13。HyperOS 1 / Android 13 為實驗性相容。需要 libxposed API 102 與 arm64-v8a。</string>
+    <string name="about_restart">重新啟動需求</string>
+    <string name="about_unsupported_title">不支援的選項</string>
     <string name="about_version">版本：%1$s</string>
     <string name="about_maintainer">維護：thetvplus</string>
     <string name="about_based_on">基於 Mikanoshi 與 MonwF 的開源工作</string>
@@ -60,6 +71,7 @@
     <string name="system_batteryindicator_test_title">測試</string>
     <string name="system_batteryindicator_test_summ" formatted="false">未充電時顯示電量條</string>
     <string name="system_statusbarheight_title">狀態欄高度</string>
+    <string name="system_statusbarheight_summ">重新啟動裝置後套用新高度。</string>
     <string name="system_statusbarcolor_title">狀態欄背景顏色</string>
     <string name="system_statusbarcolor_summ">盡量將狀態欄和應用操作欄的背景顏色保持一致</string>
     <string name="system_statusbarcolor_apps_title">黑名單</string>
@@ -933,7 +945,6 @@
     <string name="soft_reboot">軟重啟</string>
     <string name="soft_reboot_ask">現在執行軟重啟嗎？</string>
     <string name="restart_launcher">重啟桌面</string>
-    <string name="open_inweb">在瀏覽器中打開</string>
     <string name="restart_systemui">重啟系統界面</string>
     <string name="restart_securitycenter">重啟手機管家</string>
     <string name="backup_restore">設置管理</string>

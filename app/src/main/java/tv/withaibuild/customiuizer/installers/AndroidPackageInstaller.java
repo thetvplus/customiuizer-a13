@@ -23,7 +23,7 @@ public final class AndroidPackageInstaller {
      * The function is package-visible so it can be tested with a synthetic PrefMap.
      */
     static boolean isAnyFeatureEnabled(PrefMap<String, Object> prefs) {
-        return prefs.getInt("system_statusbarheight", 19) > 19
+        return SystemStatusBarAndClockHooks.hasCustomStatusBarHeight(prefs)
             || prefs.getInt("controls_navbarheight", 19) > 19
             || prefs.getStringAsInt("system_allrotations2", 1) > 1
             || prefs.getStringAsInt("system_rotateanim", 1) > 1
@@ -41,7 +41,7 @@ public final class AndroidPackageInstaller {
 
         FeatureRuntime androidRuntime = null;
 
-        if (MainModule.mPrefs.getInt("system_statusbarheight", 19) > 19) SystemStatusBarAndClockHooks.StatusBarHeightRes();
+        if (SystemStatusBarAndClockHooks.hasCustomStatusBarHeight(MainModule.mPrefs)) SystemStatusBarAndClockHooks.StatusBarHeightRes();
         if (MainModule.mPrefs.getInt("controls_navbarheight", 19) > 19) Controls.NavbarHeightRes();
 
         boolean listenerNeeded = false;

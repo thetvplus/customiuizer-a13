@@ -33,7 +33,6 @@ class R8AuditReport:
     packaging_merges: list[str]
     xposed_entry_retained: bool
     hooker_retained: bool
-    gateway_launcher_retained: bool
 
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(asdict(self), indent=indent, ensure_ascii=False, sort_keys=True)
@@ -59,7 +58,6 @@ class R8AuditReport:
             lines.append(f"- `{e}`")
         lines += ["", "## Reflection / Xposed entry", "", f"- XposedModule retained: {self.xposed_entry_retained}"]
         lines.append(f"- Hooker retained: {self.hooker_retained}")
-        lines.append(f"- GatewayLauncher retained: {self.gateway_launcher_retained}")
         return "\n".join(lines)
 
 
@@ -146,9 +144,6 @@ def audit(build_gradle: Path, proguard: Path) -> R8AuditReport:
         ),
         hooker_retained=any(
             "XposedInterface$Hooker" in r for r in proguard_rules
-        ),
-        gateway_launcher_retained=any(
-            "tv.withaibuild.customiuizer.GateWayLauncher" in r for r in proguard_rules
         ),
     )
 

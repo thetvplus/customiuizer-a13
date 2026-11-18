@@ -383,6 +383,7 @@
 		<tv.withaibuild.customiuizer.prefs.SeekBarPreference
 			android:key="pref_key_system_statusbarheight"
 			android:title="@string/system_statusbarheight_title"
+			android:summary="@string/system_statusbarheight_summ"
 			android:defaultValue="19"
 			miuizer:offtext="@string/array_default"
 			miuizer:minValue="19"
@@ -478,7 +479,6 @@
 		<tv.withaibuild.customiuizer.prefs.CheckBoxPreferenceEx
 			android:key="pref_key_system_hidemoreicon"
 			android:summary="@string/system_hidemoreicon_summ"
-			app:isPreferenceVisible="false"
 			android:title="@string/system_hidemoreicon_title"
 			android:defaultValue="false" />
 

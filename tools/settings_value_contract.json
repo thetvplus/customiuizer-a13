@@ -14,7 +14,7 @@
     "prefs_controls": "0c2399958a3fedeb043da6106997a6f2d9696c773111651f23bf83933a531946",
     "prefs_launcher": "846b6db8a3f7667af1362d65e2c9721c7f70c66fb7d0a171265bc43b9ca720bf",
     "prefs_main": "151e7f45abeeccbc20892ac80e238fab00288dcfc68601ae95ebabfb6d5b7c65",
-    "prefs_system": "183b94ec288ccb4a502f0c08121c7d63df4e175ef79c02bf44f428ac825f3580",
+    "prefs_system": "c28c0d4118ebde4e93253c3b9a985a08600d59d2942535baee7feb7eb12250af",
     "prefs_system_airplanemode": "a887680613cc1d60573048dc4604759ad0935f914404a42ff7d684abd19a2e31",
     "prefs_system_alarmonlock": "4bdd077a8665c460481bb57a64ab7a4d29cc983d48f064419f0c95e62625ac0e",
     "prefs_system_albumartonlock": "2cc376296e816834e19d0d3aa66cb56897ee14e4be019a6f657391f64adbb1ba",
@@ -44,6 +44,9 @@
     "prefs_controls_cat": "c3af7989a2c6f6fa7bb67526ea3bd6d299aaa6a9ba9f73b3f41794f7220aa3ff"
   },
   "added_navigation_keys": [
-    "pref_key_launcher_cat_layout"
+    "pref_key_launcher_cat_layout",
+    "about_repository",
+    "about_releases",
+    "about_support"
   ]
 }

@@ -85,6 +85,12 @@ class LauncherB3AR1FatalBoundaryTest {
     }
 
     private fun lpparam(): PackageReadyParam {
+        val legacyLoader = object : ClassLoader(parentClassLoader) {
+            override fun loadClass(name: String): Class<*> {
+                if (name == "com.miui.home.launcher.shortcuts.ShortcutMenuManager") throw ClassNotFoundException(name)
+                return super.loadClass(name)
+            }
+        }
         return Proxy.newProxyInstance(
             parentClassLoader,
             arrayOf(PackageReadyParam::class.java)
@@ -92,7 +98,7 @@ class LauncherB3AR1FatalBoundaryTest {
             when (method.name) {
                 "getPackageName" -> "com.mi.android.globallauncher"
                 "getProcessName" -> "com.mi.android.globallauncher"
-                "getClassLoader" -> parentClassLoader
+                "getClassLoader" -> legacyLoader
                 else -> null
             }
         } as PackageReadyParam

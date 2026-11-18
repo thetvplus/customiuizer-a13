@@ -16,6 +16,7 @@ import tv.withaibuild.customiuizer.mods.SystemNotificationAndShareHooks;
 import tv.withaibuild.customiuizer.mods.SystemNotificationMoreHooks;
 import tv.withaibuild.customiuizer.mods.SystemSecurityAndSystemHooks;
 import tv.withaibuild.customiuizer.mods.SystemSettingsMoreHooks;
+import tv.withaibuild.customiuizer.mods.SystemStatusBarAndClockHooks;
 import tv.withaibuild.customiuizer.mods.Various;
 import tv.withaibuild.customiuizer.mods.catalog.FeatureDispatcher;
 import tv.withaibuild.customiuizer.utils.UsbDefaultFunctionMapper;
@@ -29,6 +30,7 @@ public final class SystemServerInstaller {
     public static void install(SystemServerStartingParam lpparam) {
         FeatureRuntime serverRuntime = FeatureDispatcher.createRuntime("android", lpparam, lpparam.getClassLoader(), MainModule.mPrefs);
         FeatureDispatcher.installById("packagePermissions", serverRuntime);
+        SystemStatusBarAndClockHooks.StatusBarHeightSystemHook(lpparam);
         if (needGlobalActions()) GlobalActions.setupGlobalActions(lpparam);
 
         if (MainModule.mPrefs.getBoolean("system_screenshot_overlay")) {
@@ -37,7 +39,6 @@ public final class SystemServerInstaller {
 
         if (MainModule.mPrefs.getBoolean("system_notify_openinfw")
             || MainModule.mPrefs.getBoolean("system_fw_forcein_actionsend")
-            || MainModule.mPrefs.getBoolean("system_betterpopups_allowfloat")
         ) {
             FeatureDispatcher.installById("openAppInFreeForm", serverRuntime);
         }

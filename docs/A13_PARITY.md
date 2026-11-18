@@ -26,6 +26,7 @@ FEATURE PARITY != CODE PARITY；禁止整文件盲拷或混用 ROM target。
 | --- | --- |
 | 构建与 API 102 安装 | 工程参考 [A14 工具链](https://github.com/thetvplus/customiuizer-a14/tree/9feacdc6736de98232958ea24b8f722cfb3eff85) 与 [API 102 迁移](https://github.com/thetvplus/customiuizer-a14/tree/cb89042b0ff9e7ce1e9a8efe31ee696fa0694e06)。A13 入口、作用域与回调合同见 [架构](../ARCHITECTURE.md)。 |
 | 系统与应用 Hook | 来电过滤、通知渠道、熄屏动画、Toast、焦点及安全中心电池温度为 `A13_COMPAT_VARIANT`。按应用振动、即时音量、Dock 取消及滑杆保持 `UPSTREAM_INTENT_EQUIVALENT`。振幅 / 定时调整为 `DEAD_UPSTREAM_PATH`，限两份 services 样本，旧备份仍兼容。 |
+| 状态栏高度 | `A13_COMPAT_VARIANT`。参考 [A14 状态栏高度](https://github.com/thetvplus/customiuizer-a14/tree/06ba61e7040b4f275af9c678c82fa62793acaadf/app/src/main/java/tv/withaibuild/customiuizer/mods/statusbarheight) 对齐可见栏与系统窗口几何的行为。A13 以自己的 DisplayPolicy ABI 更新系统窗口配置，复用原生实时 Insets 链。保留 19 默认值和 20–80 dp，重启设备应用。[ROM 证据](rom-intelligence/A13_SAMPLES.md#状态栏窗口与系统高度) |
 | 设置页 | 参考 [A14 交互](https://github.com/thetvplus/customiuizer-a14/tree/eae2529d1af5e513c8a58c8ce1d198d371e63516)，保留 A13 XML preference 和现有设置模型。 |
 | 电源菜单与双排信号 | `A13_COMPAT_VARIANT`。保留 A13 MAML 和目标 SystemUI 视图链。样本与未确认的目标见 [ROM 记录](rom-intelligence/A13_SAMPLES.md)。 |
 | 工程治理 | 参考 [A14 当时主线](https://github.com/thetvplus/customiuizer-a14/tree/87118e5d76833ae43a239b5832b0194ec014649f) 的工程判断、只读 Review 和按影响选测。运行时与正式发行边界由 A13 维护。 |

@@ -9,6 +9,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.PowerManager
+import android.service.notification.StatusBarNotification
 import android.text.format.DateFormat
 import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicLong
@@ -706,41 +707,116 @@ object SystemStatusBarClockAndMoreHooks {
 
     @JvmStatic
     fun ExpandNotificationsHook(lpparam: PackageReadyParam) {
-        val feedbackMethod = "setFeedbackIcon"
-        ModuleHelper.hookAllMethods("com.android.systemui.statusbar.notification.row.ExpandableNotificationRow", lpparam.classLoader, feedbackMethod, object : MethodHook() {
+        if (MainModule.mPrefs.getStringAsInt("system_expandnotifs", 1) !in 2..3) return
+        val rowClass = XposedHelpers.findClassIfExists(
+            "com.android.systemui.statusbar.notification.row.ExpandableNotificationRow", lpparam.classLoader
+        ) ?: return
+        val setter = XposedHelpers.findMethodExactIfExists(
+            rowClass, "setSystemExpanded", Boolean::class.javaPrimitiveType
+        ) ?: return
+        if (setter.returnType != Void.TYPE) return
+        val onKeyguard = XposedHelpers.findMethodExactIfExists(rowClass, "isOnKeyguard") ?: return
+        val getEntry = XposedHelpers.findMethodExactIfExists(rowClass, "getEntry") ?: return
+        val getSbn = XposedHelpers.findMethodExactIfExists(getEntry.returnType, "getSbn") ?: return
+
+        ModuleHelper.hookMethod(setter, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                val mOnKeyguard = XposedHelpers.callMethod(param.thisObject, "isOnKeyguard") as? Boolean ?: false
-                if (!mOnKeyguard) {
-                    val notification = XposedHelpers.getObjectField(XposedHelpers.callMethod(param.thisObject, "getEntry"), "mSbn")
-                    val pkgName = XposedHelpers.callMethod(notification, "getPackageName") as? String ?: return
-                    val opt = MainModule.mPrefs.getString("system_expandnotifs", "1").toInt()
-                    val isSelected = MainModule.mPrefs.getStringSet("system_expandnotifs_apps").contains(pkgName)
-                    if (opt == 2 && !isSelected || opt == 3 && isSelected)
-                        XposedHelpers.callMethod(param.thisObject, "setSystemExpanded", true)
-                }
+                if (param.getArg(0) != false) return
+                val values = MainModule.mPrefs.asMap()
+                val rawMode = values["pref_key_system_expandnotifs"]
+                val mode = (rawMode as? Number)?.toInt() ?: (rawMode as? String)?.toIntOrNull()
+                if (mode != 2 && mode != 3) return
+                val row = param.thisObject
+                if (onKeyguard.invoke(row) != false) return
+                val entry = getEntry.invoke(row) ?: return
+                val packageName = (getSbn.invoke(entry) as? StatusBarNotification)?.packageName ?: return
+                val selected = (values["pref_key_system_expandnotifs_apps"] as? Set<*>)?.contains(packageName) == true
+                if (selected == (mode == 3)) param.args[0] = true
             }
         })
     }
 
     @JvmStatic
     fun ExpandHeadsUpHook(lpparam: PackageReadyParam) {
-        ModuleHelper.hookAllMethods("com.android.systemui.statusbar.notification.row.ExpandableNotificationRow", lpparam.classLoader, "setHeadsUp", object : MethodHook() {
+        if (MainModule.mPrefs.getStringAsInt("system_expandheadups", 1) !in 2..3) return
+        val loader = lpparam.classLoader
+        val managerClass = XposedHelpers.findClassIfExists("com.android.systemui.statusbar.policy.HeadsUpManager", loader) ?: return
+        val alertClass = XposedHelpers.findClassIfExists("com.android.systemui.statusbar.AlertingNotificationManager\$AlertEntry", loader) ?: return
+        val added = XposedHelpers.findMethodExactIfExists(managerClass, "onAlertEntryAdded", alertClass) ?: return
+        if (added.returnType != Void.TYPE) return
+        val getActiveAlert = XposedHelpers.findMethodExactIfExists(managerClass, "getHeadsUpEntry", String::class.java) ?: return
+        val handler = XposedHelpers.findFieldIfExists(managerClass, "mHandler") ?: return
+        val alertEntry = XposedHelpers.findFieldIfExists(alertClass, "mEntry") ?: return
+        val removeTask = XposedHelpers.findFieldIfExists(alertClass, "mRemoveAlertRunnable") ?: return
+        val getKey = XposedHelpers.findMethodExactIfExists(alertEntry.type, "getKey") ?: return
+        val getSbn = XposedHelpers.findMethodExactIfExists(alertEntry.type, "getSbn") ?: return
+        val getRow = XposedHelpers.findMethodExactIfExists(alertEntry.type, "getRow") ?: return
+        val rowClass = getRow.returnType
+        if (!View::class.java.isAssignableFrom(rowClass)) return
+        fun rowMethod(name: String) = XposedHelpers.findMethodExactIfExists(rowClass, name)
+        val rowEntry = XposedHelpers.findFieldIfExists(rowClass, "mEntry") ?: return
+        val isHeadsUp = rowMethod("isHeadsUp") ?: return
+        val isRemoved = rowMethod("isRemoved") ?: return
+        val onKeyguard = rowMethod("isOnKeyguard") ?: return
+        val isPinned = rowMethod("isPinned") ?: return
+        val isExpanded = rowMethod("isExpanded") ?: return
+        val isGroupExpanded = rowMethod("isGroupExpanded") ?: return
+        val showPublic = rowMethod("shouldShowPublic") ?: return
+        val expand = rowMethod("expandNotification") ?: return
+        val expandedWhenPinned = XposedHelpers.findFieldIfExists(rowClass, "mExpandedWhenPinned") ?: return
+        val lowPriority = XposedHelpers.findFieldIfExists(rowClass, "mIsLowPriority") ?: return
+        val membership = XposedHelpers.findFieldIfExists(rowClass, "mGroupMembershipManager") ?: return
+        val isGroupSummary = XposedHelpers.findMethodExactIfExists(membership.type, "isGroupSummary", alertEntry.type) ?: return
+
+        ModuleHelper.hookMethod(added, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                val mOnKeyguard = XposedHelpers.callMethod(param.thisObject, "isOnKeyguard") as? Boolean ?: false
-                val showHeadsUp = param.getArg(0) as? Boolean ?: false
-                if (!mOnKeyguard && showHeadsUp) {
-                    val notifyRow = param.thisObject as? View ?: return
-                    val notification = XposedHelpers.getObjectField(XposedHelpers.callMethod(param.thisObject, "getEntry"), "mSbn")
-                    val pkgName = XposedHelpers.callMethod(notification, "getPackageName") as? String ?: return
-                    val opt = MainModule.mPrefs.getString("system_expandheadups", "1").toInt()
-                    val isSelected = MainModule.mPrefs.getStringSet("system_expandheadups_apps").contains(pkgName)
-                    if (opt == 2 && !isSelected || opt == 3 && isSelected) {
-                        notifyRow.postDelayed({
-                            ModuleHelper.guarded { XposedHelpers.callMethod(param.thisObject, "expandNotification") }
-                        }, 60)
+                if (param.throwable != null || param.isSkipped) return
+                val alert = param.getArg(0) ?: return
+                val entry = alertEntry.get(alert) ?: return
+                val row = getRow.invoke(entry) as? View ?: return
+                if (onKeyguard.invoke(row) == true || !shouldExpandHeadsUp(getSbn.invoke(entry))) return
+                val key = getKey.invoke(entry) as? String ?: return
+                val systemHandler = handler.get(param.thisObject) as? Handler ?: return
+                val managerRef = WeakReference(param.thisObject)
+                // SystemUI replaces this runnable on each admission, including reuse from the pool.
+                val taskRef = WeakReference(removeTask.get(alert) ?: return)
+                systemHandler.postDelayed({
+                    ModuleHelper.guarded {
+                        val manager = managerRef.get() ?: return@guarded
+                        val task = taskRef.get() ?: return@guarded
+                        val active = getActiveAlert.invoke(manager, key) ?: return@guarded
+                        if (removeTask.get(active) !== task) return@guarded
+                        val current = alertEntry.get(active) ?: return@guarded
+                        val currentRow = getRow.invoke(current) as? View ?: return@guarded
+                        if (!currentRow.isAttachedToWindow || rowEntry.get(currentRow) !== current ||
+                            isRemoved.invoke(currentRow) == true || isHeadsUp.invoke(currentRow) != true ||
+                            onKeyguard.invoke(currentRow) == true || !shouldExpandHeadsUp(getSbn.invoke(current))
+                        ) return@guarded
+
+                        // Check the state the native click will toggle.
+                        val expanded = isExpanded.invoke(currentRow) == true
+                        val groupClick = showPublic.invoke(currentRow) == false &&
+                            (!lowPriority.getBoolean(currentRow) || expanded) &&
+                            isGroupSummary.invoke(membership.get(currentRow), current) == true
+                        val alreadyExpanded = when {
+                            groupClick -> isGroupExpanded.invoke(currentRow) == true
+                            isPinned.invoke(currentRow) == true -> expandedWhenPinned.getBoolean(currentRow)
+                            else -> expanded
+                        }
+                        if (!alreadyExpanded) expand.invoke(currentRow)
                     }
-                }
+                }, 60)
             }
         })
+    }
+
+    private fun shouldExpandHeadsUp(notification: Any?): Boolean {
+        val packageName = (notification as? StatusBarNotification)?.packageName ?: return false
+        val prefs = MainModule.mPrefs
+        return when (prefs.getStringAsInt("system_expandheadups", 1)) {
+            2 -> packageName !in prefs.getStringSet("system_expandheadups_apps")
+            3 -> packageName in prefs.getStringSet("system_expandheadups_apps")
+            else -> false
+        }
     }
 }

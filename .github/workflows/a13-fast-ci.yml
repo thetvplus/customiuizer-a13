@@ -46,7 +46,7 @@ jobs:
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: '25.0.5'
 
       - name: Set up Android SDK
         if: steps.impact.outputs.scope != 'docs'

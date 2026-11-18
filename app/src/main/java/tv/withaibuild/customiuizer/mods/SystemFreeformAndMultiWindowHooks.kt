@@ -464,19 +464,24 @@ object SystemFreeformAndMultiWindowHooks {
 
     @JvmStatic
     fun BetterPopupsAllowFloatHook(lpparam: PackageReadyParam) {
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.notification.NotificationSettingsManager", lpparam.classLoader, "canSlide", String::class.java, object : MethodHook() {
+        val enabledKey = "system_betterpopups_allowfloat"
+        if (!MainModule.mPrefs.getBoolean(enabledKey)) return
+        val canSlide = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.notification.NotificationSettingsManager",
+            lpparam.classLoader, "canSlide", String::class.java
+        ) ?: return
+        if (canSlide.returnType != Boolean::class.javaPrimitiveType) return
+        ModuleHelper.hookMethod(canSlide, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                val pkgName = param.args[0] as? String ?: return
-                val selectedApps = MainModule.mPrefs.getStringSet("system_betterpopups_allowfloat_apps")
-                val selectedAppsBlack = MainModule.mPrefs.getStringSet("system_betterpopups_allowfloat_apps_black")
-                if (selectedApps.contains(pkgName)) param.setResult(true)
-                else if (selectedAppsBlack.contains(pkgName)) param.setResult(false)
-            }
-        })
-
-        ModuleHelper.hookAllMethods("com.android.systemui.statusbar.notification.policy.MiniWindowPolicy", lpparam.classLoader, "canSlidePackage", object : MethodHook() {
-            override fun before(param: BeforeHookCallback) {
-                param.returnAndSkip(true)
+                if (param.throwable != null || param.isSkipped || param.result !is Boolean) return
+                val pkgName = param.getArg(0) as? String ?: return
+                val prefs = MainModule.mPrefs
+                if (!prefs.getBoolean(enabledKey)) return
+                val values = prefs.asMap()
+                val allowed = values["pref_key_system_betterpopups_allowfloat_apps"] as? Set<*>
+                val denied = values["pref_key_system_betterpopups_allowfloat_apps_black"] as? Set<*>
+                if (allowed?.contains(pkgName) == true) param.result = true
+                else if (denied?.contains(pkgName) == true) param.result = false
             }
         })
     }

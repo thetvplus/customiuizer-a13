@@ -1,5 +1,6 @@
 package tv.withaibuild.customiuizer.utils
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.DialogInterface
 import android.content.SharedPreferences
@@ -19,6 +20,10 @@ import tv.withaibuild.customiuizer.mods.GlobalActions
 object AppHelper {
 
     const val prefsName: String = "customiuizer_prefs"
+
+    // The alias name uses the manifest namespace, including in builds with a different app ID.
+    internal fun launcherComponent(context: Context): ComponentName =
+        ComponentName(context, "tv.withaibuild.customiuizer.GateWayLauncher")
 
     @JvmField
     var appPrefs: SharedPreferences? = null

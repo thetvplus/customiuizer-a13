@@ -1,8 +1,9 @@
 package android.view.accessibility;
 
-/** JVM model of the ROM's cached non-interactive timeout minimum; no Binder or device claims. */
+/** JVM model of the ROM's cached timeout minimum; no Binder or device claims. */
 public class AccessibilityManager {
     public static final int FLAG_CONTENT_TEXT = 2;
+    public static final int FLAG_CONTENT_CONTROLS = 4;
     public int minimum;
     public int calls;
     public int lastBase;
@@ -12,6 +13,6 @@ public class AccessibilityManager {
         calls++;
         lastBase = originalTimeout;
         lastFlags = flags;
-        return (flags & 3) != 0 ? Math.max(originalTimeout, minimum) : originalTimeout;
+        return (flags & 7) != 0 ? Math.max(originalTimeout, minimum) : originalTimeout;
     }
 }

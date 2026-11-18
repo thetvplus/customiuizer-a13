@@ -55,8 +55,8 @@ val hasReleaseSigning = if (officialRelease && keystorePropertiesFile != null &&
     false
 }
 
-val lastVersion = 143
-val lastVersionName = "r13.14.2"
+val lastVersion = 144
+val lastVersionName = "r13.14.3"
 val releaseSourceSha = providers.gradleProperty("releaseSourceSha").orElse("")
 if (officialRelease) {
     check(hasReleaseSigning) { "Official A13 build requires complete external signing properties" }
@@ -268,4 +268,14 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.libxposed.api)
+
+    constraints {
+        // AGP resolves lint's host dependencies separately from the buildscript.
+        listOf(libs.host.guava, libs.commons.lang3, libs.host.bcprov, libs.host.bcpkix,
+            libs.host.bcutil, libs.host.httpclient).forEach {
+            add("androidLintTool", it) {
+                because("Keep lint's host dependencies on the patched build-tool versions")
+            }
+        }
+    }
 }

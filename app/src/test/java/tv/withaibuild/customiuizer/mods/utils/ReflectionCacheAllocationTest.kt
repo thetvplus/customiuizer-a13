@@ -54,7 +54,7 @@ class ReflectionCacheAllocationTest {
     private fun allocatedBytes(counter: AllocationCounter): Long {
         return counter.allocatedBytes.invoke(
             counter.bean,
-            Thread.currentThread().id
+            Thread.currentThread().threadId()
         ) as Long
     }
 

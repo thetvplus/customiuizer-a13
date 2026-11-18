@@ -16,7 +16,6 @@
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
@@ -44,7 +43,6 @@
         android:supportsRtl="true"
         android:name=".MainApplication"
         android:usesCleartextTraffic="true"
-        android:requestLegacyExternalStorage="true"
         tools:ignore="GoogleAppIndexingWarning">
 
         <uses-library android:name="com.miui.system" android:required="false" />
@@ -70,11 +68,7 @@
             android:name=".GateWayLauncher"
             android:label="@string/title_activity_main"
             android:targetActivity=".MainActivity"
-            android:taskAffinity="${applicationId}.settings"
-            android:allowTaskReparenting="true"
-            android:clearTaskOnLaunch="true"
-            android:enabled="true"
-            android:excludeFromRecents="true">
+            android:enabled="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

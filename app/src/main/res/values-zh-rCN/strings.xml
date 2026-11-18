@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">米客 A13</string>
-    <string name="app_slogan" translatable="false">MIUI 14 / Android 13 · libxposed API 102</string>
+    <string name="app_name">米客 A13</string>
     <string name="app_about">关于</string>
+    <string name="about_project">项目</string>
+    <string name="about_repository">源代码</string>
+    <string name="about_releases">正式版本</string>
+    <string name="about_support">通过 PayPal 支持项目</string>
+    <string name="about_link_unavailable">没有可打开此链接的应用。</string>
+    <string name="about_notes">使用说明</string>
+    <string name="about_compatibility">兼容范围</string>
+    <string name="about_platform">面向 MIUI 14 / Android 13。HyperOS 1 / Android 13 为实验兼容。需要 libxposed API 102 和 arm64-v8a。</string>
+    <string name="about_restart">重启要求</string>
+    <string name="about_unsupported_title">不支持的选项</string>
     <string name="about_version">版本：%1$s</string>
     <string name="about_maintainer">维护：thetvplus</string>
     <string name="about_based_on">基于 Mikanoshi 与 MonwF 的开源工作</string>
@@ -71,6 +80,7 @@
     <string name="system_batteryindicator_test_title">测试</string>
     <string name="system_batteryindicator_test_summ">未充电时显示电量条</string>
     <string name="system_statusbarheight_title">状态栏高度</string>
+    <string name="system_statusbarheight_summ">重启设备后应用新高度。</string>
     <string name="system_statusbar_iconsize_title">图标大小</string>
     <string name="system_statusbarcolor_title">状态栏背景颜色</string>
     <string name="system_statusbarcolor_summ">尽量将状态栏和应用操作栏的背景颜色保持一致</string>
@@ -951,7 +961,6 @@
     <string name="soft_reboot">软重启</string>
     <string name="soft_reboot_ask">现在执行软重启吗？</string>
     <string name="restart_launcher">重启桌面</string>
-    <string name="open_inweb">在浏览器中打开</string>
     <string name="backup_restore">备份与恢复</string>
     <string name="reset_settings">重置模块设置</string>
     <string name="reset_settings_done">重置成功，请重启设备</string>

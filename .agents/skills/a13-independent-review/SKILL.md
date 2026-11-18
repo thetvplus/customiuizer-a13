@@ -1,6 +1,6 @@
 ---
 name: a13-independent-review
-description: 独立、只读地审查指定的 CustoMIUIzer A13 Git diff 或完整项目基线，查找可执行的正确性、安全、ROM 兼容、生命周期、资源和性能回归。
+description: 独立、只读地审查指定的 Customiuizer A13 Git diff 或完整项目基线，查找可执行的正确性、安全、ROM 兼容、生命周期、资源和性能回归。
 ---
 
 # A13 独立审查

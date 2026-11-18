@@ -199,7 +199,7 @@ object SystemNotificationAndShareHooks {
         ModuleHelper.hookAllMethods("com.android.systemui.statusbar.notification.row.NotificationContentInflaterInjector", lpparam.classLoader, "createMiuiPublicView", textColorHook)
     }
 
-    var abHeight = 39
+    private const val ACTION_BUTTON_HEIGHT_DP = 39
 
     @JvmStatic
     fun CompactNotificationsHook(lpparam: PackageReadyParam) {
@@ -211,7 +211,7 @@ object SystemNotificationAndShareHooks {
                 val container = mView.findViewById<FrameLayout>(mView.resources.getIdentifier("actions_container", "id", "android"))
                 container ?: return
                 val density = mView.resources.displayMetrics.density
-                val height = Math.round(density * abHeight)
+                val height = Math.round(density * ACTION_BUTTON_HEIGHT_DP)
                 val actions = container.getChildAt(0) as? ViewGroup ?: return
                 val lp1 = actions.layoutParams as? FrameLayout.LayoutParams ?: return
                 lp1.height = height

@@ -7,5 +7,6 @@ class Folder : View(null) {
         super.onFinishInflate()
     }
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {}
+    fun updateViewsLayout() {}
     fun resetViewsLayoutParams() {}
 }

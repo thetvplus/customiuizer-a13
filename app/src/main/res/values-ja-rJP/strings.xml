@@ -976,7 +976,6 @@
     <string name="soft_reboot">ソフトリブート</string>
     <string name="soft_reboot_ask">今すぐにソフトリブートを実行しますか?</string>
     <string name="restart_launcher">ランチャーを再起動</string>
-    <string name="open_inweb">ブラウザを開く</string>
     <string name="restart_systemui">SystemUIを再起動</string>
     <string name="restart_securitycenter">セキュリティセンターを再起動</string>
     <string name="backup_restore">設定の管理</string>

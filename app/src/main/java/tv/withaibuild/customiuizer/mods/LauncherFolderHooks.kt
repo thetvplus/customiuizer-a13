@@ -91,8 +91,13 @@ object LauncherFolderHooks {
             }
         })
 
-        ModuleHelper.findAndHookMethodSilently("com.miui.home.launcher.Folder", lpparam.classLoader, "resetViewsLayoutParams", object : MethodHook() {
+        val folderClass = "com.miui.home.launcher.Folder"
+        val loader = lpparam.classLoader
+        val updateViews = XposedHelpers.findMethodExactIfExists(folderClass, loader, "updateViewsLayout")
+        val layoutUpdate = if (updateViews?.returnType == Void.TYPE) "updateViewsLayout" else "resetViewsLayoutParams"
+        ModuleHelper.findAndHookMethodSilently(folderClass, loader, layoutUpdate, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
+                if (param.throwable != null || param.isSkipped) return
                 applyFolderWidth(param.getThisObject() ?: return)
             }
         })

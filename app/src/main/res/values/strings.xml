@@ -1,7 +1,17 @@
 <resources>
-    <string name="app_name" translatable="false">米客 A13</string>
+    <string name="app_name">Customiuizer A13</string>
     <string name="app_slogan" translatable="false">MIUI 14 / Android 13 · libxposed API 102</string>
     <string name="app_about">About</string>
+    <string name="about_project">Project</string>
+    <string name="about_repository">Source code</string>
+    <string name="about_releases">Official releases</string>
+    <string name="about_support">Support on PayPal</string>
+    <string name="about_link_unavailable">No app is available to open this link.</string>
+    <string name="about_notes">Notes</string>
+    <string name="about_compatibility">Compatibility</string>
+    <string name="about_platform">Targets MIUI 14 on Android 13. HyperOS 1 on Android 13 is experimental. Requires libxposed API 102 and arm64-v8a.</string>
+    <string name="about_restart">Restart requirements</string>
+    <string name="about_unsupported_title">Unsupported options</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_maintainer">Maintained by thetvplus</string>
     <string name="about_based_on">Based on open-source work by Mikanoshi and MonwF</string>
@@ -77,6 +87,7 @@
     <string name="system_batteryindicator_test_title">Test</string>
     <string name="system_batteryindicator_test_summ" formatted="false">Animate bar from 100% to 0% in discharging state</string>
     <string name="system_statusbarheight_title">Status bar height</string>
+    <string name="system_statusbarheight_summ">Restart the device to apply the new height.</string>
     <string name="system_statusbar_iconsize_title">Status bar icon size</string>
     <string name="system_statusbarcolor_title">Status bar background color</string>
     <string name="system_statusbarcolor_summ">Make status bar and app\'s action bar background colors the same where possible</string>
@@ -1026,7 +1037,6 @@
     <string name="soft_reboot">Soft reboot</string>
     <string name="soft_reboot_ask">Perform soft reboot now?</string>
     <string name="restart_launcher">Restart launcher</string>
-    <string name="open_inweb">Open in browser</string>
     <string name="restart_systemui">Restart systemui</string>
     <string name="restart_securitycenter">Restart security center</string>
     <string name="backup_restore">Settings management</string>

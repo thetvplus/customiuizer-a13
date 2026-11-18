@@ -32,6 +32,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -66,7 +67,6 @@ import java.util.Locale
 object SystemUIControlCenterHooks {
 
     private const val STATUS_BAR_CLS = "com.android.systemui.statusbar.phone.CentralSurfacesImpl"
-    private var pluginLoader: ClassLoader? = null
     private var scaledTileWidthDim = -1f
     private var blurCollapsed = 0.0f
     private var blurExpanded = 0.0f
@@ -86,97 +86,110 @@ object SystemUIControlCenterHooks {
     private var currentDownTime = 0L
     private var currentDownX = 0f
 
-    @JvmStatic
-    fun MIUIVolumeDialogHook(lpparam: PackageReadyParam) {
-        val pluginLoaderClass = "com.android.systemui.shared.plugins.PluginInstance\$Factory"
-        ModuleHelper.hookAllMethods(pluginLoaderClass, lpparam.classLoader, "getClassLoader", object : MethodHook() {
-            private var isHooked = false
+    private fun onSystemUiPluginLoaded(hostLoader: ClassLoader, install: (ClassLoader) -> Unit) {
+        val factoryMethod = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.shared.plugins.PluginInstance\$Factory", hostLoader, "getClassLoader",
+            ApplicationInfo::class.java, ClassLoader::class.java
+        ) ?: return
+        if (factoryMethod.returnType != ClassLoader::class.java) return
+
+        ModuleHelper.hookMethod(factoryMethod, object : MethodHook() {
+            private var installed = false
+
+            @Synchronized
             override fun after(param: AfterHookCallback) {
+                if (installed || param.throwable != null) return
                 val appInfo = param.getArg(0) as? ApplicationInfo ?: return
-                if ("miui.systemui.plugin" == appInfo.packageName && !isHooked) {
-                    isHooked = true
-                    if (pluginLoader == null) {
-                        pluginLoader = param.getResult() as? ClassLoader
-                    }
-                    if (MainModule.mPrefs.getBoolean("system_separatevolume") && MainModule.mPrefs.getBoolean("system_separatevolume_slider")) {
-                        pluginLoader?.let { SingleNotificationSliderHook(it) }
-                    }
-                    if (MainModule.mPrefs.getBoolean("system_nosilentvibrate")) {
-                        pluginLoader?.let { ModuleHelper.hookAllMethods("com.android.systemui.miui.volume.MiuiVolumeDialogImpl", it, "vibrateH", HookerClassHelper.DO_NOTHING) }
-                    }
-                    if (MainModule.mPrefs.getInt("system_volumedialogdelay_collapsed", 0) > 0 || MainModule.mPrefs.getInt("system_volumedialogdelay_expanded", 0) > 0) {
-                        pluginLoader?.let { VolumeDialogAutohideDelayHook(it) }
-                    }
-                    if (MainModule.mPrefs.getInt("system_volumeblur_collapsed", 0) > 0 || MainModule.mPrefs.getInt("system_volumeblur_expanded", 0) > 0) {
-                        pluginLoader?.let { BlurVolumeDialogBackgroundHook(it) }
-                    }
-                    if (MainModule.mPrefs.getBoolean("system_volumebar_blur_mtk")) {
-                        pluginLoader?.let { BlurMTKVolumeBarHook(it) }
-                    }
-                    if (MainModule.mPrefs.getBoolean("system_qs_force_systemfonts")) {
-                        pluginLoader?.let {
-                            ModuleHelper.findAndHookMethod("miui.systemui.util.SystemUIResourcesHelperImpl", it, "getBoolean", String::class.java, object : MethodHook() {
-                                override fun before(param2: BeforeHookCallback) {
-                                    val key = param2.getArgs()[0] as? String ?: return
-                                    if (key == "header_big_time_use_system_font") param2.returnAndSkip(java.lang.Boolean.TRUE)
-                                }
-                            })
-                        }
-                    }
-                    if (MainModule.mPrefs.getBoolean("system_qsnolabels")) {
-                        pluginLoader?.let { HideCCLabelsHook(it) }
-                    }
-                    if (MainModule.mPrefs.getBoolean("system_volumetimer")) {
-                        pluginLoader?.let { VolumeTimerValuesRes(it) }
-                    }
-                    if (MainModule.mPrefs.getBoolean("system_cc_tile_roundedrect")) {
-                        pluginLoader?.let { CCTileCornerHook(it) }
-                    }
-                    if (MainModule.mPrefs.getBoolean("system_cc_volume_showpct")) {
-                        pluginLoader?.let { ShowVolumePctHook(it) }
-                    }
-                    if (MainModule.mPrefs.getBoolean("system_cc_hidedate")) {
-                        pluginLoader?.let { HideCCDateView(it) }
-                    }
-                    if (MainModule.mPrefs.getBoolean("system_cc_clocktweak")) {
-                        pluginLoader?.let { initCCClockStyle(it) }
-                    }
-                    if (MainModule.mPrefs.getBoolean("system_cc_hide_shortcuticons")) {
-                        pluginLoader?.let { hideCCSettingsTilesEdit(it) }
-                    }
-                    if (MainModule.mPrefs.getStringAsInt("system_cc_bluetooth_tile_style", 1) > 1) {
-                        pluginLoader?.let { BluetoothTileStyleHook(it) }
-                    }
-                }
+                if (appInfo.packageName != "miui.systemui.plugin") return
+                val loader = param.result as? ClassLoader ?: return
+                installed = true
+                install(loader)
             }
         })
     }
 
     @JvmStatic
+    fun MIUIVolumeDialogHook(lpparam: PackageReadyParam) {
+        onSystemUiPluginLoaded(lpparam.classLoader) { loader ->
+            if (MainModule.mPrefs.getBoolean("system_separatevolume") && MainModule.mPrefs.getBoolean("system_separatevolume_slider")) {
+                SingleNotificationSliderHook(loader)
+            }
+            if (MainModule.mPrefs.getBoolean("system_nosilentvibrate")) {
+                ModuleHelper.findAndHookMethod("com.android.systemui.miui.volume.MiuiVolumeDialogImpl", loader, "vibrateH", HookerClassHelper.DO_NOTHING)
+            }
+            if (MainModule.mPrefs.getInt("system_volumedialogdelay_collapsed", 0) > 0 || MainModule.mPrefs.getInt("system_volumedialogdelay_expanded", 0) > 0) {
+                VolumeDialogAutohideDelayHook(loader)
+            }
+            if (MainModule.mPrefs.getInt("system_volumeblur_collapsed", 0) > 0 || MainModule.mPrefs.getInt("system_volumeblur_expanded", 0) > 0) {
+                BlurVolumeDialogBackgroundHook(loader)
+            }
+            if (MainModule.mPrefs.getBoolean("system_volumebar_blur_mtk")) {
+                BlurMTKVolumeBarHook(loader)
+            }
+            if (MainModule.mPrefs.getBoolean("system_qs_force_systemfonts")) {
+                ModuleHelper.findAndHookMethod("miui.systemui.util.SystemUIResourcesHelperImpl", loader, "getBoolean", String::class.java, object : MethodHook() {
+                    override fun before(param: BeforeHookCallback) {
+                        if (param.getArg(0) == "header_big_time_use_system_font") param.returnAndSkip(true)
+                    }
+                })
+            }
+            if (MainModule.mPrefs.getBoolean("system_qsnolabels")) {
+                HideCCLabelsHook(loader)
+            }
+            if (MainModule.mPrefs.getBoolean("system_volumetimer")) {
+                VolumeTimerValuesRes(loader)
+            }
+            if (MainModule.mPrefs.getBoolean("system_cc_tile_roundedrect")) {
+                CCTileCornerHook(loader)
+            }
+            if (MainModule.mPrefs.getBoolean("system_cc_volume_showpct")) {
+                ShowVolumePctHook(loader)
+            }
+            if (MainModule.mPrefs.getBoolean("system_cc_hidedate")) {
+                HideCCDateView(loader)
+            }
+            if (MainModule.mPrefs.getBoolean("system_cc_clocktweak")) {
+                initCCClockStyle(loader)
+            }
+            if (MainModule.mPrefs.getBoolean("system_cc_hide_shortcuticons")) {
+                hideCCSettingsTilesEdit(loader)
+            }
+            if (MainModule.mPrefs.getStringAsInt("system_cc_bluetooth_tile_style", 1) > 1) {
+                BluetoothTileStyleHook(loader)
+            }
+        }
+    }
+
+    @JvmStatic
     fun VolumeDialogAutohideDelayHook(classLoader: ClassLoader) {
-        ModuleHelper.findAndHookMethod("com.android.systemui.miui.volume.MiuiVolumeDialogImpl", classLoader, "computeTimeoutH", object : MethodHook() {
+        val dialogClass = XposedHelpers.findClassIfExists(
+            "com.android.systemui.miui.volume.MiuiVolumeDialogImpl", classLoader
+        ) ?: return
+        val computeTimeout = XposedHelpers.findMethodExactIfExists(dialogClass, "computeTimeoutH") ?: return
+        if (computeTimeout.returnType != Int::class.javaPrimitiveType) return
+        val hovering = XposedHelpers.findFieldIfExists(dialogClass, "mHovering") ?: return
+        val expanded = XposedHelpers.findFieldIfExists(dialogClass, "mExpanded") ?: return
+        val showingSafety = XposedHelpers.findFieldIfExists(dialogClass, "mIsSafetyShowing")
+            ?: XposedHelpers.findFieldIfExists(dialogClass, "mSafetyWarning") ?: return
+        val accessibility = XposedHelpers.findFieldIfExists(dialogClass, "mAccessibilityMgr") ?: return
+        val boolType = Boolean::class.javaPrimitiveType
+        if (hovering.type != boolType || expanded.type != boolType || showingSafety.type != boolType) return
+        if (!AccessibilityManager::class.java.isAssignableFrom(accessibility.type)) return
+
+        ModuleHelper.hookMethod(computeTimeout, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                val mHovering = XposedHelpers.getBooleanField(param.getThisObject(), "mHovering")
-                if (mHovering) {
-                    param.returnAndSkip(16000)
-                    return
-                }
-                val mSafetyWarning = try {
-                    XposedHelpers.getObjectField(param.getThisObject(), "mIsSafetyShowing") as? Boolean
-                        ?: XposedHelpers.getObjectField(param.getThisObject(), "mSafetyWarning") as? Boolean
-                        ?: false
-                } catch (e: Throwable) {
-                    if (e is OutOfMemoryError || e is ThreadDeath || e is VirtualMachineError) throw e
-                    XposedHelpers.getObjectField(param.getThisObject(), "mSafetyWarning") as? Boolean ?: false
-                }
-                if (mSafetyWarning) {
-                    val opt = MainModule.mPrefs.getInt("system_volumedialogdelay_expanded", 0)
-                    param.returnAndSkip(if (opt > 0) opt else 5000)
-                    return
-                }
-                val mExpanded = XposedHelpers.getBooleanField(param.getThisObject(), "mExpanded")
-                val opt = MainModule.mPrefs.getInt(if (mExpanded) "system_volumedialogdelay_expanded" else "system_volumedialogdelay_collapsed", 0)
-                if (opt > 0) param.returnAndSkip(opt)
+                val dialog = param.thisObject ?: return
+                if (hovering.getBoolean(dialog)) return
+                val warning = showingSafety.getBoolean(dialog)
+                val key = if (warning || expanded.getBoolean(dialog)) "system_volumedialogdelay_expanded"
+                    else "system_volumedialogdelay_collapsed"
+                val timeout = MainModule.mPrefs.getInt(key, 0)
+                if (timeout <= 0) return
+
+                val manager = accessibility.get(dialog) as? AccessibilityManager ?: return
+                val flags = if (warning) AccessibilityManager.FLAG_CONTENT_CONTROLS or AccessibilityManager.FLAG_CONTENT_TEXT
+                    else AccessibilityManager.FLAG_CONTENT_CONTROLS
+                param.returnAndSkip(manager.getRecommendedTimeoutMillis(timeout, flags))
             }
         })
     }
@@ -297,97 +310,82 @@ object SystemUIControlCenterHooks {
             }
         })
 
-        val pluginLoaderClass = "com.android.systemui.shared.plugins.PluginInstance\$Factory"
-        ModuleHelper.hookAllMethods(pluginLoaderClass, lpparam.classLoader, "getClassLoader", object : MethodHook() {
-            private var isHooked = false
-            override fun after(param: AfterHookCallback) {
-                val appInfo = param.getArg(0) as? ApplicationInfo ?: return
-                if ("miui.systemui.plugin" == appInfo.packageName && !isHooked) {
-                    isHooked = true
-                    if (pluginLoader == null) {
-                        pluginLoader = param.getResult() as? ClassLoader
+        onSystemUiPluginLoaded(lpparam.classLoader) { loader ->
+            if (cols > 4) {
+                ModuleHelper.findAndHookConstructor("miui.systemui.controlcenter.qs.QSPager", loader, Context::class.java, AttributeSet::class.java, object : MethodHook() {
+                    override fun after(param2: AfterHookCallback) {
+                        XposedHelpers.setObjectField(param2.getThisObject(), "columns", cols)
                     }
-                    if (cols > 4) {
-                        pluginLoader?.let {
-                            ModuleHelper.findAndHookConstructor("miui.systemui.controlcenter.qs.QSPager", it, Context::class.java, AttributeSet::class.java, object : MethodHook() {
-                                override fun after(param2: AfterHookCallback) {
-                                    XposedHelpers.setObjectField(param2.getThisObject(), "columns", cols)
-                                }
-                            })
-                            if (!MainModule.mPrefs.getBoolean("system_qsnolabels")) {
-                                ModuleHelper.findAndHookMethod("miui.systemui.controlcenter.qs.tileview.StandardTileView", it, "createLabel", Boolean::class.javaPrimitiveType, object : MethodHook() {
-                                    override fun after(param2: AfterHookCallback) {
-                                        val label = XposedHelpers.getObjectField(param2.getThisObject(), "label") as? TextView ?: return
-                                        label.maxLines = 1
-                                        label.setSingleLine(true)
-                                        label.ellipsize = TextUtils.TruncateAt.MARQUEE
-                                        label.marqueeRepeatLimit = 0
-                                        val labelContainer = XposedHelpers.getObjectField(param2.getThisObject(), "labelContainer") as? View
-                                        labelContainer?.setPadding(4, 0, 4, 0)
-                                    }
-                                })
-                            }
+                })
+                if (!MainModule.mPrefs.getBoolean("system_qsnolabels")) {
+                    ModuleHelper.findAndHookMethod("miui.systemui.controlcenter.qs.tileview.StandardTileView", loader, "createLabel", Boolean::class.javaPrimitiveType, object : MethodHook() {
+                        override fun after(param2: AfterHookCallback) {
+                            val label = XposedHelpers.getObjectField(param2.getThisObject(), "label") as? TextView ?: return
+                            label.maxLines = 1
+                            label.setSingleLine(true)
+                            label.ellipsize = TextUtils.TruncateAt.MARQUEE
+                            label.marqueeRepeatLimit = 0
+                            val labelContainer = XposedHelpers.getObjectField(param2.getThisObject(), "labelContainer") as? View
+                            labelContainer?.setPadding(4, 0, 4, 0)
                         }
-                    }
-                    if (rows != 4) {
-                        pluginLoader?.let {
-                            ModuleHelper.findAndHookMethod("miui.systemui.controlcenter.qs.QSPager", it, "distributeTiles", object : MethodHook() {
-                                @Suppress("UNCHECKED_CAST")
-                                override fun after(param2: AfterHookCallback) {
-                                    val collapse = XposedHelpers.getObjectField(param2.getThisObject(), "collapse") as? Boolean ?: return
-                                    if (collapse) {
-                                        val pages = XposedHelpers.getObjectField(param2.getThisObject(), "pages") as? ArrayList<Any> ?: return
-                                        for (tileLayoutImpl in pages) {
-                                            XposedHelpers.callMethod(tileLayoutImpl, "removeTiles")
-                                        }
-                                        val pageTiles = ArrayList<Any>()
-                                        var currentRow = 2
-                                        val records = XposedHelpers.getObjectField(param2.getThisObject(), "records") as? ArrayList<*> ?: return
-                                        val it2 = records.iterator()
-                                        var i3 = 0
-                                        var pageNow = 0
-                                        val bigHeader = XposedHelpers.getObjectField(param2.getThisObject(), "header")
-                                        while (it2.hasNext()) {
-                                            val tileRecord = it2.next() ?: continue
-                                            pageTiles.add(tileRecord)
-                                            i3++
-                                            if (i3 >= cols) {
-                                                currentRow++
-                                                i3 = 0
-                                            }
-                                            if (currentRow >= rows || !it2.hasNext()) {
-                                                XposedHelpers.callMethod(pages[pageNow], "setTiles", pageTiles, if (pageNow == 0) bigHeader else null)
-                                                pageTiles.clear()
-                                                val totalRows = XposedHelpers.getObjectField(param2.getThisObject(), "rows") as? Int ?: 0
-                                                if (currentRow > totalRows) {
-                                                    XposedHelpers.setObjectField(param2.getThisObject(), "rows", currentRow)
-                                                }
-                                                if (it2.hasNext()) {
-                                                    pageNow++
-                                                    currentRow = 0
-                                                }
-                                            }
-                                        }
-                                        val it3 = pages.iterator()
-                                        while (it3.hasNext()) {
-                                            val next2 = it3.next()
-                                            val isEmpty = XposedHelpers.callMethod(next2, "isEmpty") as? Boolean ?: false
-                                            if (isEmpty) it3.remove()
-                                        }
-                                        val pageIndicator = XposedHelpers.getObjectField(param2.getThisObject(), "pageIndicator")
-                                        if (pageIndicator != null) {
-                                            XposedHelpers.callMethod(pageIndicator, "setNumPages", pages.size)
-                                        }
-                                        val adapter = XposedHelpers.getObjectField(param2.getThisObject(), "adapter")
-                                        XposedHelpers.callMethod(param2.getThisObject(), "setAdapter", adapter)
-                                    }
-                                }
-                            })
-                        }
-                    }
+                    })
                 }
             }
-        })
+            if (rows != 4) {
+                ModuleHelper.findAndHookMethod("miui.systemui.controlcenter.qs.QSPager", loader, "distributeTiles", object : MethodHook() {
+                    @Suppress("UNCHECKED_CAST")
+                    override fun after(param2: AfterHookCallback) {
+                        val collapse = XposedHelpers.getObjectField(param2.getThisObject(), "collapse") as? Boolean ?: return
+                        if (collapse) {
+                            val pages = XposedHelpers.getObjectField(param2.getThisObject(), "pages") as? ArrayList<Any> ?: return
+                            for (tileLayoutImpl in pages) {
+                                XposedHelpers.callMethod(tileLayoutImpl, "removeTiles")
+                            }
+                            val pageTiles = ArrayList<Any>()
+                            var currentRow = 2
+                            val records = XposedHelpers.getObjectField(param2.getThisObject(), "records") as? ArrayList<*> ?: return
+                            val it2 = records.iterator()
+                            var i3 = 0
+                            var pageNow = 0
+                            val bigHeader = XposedHelpers.getObjectField(param2.getThisObject(), "header")
+                            while (it2.hasNext()) {
+                                val tileRecord = it2.next() ?: continue
+                                pageTiles.add(tileRecord)
+                                i3++
+                                if (i3 >= cols) {
+                                    currentRow++
+                                    i3 = 0
+                                }
+                                if (currentRow >= rows || !it2.hasNext()) {
+                                    XposedHelpers.callMethod(pages[pageNow], "setTiles", pageTiles, if (pageNow == 0) bigHeader else null)
+                                    pageTiles.clear()
+                                    val totalRows = XposedHelpers.getObjectField(param2.getThisObject(), "rows") as? Int ?: 0
+                                    if (currentRow > totalRows) {
+                                        XposedHelpers.setObjectField(param2.getThisObject(), "rows", currentRow)
+                                    }
+                                    if (it2.hasNext()) {
+                                        pageNow++
+                                        currentRow = 0
+                                    }
+                                }
+                            }
+                            val it3 = pages.iterator()
+                            while (it3.hasNext()) {
+                                val next2 = it3.next()
+                                val isEmpty = XposedHelpers.callMethod(next2, "isEmpty") as? Boolean ?: false
+                                if (isEmpty) it3.remove()
+                            }
+                            val pageIndicator = XposedHelpers.getObjectField(param2.getThisObject(), "pageIndicator")
+                            if (pageIndicator != null) {
+                                XposedHelpers.callMethod(pageIndicator, "setNumPages", pages.size)
+                            }
+                            val adapter = XposedHelpers.getObjectField(param2.getThisObject(), "adapter")
+                            XposedHelpers.callMethod(param2.getThisObject(), "setAdapter", adapter)
+                        }
+                    }
+                })
+            }
+        }
     }
 
     @JvmStatic
@@ -712,22 +710,12 @@ object SystemUIControlCenterHooks {
         }
 
         ModuleHelper.findAndHookMethod(STATUS_BAR_CLS, lpparam.classLoader, "onTouchEvent", MotionEvent::class.java, hook)
-        val pluginLoaderClass = "com.android.systemui.shared.plugins.PluginInstance\$Factory"
-        ModuleHelper.hookAllMethods(pluginLoaderClass, lpparam.classLoader, "getClassLoader", object : MethodHook() {
-            private var isHooked = false
-            override fun after(param: AfterHookCallback) {
-                val appInfo = param.getArg(0) as? ApplicationInfo ?: return
-                if ("miui.systemui.plugin" == appInfo.packageName && !isHooked) {
-                    isHooked = true
-                    if (pluginLoader == null) {
-                        pluginLoader = param.getResult() as? ClassLoader
-                    }
-                    pluginLoader?.let {
-                        ModuleHelper.findAndHookMethod("miui.systemui.controlcenter.windowview.ControlCenterWindowViewImpl", it, "handleMotionEvent", MotionEvent::class.java, Boolean::class.javaPrimitiveType, hook)
-                    }
-                }
-            }
-        })
+        onSystemUiPluginLoaded(lpparam.classLoader) { loader ->
+            ModuleHelper.findAndHookMethod(
+                "miui.systemui.controlcenter.windowview.ControlCenterWindowViewImpl", loader,
+                "handleMotionEvent", MotionEvent::class.java, Boolean::class.javaPrimitiveType, hook
+            )
+        }
     }
 
     @SuppressLint("StaticFieldLeak")

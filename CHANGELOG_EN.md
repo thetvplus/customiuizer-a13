@@ -2,6 +2,26 @@
 
 [简体中文](CHANGELOG.md) | English
 
+## r13.14.3 — 2026-11-18
+
+`versionCode 144`, an Android 13 maintenance update over `r13.14.2 / 143`.
+
+### Fixes and compatibility
+
+- Refine heads-up notification timeout, automatic expansion, positioning, and swipe gestures. Muted-mode filtering preserves the system's handling of full-screen notifications such as calls and alarms.
+- Fix automatic expansion in the notification shade, lock-screen notification retention after unlocking, per-app notification limits, and the compact collapsed view. Restore the three-dot overflow toggle and the ROM's icon limits when the icon count returns to Default.
+- Install Control Center and volume hooks through the class loader used by the SystemUI plugin. Custom volume panel timeouts use the system's accessibility adjustment.
+- Refine the Launcher app-info shortcut, folder width, rotation animations, and charging wake behavior. Apply the configured status bar height to window policy. Call interruption filtering validates the ROM caller field and callback return type before installing hooks.
+- Process shortcut icons in the background. The picker can recover a cached selection after the screen is recreated or the background process is reclaimed, then deliver it when the screen resumes.
+- Use Customiuizer A13 as the default English app name and 米客 A13 in Simplified and Traditional Chinese. About includes source, release, support, and compatibility information.
+- Update to Gradle 9.9.1, AGP 9.5.0, and Temurin 25.0.5. Update build dependencies and remove unused settings entry points.
+
+### Verification and known limitations
+
+Targets MIUI 14 on Android 13. HyperOS 1 on Android 13 remains experimental. Requires libxposed API 102 and `arm64-v8a`. Uses the same release signing certificate as `r13.14.2`.
+
+Verification for this update covers ROM samples and build checks. A13 device acceptance is pending. If Android clears a shortcut selection's cache while the app is in the background, reopen the picker and select the shortcut again.
+
 ## r13.14.2 — 2026-11-17
 
 `versionCode 143`, an Android 13 maintenance update over `r13.14.1 / 142` with no new features.

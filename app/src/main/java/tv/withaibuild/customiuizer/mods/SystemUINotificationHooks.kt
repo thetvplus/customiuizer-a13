@@ -28,6 +28,7 @@ import java.io.File
 import java.lang.reflect.Field
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 
 @Suppress("UNUSED_PARAMETER")
 object SystemUINotificationHooks {
@@ -335,22 +336,46 @@ object SystemUINotificationHooks {
 
     @JvmStatic
     fun DisableHeadsUpWhenMuteHook(lpparam: PackageReadyParam) {
-        var mMuteVisible = false
-        val disableHeadsUpHook = object : MethodHook() {
-            override fun after(param: AfterHookCallback) {
-                if (param.getArgsCount() != 2) return
-                val canPopup = param.getResult() as? Boolean ?: return
-                if (canPopup && mMuteVisible) {
-                    param.setResult(false)
-                }
-            }
+        val key = "system_betterpopups_disablewhenmute"
+        if (!MainModule.mPrefs.getBoolean(key)) return
+        val loader = lpparam.classLoader
+        val peek = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.notification.interruption.MiuiNotificationInterruptStateProviderImpl",
+            loader, "shouldPeek",
+            "com.android.systemui.statusbar.notification.collection.NotificationEntry",
+            "com.android.systemui.statusbar.notification.ExpandedNotification"
+        ) ?: return
+        val updateVolumeZen = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.phone.MiuiPhoneStatusBarPolicy", loader, "updateVolumeZen"
+        ) ?: return
+        val muteVisible = XposedHelpers.findFieldIfExists(updateVolumeZen.declaringClass, "mMuteVisible") ?: return
+        if (peek.returnType != Boolean::class.javaPrimitiveType ||
+            !StatusBarNotification::class.java.isAssignableFrom(peek.parameterTypes[1]) ||
+            updateVolumeZen.returnType != Void.TYPE ||
+            muteVisible.type != Boolean::class.javaPrimitiveType || Modifier.isStatic(muteVisible.modifiers)
+        ) return
+
+        val ringerState = object {
+            @Volatile var muted = false
         }
-        ModuleHelper.hookAllMethods("com.android.systemui.statusbar.notification.interruption.MiuiNotificationInterruptStateProviderImpl", lpparam.classLoader, "shouldPeek", disableHeadsUpHook)
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.phone.MiuiPhoneStatusBarPolicy", lpparam.classLoader, "updateVolumeZen", object : MethodHook() {
+        val ringerHook = ModuleHelper.hookMethod(updateVolumeZen, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                mMuteVisible = XposedHelpers.getBooleanField(param.getThisObject(), "mMuteVisible")
+                if (param.throwable != null || param.isSkipped) return
+                ringerState.muted = muteVisible.getBoolean(param.thisObject)
+            }
+        }) ?: return
+
+        val peekHook = ModuleHelper.hookMethod(peek, object : MethodHook() {
+            override fun after(param: AfterHookCallback) {
+                if (!ringerState.muted || param.throwable != null || param.isSkipped || param.result != true ||
+                    !MainModule.mPrefs.getBoolean(key)
+                ) return
+                val notification = (param.getArg(1) as? StatusBarNotification)?.notification ?: return
+                // Fullscreen fallback consults the same heads-up decision.
+                if (notification.fullScreenIntent == null) param.result = false
             }
         })
+        if (peekHook == null) ModuleHelper.guarded("DisableHeadsUpWhenMuteHook") { ringerHook.unhook() }
     }
 
     @JvmStatic
