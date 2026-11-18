@@ -100,9 +100,7 @@ class BTList : SubFragment() {
 
             val fetchStub: ViewStub = view.findViewById(R.id.fetch_devices)
             fetchStub.setLayoutResource(R.layout.pref_item)
-            fetchStub.inflate()
-
-            val fetch: View = view.findViewById(R.id.fetch_devices)
+            val fetch = fetchStub.inflate()
             (fetch.findViewById<TextView>(android.R.id.title)).setText(R.string.bt_fetch_devices_title)
             (fetch.findViewById<TextView>(android.R.id.summary)).setText(R.string.bt_fetch_devices_summ)
             fetch.setOnClickListener {

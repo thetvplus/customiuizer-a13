@@ -18,6 +18,7 @@ AGP 管理内置 Kotlin 集成。根构建脚本显式提供 Kotlin 编译器 2.
 检查选择、定向命令和复用条件见 [TESTING](TESTING.md)。
 
 Hook API 为 `compileOnly`，Service 为设置端运行依赖。产品支持范围见 [COMPATIBILITY](../COMPATIBILITY.md)。
+`compileSdk` 决定编译可见的 API。`minSdk=33` 保留 Android 13 安装能力，`targetSdk=34` 与发行元数据及兼容合同一同维护。
 
 依赖校验保持开启。升级后为实际解析的依赖更新 `gradle/verification-metadata.xml`，
 正常门禁使用严格校验；Wrapper 使用官方分发与固定 SHA-256。

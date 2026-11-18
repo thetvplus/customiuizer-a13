@@ -17,7 +17,9 @@ Home / plugin 的 DEX 也存在 SHA-1 头摘要不一致，因此不将其当作
 - **来电不中断应用**：两份 services 都有 `TelephonyRegistry$Record.matchTelephonyCallbackEvent(I)Z`、
   `callingPackage:String`、`eventList:Set`，没有旧 `events:int`。两条通知路径都经此匹配器分发
   事件 6 / 36。按应用过滤这两个事件，不修改订阅集合；取消勾选或关闭功能后恢复原分发。
-  `callingPackage` 在安装任何 Hook 前解析，失败不产生部分安装。
+  安装两条 Hook 前核对 `callingPackage` 为 `String`、匹配器返回 `boolean`，ABI 不一致时保留原生来电行为。
+  DexSQL 在两份 `services.jar` 的 `classes.dex` 均查到同一条 `AudioService.requestAudioFocus` 定义，
+  客户端 ID 和调用包名分别位于从零开始的参数位置 4 和 5。这里只验证成员声明，音频焦点和来电的实机行为仍待验。
 - **通知渠道设置**：xaga 的 `NotificationUtil.isHybrid(ExpandedNotification)Z` 位于
   `com.android.systemui.statusbar.notification`；旧的 `.miui.statusbar.notification` 路径不存在。
   `onClickInfoItem(Context, MenuItem)` 保留原回调时序。Settings Manifest 的公开 action

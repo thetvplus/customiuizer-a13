@@ -2,7 +2,6 @@ package tv.withaibuild.customiuizer
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -428,12 +427,11 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
             input = act.contentResolver.openInputStream(uri)
                 ?: throw IllegalStateException("Backup input stream unavailable")
             val appPrefs = AppHelper.appPrefs ?: return
-            val componentName = ComponentName(act, GateWayLauncher::class.java)
             val result = BackupRestore.performRestore(
                 input,
                 act.packageManager,
                 appPrefs,
-                componentName,
+                AppHelper.launcherComponent(act),
             )
             when (result.status) {
                 BackupRestore.Status.SUCCESS, BackupRestore.Status.PARTIAL_FAILURE -> {

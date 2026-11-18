@@ -1,7 +1,6 @@
 package tv.withaibuild.customiuizer
 
 import android.annotation.SuppressLint
-import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
@@ -217,20 +216,11 @@ class MainFragment : PreferenceFragmentBase() {
         }
 
         findPreference<Preference>("pref_key_miuizer_launchericon")?.setOnPreferenceChangeListener { _, newValue ->
-            val pm = act.packageManager
-            if (newValue as? Boolean == true) {
-                pm.setComponentEnabledSetting(
-                    ComponentName(act, GateWayLauncher::class.java),
-                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                    PackageManager.DONT_KILL_APP
-                )
-            } else {
-                pm.setComponentEnabledSetting(
-                    ComponentName(act, GateWayLauncher::class.java),
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                    PackageManager.DONT_KILL_APP
-                )
-            }
+            val state = if (newValue == true) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            act.packageManager.setComponentEnabledSetting(
+                AppHelper.launcherComponent(act), state, PackageManager.DONT_KILL_APP
+            )
             true
         }
 

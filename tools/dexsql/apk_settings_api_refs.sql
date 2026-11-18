@@ -10,7 +10,6 @@ WITH entrypoints AS (
         'Ltv/withaibuild/customiuizer/Credentials;',
         'Ltv/withaibuild/customiuizer/CredentialsLauncher;',
         'Ltv/withaibuild/customiuizer/CredentialsShortcut;',
-        'Ltv/withaibuild/customiuizer/GateWayLauncher;',
         'Ltv/withaibuild/customiuizer/tasker/UnlockSettings;',
         'Ltv/withaibuild/customiuizer/tasker/UnlockReceiver;',
         'Ltv/withaibuild/customiuizer/qs/AutoRotateService;'

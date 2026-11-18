@@ -120,9 +120,7 @@ class WiFiList : SubFragment() {
 
             val locationStub: ViewStub = view.findViewById(R.id.location_settings)
             locationStub.setLayoutResource(R.layout.pref_item)
-            locationStub.inflate()
-
-            val location: View = view.findViewById(R.id.location_settings)
+            val location = locationStub.inflate()
             (location.findViewById<TextView>(android.R.id.title)).setText(R.string.wifi_location_title)
             (location.findViewById<TextView>(android.R.id.summary)).setText(R.string.wifi_location_summ)
             location.setOnClickListener {
