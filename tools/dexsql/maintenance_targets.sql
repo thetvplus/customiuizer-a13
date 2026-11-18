@@ -269,3 +269,14 @@ WHERE (callee_name IN ('canSlide', 'canNotificationSlide', 'canSlidePackage', 'c
    OR (method_class LIKE '%HeadsUpTouchHelper;'
        AND callee_name IN ('onInterceptTouchEvent', 'startExpandMotion'))
 ORDER BY method, callee;
+
+-- MiuiSystemUI.apk: locate sizing consumers and repeated expansion triggers.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE (callee_class = 'Lcom/android/systemui/statusbar/policy/HeadsUpManagerInjector;'
+       AND callee_name = 'miuiHeadsUpInset')
+   OR (callee_class = 'Lcom/android/systemui/statusbar/notification/row/ExpandableNotificationRow;'
+       AND callee_name IN ('setHeadsUp', 'expandNotification'))
+   OR (method_class = 'Lcom/android/systemui/statusbar/policy/HeadsUpManager;'
+       AND method_name = 'onAlertEntryAdded'
+       AND callee_name IN ('setHeadsUp', 'setEntryPinned', 'onHeadsUpStateChanged'))
+ORDER BY method, callee;

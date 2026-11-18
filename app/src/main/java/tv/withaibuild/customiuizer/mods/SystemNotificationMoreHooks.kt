@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.res.Resources
 import android.media.AudioManager
 import android.os.CombinedVibration
@@ -867,23 +868,32 @@ object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun BetterPopupsCenteredHook(lpparam: PackageReadyParam) {
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.policy.HeadsUpManagerInjector", lpparam.classLoader, "miuiHeadsUpInset", Context::class.java, object : MethodHook() {
-            private var mHeadsUpPaddingTop = 0
-            private var mHeadsUpHeight = 0
+        if (!MainModule.mPrefs.getBoolean("system_betterpopups_center")) return
+        val inset = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.policy.HeadsUpManagerInjector",
+            lpparam.classLoader, "miuiHeadsUpInset", Context::class.java
+        ) ?: return
+        if (inset.returnType != Int::class.javaPrimitiveType) return
+        ModuleHelper.hookMethod(inset, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
+                if (param.throwable != null || param.isSkipped) return
+                val nativeInset = param.result as? Int ?: return
                 val context = param.getArg(0) as? Context ?: return
                 val resources = context.resources
-                if (mHeadsUpPaddingTop == 0) {
-                    val dimId = resources.getIdentifier("heads_up_status_bar_padding", "dimen", "com.android.systemui")
-                    mHeadsUpPaddingTop = resources.getDimensionPixelSize(dimId)
-                    mHeadsUpHeight = resources.getDimensionPixelSize(resources.getIdentifier("notification_max_heads_up_height", "dimen", "com.android.systemui"))
-                }
-                if (resources.configuration.orientation != 2) {
-                    val mHeadsUpInset = param.result as? Int ?: 0
-                    val mStatusBarHeight = mHeadsUpInset - mHeadsUpPaddingTop
-                    val topMargin = (context.resources.displayMetrics.heightPixels + mStatusBarHeight - mHeadsUpHeight) / 2
-                    param.setResult(topMargin)
-                }
+                if (resources.configuration.orientation != Configuration.ORIENTATION_PORTRAIT) return
+
+                // SystemUI calls this while loading dimensions. Read the current display's resources.
+                val paddingId = resources.getIdentifier("heads_up_status_bar_padding", "dimen", "com.android.systemui")
+                val heightId = resources.getIdentifier("notification_max_heads_up_height", "dimen", "com.android.systemui")
+                if (paddingId == 0 || heightId == 0) return
+                val padding = resources.getDimensionPixelSize(paddingId)
+                val popupHeight = resources.getDimensionPixelSize(heightId)
+                val displayHeight = resources.displayMetrics.heightPixels
+                if (padding < 0 || nativeInset < padding || popupHeight <= 0 ||
+                    displayHeight <= nativeInset || popupHeight > displayHeight - nativeInset
+                ) return
+                val centeredInset = ((displayHeight.toLong() + nativeInset - padding - popupHeight) / 2).toInt()
+                param.result = maxOf(nativeInset, centeredInset)
             }
         })
     }
