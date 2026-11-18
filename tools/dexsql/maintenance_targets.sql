@@ -228,3 +228,21 @@ WHERE (f.class_descriptor = 'Lcom/android/systemui/statusbar/phone/NotificationI
    OR (f.class_descriptor = 'Lcom/android/systemui/statusbar/phone/NotificationIconContainer;'
        AND f.field_name IN ('MAX_DOTS', 'MAX_STATIC_ICONS', 'MAX_ICONS_ON_LOCKSCREEN'))
 ORDER BY f.field_descriptor;
+
+-- MiuiSystemUI.apk: identify the exact peek decision and its full-screen caller.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE method_class LIKE '%InterruptStateProviderImpl;'
+  AND method_name IN ('shouldPeek', 'shouldHeadsUp', 'shouldLaunchFullScreenIntentWhenAdded')
+  AND callee_name IN ('shouldPeek', 'shouldHeadsUp', 'shouldSend')
+ORDER BY method, callee;
+
+-- MiuiSystemUI.apk: confirm ringer state comes from the native policy update.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE method_class LIKE '%PhoneStatusBarPolicy;'
+  AND callee_name IN ('getRingerModeInternal', 'updateVolumeZen')
+ORDER BY method, callee;
+
+SELECT d.entry_name, f.field_descriptor
+FROM class_fields f JOIN dex_files d USING (file_id)
+WHERE f.class_descriptor = 'Lcom/android/systemui/statusbar/phone/PhoneStatusBarPolicy;'
+  AND f.field_name = 'mMuteVisible';
