@@ -4,7 +4,7 @@
 
 Customiuizer A13 is an Xposed module for customizing the system UI, launcher, and interactions on **MIUI 14 / Android 13**. It supports `arm64-v8a` and requires a framework that provides **libxposed API 102**. **HyperOS 1 / Android 13** support is experimental; features depend on the ROM and system app versions. See the [compatibility matrix](COMPATIBILITY.md) for platform details.
 
-[Download the stable release](https://github.com/thetvplus/customiuizer-a13/releases/latest) · [Xposed module repository](https://github.com/Xposed-Modules-Repo/tv.withaibuild.customiuizer.r13/releases/latest) · [Changelog](CHANGELOG_EN.md)
+[Download the stable release](https://github.com/thetvplus/customiuizer-a13/releases/latest) · [Download from Xposed](https://github.com/Xposed-Modules-Repo/tv.withaibuild.customiuizer.r13/releases/latest) · [Changelog](CHANGELOG_EN.md)
 
 ## Features
 
