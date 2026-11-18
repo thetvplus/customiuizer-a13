@@ -694,17 +694,52 @@ object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun MoreNotificationsHook(lpparam: PackageReadyParam) {
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.notification.policy.NotificationCountLimitPolicy", lpparam.classLoader, "checkNotificationCountLimit", String::class.java, object : MethodHook() {
+        val preference = "system_morenotif"
+        if (!MainModule.mPrefs.getBoolean(preference)) return
+        val loader = lpparam.classLoader
+        val policyClass = XposedHelpers.findClassIfExists(
+            "com.android.systemui.statusbar.notification.policy.NotificationCountLimitPolicy", loader
+        ) ?: return
+        val checkLimit = XposedHelpers.findMethodExactIfExists(
+            policyClass, "checkNotificationCountLimit", String::class.java
+        ) ?: return
+        if (checkLimit.returnType != Void.TYPE) return
+        val manager = XposedHelpers.findFieldIfExists(policyClass, "mEntryManager") ?: return
+        val getAll = XposedHelpers.findMethodExactIfExists(manager.type, "getAllNotifs") ?: return
+        val entryClass = XposedHelpers.findClassIfExists(
+            "com.android.systemui.statusbar.notification.collection.NotificationEntry", loader
+        ) ?: return
+        val getSbn = XposedHelpers.findMethodExactIfExists(entryClass, "getSbn") ?: return
+        val candidateFilter = XposedHelpers.findMethodExactIfExists(
+            policyClass, "lambda\$checkNotificationCountLimit\$1", entryClass
+        )?.takeIf { it.returnType == Boolean::class.javaPrimitiveType }
+        val limit = 24
+
+        ModuleHelper.hookMethod(checkLimit, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                val pkgName = param.getArg(0) as? String ?: return
-                val mNotifications = XposedHelpers.callMethod(XposedHelpers.getObjectField(param.thisObject, "mEntryManager"), "getAllNotifs") as? Collection<Any> ?: return
-                var count = 0
-                for (notification in mNotifications) {
-                    val sbn = XposedHelpers.callMethod(notification, "getSbn")
-                    val notifyPkgName = XposedHelpers.callMethod(sbn, "getPackageName") as? String
-                    if (pkgName == notifyPkgName && ++count >= 24) return
+                if (!MainModule.mPrefs.getBoolean(preference)) return
+                val packageName = param.getArg(0) as? String ?: return
+                val policy = param.thisObject
+                val entries = getAll.invoke(manager.get(policy) ?: return) as? Collection<*> ?: return
+
+                fun exceedsLimit(filter: Method?): Boolean {
+                    var count = 0
+                    for (entry in entries) {
+                        val sbn = getSbn.invoke(entry) as? StatusBarNotification ?: return true
+                        if (sbn.packageName != packageName) continue
+                        if (filter != null && filter.invoke(policy, entry) != true) continue
+                        if (++count > limit) return true
+                    }
+                    return false
                 }
-                param.returnAndSkip(null)
+
+                // Admission already includes the new entry. The optional ROM filter only matters
+                // when the package itself has enough entries to exceed the limit.
+                if (entries.size <= limit || !exceedsLimit(null) ||
+                    (candidateFilter != null && !exceedsLimit(candidateFilter))
+                ) {
+                    param.returnAndSkip(null)
+                }
             }
         })
     }

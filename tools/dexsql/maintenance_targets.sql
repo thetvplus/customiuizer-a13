@@ -313,3 +313,12 @@ WHERE callee_name IN ('alwaysShowKeyguardNotifications', 'hasShownAfterUnlock', 
    OR (callee_class = 'Lcom/android/systemui/statusbar/notification/policy/KeyguardNotificationController;'
        AND callee_name = 'clear')
 ORDER BY method, callee;
+
+-- MiuiSystemUI.apk: per-package notification overflow and ROM-specific candidate selection.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE callee_name IN ('checkNotificationCountLimit', '-$$Nest$mcheckNotificationCountLimit')
+   OR (method_class = 'Lcom/android/systemui/statusbar/notification/policy/NotificationCountLimitPolicy;'
+       AND callee_name IN ('getAllNotifs', 'getPackageName', 'isMostImportantNotification',
+                           'shouldRemove', 'isGroupSummary', 'isFold',
+                           'performRemoveNotification', 'cancelNotification'))
+ORDER BY method, callee;
