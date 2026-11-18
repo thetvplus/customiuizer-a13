@@ -191,3 +191,26 @@ WHERE method_class = 'Lcom/android/systemui/statusbar/window/StatusBarWindowCont
   AND callee_class = 'Lcom/android/internal/policy/SystemBarUtils;'
   AND callee_name IN ('getStatusBarHeight', 'getStatusBarHeightForRotation')
 ORDER BY method, callee;
+
+-- MiuiSystemUI.apk: trace the native HeadsUp delay and accessibility conversion.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE method_class IN (
+  'Lcom/android/systemui/statusbar/policy/HeadsUpManager$HeadsUpEntry;',
+  'Lcom/android/systemui/statusbar/phone/HeadsUpManagerPhone$HeadsUpEntryPhone;'
+)
+  AND callee_name IN ('calculateFinishTime', 'getRecommendedHeadsUpTimeoutMs',
+                      'getMiuiFloatTime', 'getRecommendedTimeoutMillis')
+ORDER BY method, callee;
+
+SELECT d.entry_name, f.field_descriptor
+FROM class_fields f JOIN dex_files d USING (file_id)
+WHERE f.field_name IN ('mAutoDismissNotificationDecay', 'mHeadsUpNotificationDecay', 'mAccessibilityMgr',
+                       'mMoreIcon', 'mForceHideMoreIcon', 'MAX_DOTS')
+  AND f.class_descriptor LIKE 'Lcom/android/systemui/statusbar/%'
+ORDER BY f.field_descriptor;
+
+-- MiuiSystemUI.apk: distinguish status bar and notification shelf consumers.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE callee_class = 'Lcom/android/systemui/statusbar/phone/NotificationIconContainer;'
+  AND callee_name IN ('miuiShowNotificationIcons', 'hasMaxNumDot', 'setInNotificationIconShelf')
+ORDER BY method, callee;

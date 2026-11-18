@@ -104,6 +104,13 @@ xaga 宿主 `MiuiSystemUI.apk!classes.dex` 中，`PluginInstance$Factory.create`
 
 MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 轮以 A14 的系统窗口几何为语义参考，A13 系统接入口、资源及调用链按以上样本独立确认。veux SystemUI 对应 DEX 尚缺完整输入。复查查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
 
+## 浮动通知时长与溢出提示
+
+- **自动隐藏时长**。xaga 的 `HeadsUpEntry.calculateFinishTime()J` 从 `AlertingNotificationManager.mAutoDismissNotificationDecay` 取基础值，经 `getRecommendedHeadsUpTimeoutMs(I)I` 加到 post time。该方法优先读取条目的 MIUI float time，未提供时用 `AccessibilityManagerWrapper.getRecommendedTimeoutMillis(II)I` 和 flags `7`。手机条目另在父类结果上叠加原生扩展时长。旧实现写入的 `mHeadsUpNotificationDecay` 缺失。模块在取得实际 manager 和无障碍 wrapper 后才应用自定义基础时长，保留默认路径和原生扩展。分类为 `A13_COMPAT_VARIANT`。
+- **溢出提示**。xaga 的 `NotificationIconAreaController.onNotificationIconChanged(Z)V` 调用状态栏容器的 `miuiShowNotificationIcons(Z)V`。`NotificationIconContainer.calculateIconXTranslations()V` 用 `MAX_DOTS` 写溢出条目的可见状态。通知搁板也使用同类，并调用 `hasMaxNumDot()`。旧的 `setIconsVisibility()`、`mMoreIcon` 和 `mForceHideMoreIcon` 在样本中未声明，校准须限定状态栏宿主。
+
+证据来自 xaga `MiuiSystemUI.apk!classes2.dex`，veux 对应条目待完整输入。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。

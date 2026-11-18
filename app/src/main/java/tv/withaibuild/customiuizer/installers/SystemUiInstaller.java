@@ -98,7 +98,7 @@ public final class SystemUiInstaller {
 
             if (MainModule.mPrefs.getInt("system_drawer_blur", 100) < 100) SystemDisplayAndWindowHooks.DrawerBlurRatioHook(lpparam);
             if (MainModule.mPrefs.getInt("system_chargeanimtime", 20) < 20) SystemDisplayAndWindowHooks.ChargeAnimationHook(lpparam);
-            if (MainModule.mPrefs.getInt("system_betterpopups_delay", 0) > 0 && !MainModule.mPrefs.getBoolean("system_betterpopups_nohide")) SystemNotificationPopupsHooks.BetterPopupsHideDelayHook(lpparam);
+            if (SystemNotificationPopupsHooks.hasCustomHideDelay(MainModule.mPrefs)) SystemNotificationPopupsHooks.BetterPopupsHideDelayHook(lpparam);
             if (MainModule.mPrefs.getInt("system_netspeedinterval", 4) != 4) SystemUIStatusBarHooks.NetSpeedIntervalHook(lpparam);
             if (MainModule.mPrefs.getInt("system_qsgridrows", 1) > 1 || MainModule.mPrefs.getBoolean("system_qsnolabels")) SystemUIControlCenterHooks.QSGridLabelsHook(lpparam);
             if (MainModule.mPrefs.getInt("system_lstimeout", 3) > 3) SystemAudioAndVisualAndMoreHooks.LockScreenTimeoutHook(lpparam);
@@ -344,7 +344,7 @@ public final class SystemUiInstaller {
         if (prefs.getBoolean("system_networkindicator_wifi")) return true;
         if (prefs.getInt("system_drawer_blur", 100) < 100) return true;
         if (prefs.getInt("system_chargeanimtime", 20) < 20) return true;
-        if (prefs.getInt("system_betterpopups_delay", 0) > 0 && !prefs.getBoolean("system_betterpopups_nohide")) return true;
+        if (SystemNotificationPopupsHooks.hasCustomHideDelay(prefs)) return true;
         if (prefs.getInt("system_netspeedinterval", 4) != 4) return true;
         if (prefs.getInt("system_qsgridrows", 1) > 1 || prefs.getBoolean("system_qsnolabels")) return true;
         if (prefs.getInt("system_lstimeout", 3) > 3) return true;
