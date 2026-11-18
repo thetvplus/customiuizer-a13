@@ -7,6 +7,8 @@
 候选验证检查工作流、来源、证书、Artifact 与原始 attempt。
 用户安装与签名迁移见 [兼容说明](../COMPATIBILITY.md#签名与升级)。
 
+当前正式版通过 [源码 Releases](https://github.com/thetvplus/customiuizer-a13/releases/latest) 与 [Xposed Releases](https://github.com/Xposed-Modules-Repo/tv.withaibuild.customiuizer.r13/releases/latest) 发布。发布页与 `build-metadata.json` 记录实际构建来源；`main` 的后续文档或 CI 提交不改变现有 APK 的源码身份。
+
 r13.14.1 的封版与单次授权属于 [历史交接](https://github.com/thetvplus/customiuizer-a13/blob/78fe48b3ea1f7fa8637215a26025ff464ad25708/docs/A13_RC.md)。
 现行发行规则以两个受保护工作流、`tools/release-policy.json` 和实际回执为准。
 
@@ -21,7 +23,7 @@ r13.14.1 的封版与单次授权属于 [历史交接](https://github.com/thetvp
 ## Environment 与权限
 
 两个 Environment 均要求：**无 required reviewers**、禁止管理员绕过、仅允许类型为 branch 的精确 `main`，
-不允许 tag 或通配分支。首次启用时，在 GitHub Settings → Environments 中移除两个环境的 Required reviewers（保留 main-only 分支限制和 Secrets）；脚本在签名前及发布前读回规则，配置仍有人审则失败。
+不允许 tag 或通配分支。脚本在签名前及发布前读回规则，配置不符合上述约束时失败。
 Secrets 仅检查名称和所在范围，不读取、打印或导出明文。
 
 | Environment | Secrets | 使用范围 |
@@ -103,7 +105,7 @@ Fast and Full CI remain unsigned. The signed artifact uses one exact source SHA,
 并应用 [最小提案](a13-main-ruleset.proposed.json)。规则 `A13 main safety`（ID `25766547`）
 已读回为 Active：main 禁止删除/force push、必须经 PR 且只允许 Squash、bypass 为空，
 要求 GitHub Actions（15368）的 `fast` 并保持最新 main；不要求 PR 运行 main-only Full。
-规则只匹配 `refs/heads/main`，不限制发行 tag，也不改变两个 Environment 的人工审批。
+规则只匹配 `refs/heads/main`。发行 tag 和签名／发布 Environment 分别由发行流程管理。Actions 历史整理须保留正式发行与恢复依赖的原始 run，见 [Git 与 Actions 维护](DEVELOPMENT.md#git-与-actions-维护)。
 
 ## 正式构建图回归
 
