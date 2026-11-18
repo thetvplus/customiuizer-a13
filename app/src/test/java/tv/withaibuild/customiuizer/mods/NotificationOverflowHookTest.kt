@@ -75,6 +75,31 @@ class NotificationOverflowHookTest {
         dispatch(true)
         assertEquals(7, statusBar.MAX_STATIC_ICONS)
         assertEquals(0, statusBar.renderedDotLimit)
+        MainModule.mPrefs["system_maxsbicons"] = "0"
+        dispatch(true)
+        assertEquals(3, statusBar.MAX_STATIC_ICONS)
+        assertEquals(3, statusBar.MAX_ICONS_ON_LOCKSCREEN)
+        assertEquals(0, statusBar.renderedDotLimit)
+    }
+
+    @Test fun iconLimitSkipsInstallationAtDefaultAndUsesNativeResultForInvalidValues() {
+        SystemNotificationMoreHooks.MaxNotificationIconsHook(packageParam)
+        assertTrue(FakeXposedInterface.recordedHooks.isEmpty())
+
+        MainModule.mPrefs["system_maxsbicons"] = "-1"
+        SystemNotificationMoreHooks.MaxNotificationIconsHook(packageParam)
+        val statusBar = NotificationIconContainer()
+        val visibility = "miuiShowNotificationIcons"
+        assertEquals(statusBar.javaClass.getDeclaredMethod(visibility, Boolean::class.javaPrimitiveType),
+            FakeXposedInterface.recordedHooks.single().executable)
+        invokeRecordedRomHook(statusBar, visibility, listOf(true))
+        assertEquals(999, statusBar.MAX_STATIC_ICONS)
+        assertEquals(1, statusBar.layoutUpdates)
+
+        MainModule.mPrefs["system_maxsbicons"] = "-2"
+        invokeRecordedRomHook(statusBar, visibility, listOf(true))
+        assertEquals(3, statusBar.MAX_STATIC_ICONS)
+        assertEquals(2, statusBar.layoutUpdates)
     }
 
     @Test fun disabledFeatureInstallsNothingAndNativeFailureKeepsTheOriginalState() {

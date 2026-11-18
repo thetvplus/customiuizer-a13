@@ -322,3 +322,9 @@ WHERE callee_name IN ('checkNotificationCountLimit', '-$$Nest$mcheckNotification
                            'shouldRemove', 'isGroupSummary', 'isFold',
                            'performRemoveNotification', 'cancelNotification'))
 ORDER BY method, callee;
+
+-- MiuiSystemUI.apk: visibility writes and the distinct icon count and width readers.
+SELECT DISTINCT method, field FROM method_field_accesses
+WHERE field_class = 'Lcom/android/systemui/statusbar/phone/NotificationIconContainer;'
+  AND field_name IN ('MAX_DOTS', 'MAX_STATIC_ICONS', 'MAX_ICONS_ON_LOCKSCREEN')
+ORDER BY method, field;

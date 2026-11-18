@@ -163,6 +163,11 @@ MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 
 - veux 局部方法体显示同一检查额外通过 `lambda$checkNotificationCountLimit$1(NotificationEntry)` 排除主要通话与闹钟候选，超限后通过 `NotificationSettingsHelper.cancelNotification` 取消。A13 在同包数量已超过 24 条且该精确成员存在时复用其筛选。veux 样本完整性有缺口，结论限兼容线索。
 - A13 初始实现和设置文案的上限均为 24。当前 MonwF 与 A14 处理新版管线的上限移除，A13 修正属于 `A13_COMPAT_VARIANT`。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/main/app/src/main/java/name/monwf/customiuizer/mods/SystemUI.java#L3897-L3899) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
 
+## 状态栏图标上限与可见性
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `NotificationIconAreaController.onNotificationIconChanged(boolean):void` 对状态栏容器调用 `miuiShowNotificationIcons(boolean):void`。可见时把三项上限设为 3，隐藏时设为 0，然后调用原生 `updateState():void`。veux 对应方法体可局部解码，可见时日常图标上限为 1。这就是默认值回退要使用原生可见性回调的原因。
+- `calculateIconXTranslations():void` 在普通静态布局读取 `MAX_STATIC_ICONS`，锁屏分支使用固定值 3。`calculateWidthFor(float):float` 读取 `MAX_ICONS_ON_LOCKSCREEN` 计算宽度。第 16 轮保持 A13 自定义值的原有字段映射和系统定位规则，属于 `A13_COMPAT_VARIANT`。veux 样本完整性有缺口，结论限兼容线索。[复查 SQL](../../tools/dexsql/maintenance_targets.sql)
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。

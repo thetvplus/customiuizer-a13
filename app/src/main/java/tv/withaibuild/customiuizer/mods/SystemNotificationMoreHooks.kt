@@ -675,19 +675,35 @@ object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun MaxNotificationIconsHook(lpparam: PackageReadyParam) {
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.phone.NotificationIconContainer", lpparam.classLoader, "miuiShowNotificationIcons", Boolean::class.javaPrimitiveType, object : MethodHook() {
+        val preference = "system_maxsbicons"
+        val initialLimit = MainModule.mPrefs.getStringAsInt(preference, 0)
+        if (initialLimit == 0 || initialLimit < -1) return
+        val visibility = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.phone.NotificationIconContainer", lpparam.classLoader,
+            "miuiShowNotificationIcons", Boolean::class.javaPrimitiveType
+        ) ?: return
+        if (visibility.returnType != Void.TYPE) return
+        val container = visibility.declaringClass
+        fun findLimitField(name: String) = XposedHelpers.findFieldIfExists(container, name)
+            ?.takeIf { it.type == Int::class.javaPrimitiveType && !Modifier.isStatic(it.modifiers) }
+        val maxDots = findLimitField("MAX_DOTS") ?: return
+        val maxStaticIcons = findLimitField("MAX_STATIC_ICONS") ?: return
+        val lockscreenWidthLimit = findLimitField("MAX_ICONS_ON_LOCKSCREEN") ?: return
+        val updateState = XposedHelpers.findMethodExactIfExists(container, "updateState") ?: return
+        if (updateState.returnType != Void.TYPE) return
+
+        ModuleHelper.hookMethod(visibility, object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                val isShow = param.getArg(0) as? Boolean ?: false
-                if (isShow) {
-                    var opt = MainModule.mPrefs.getStringAsInt("system_maxsbicons", 0)
-                    opt = if (opt == -1) 999 else opt
-                    XposedHelpers.setObjectField(param.thisObject, "MAX_DOTS", 3)
-                    XposedHelpers.setObjectField(param.thisObject, "MAX_STATIC_ICONS", opt)
-                    val fieldLockVisible = "MAX_ICONS_ON_LOCKSCREEN"
-                    XposedHelpers.setObjectField(param.thisObject, fieldLockVisible, opt)
-                    XposedHelpers.callMethod(param.thisObject, "updateState")
-                    param.returnAndSkip(null)
-                }
+                if (param.getArg(0) != true) return
+                val configuredLimit = MainModule.mPrefs.getStringAsInt(preference, 0)
+                if (configuredLimit == 0 || configuredLimit < -1) return
+                val limit = if (configuredLimit == -1) 999 else configuredLimit
+                val icons = param.thisObject
+                maxDots.setInt(icons, 3)
+                maxStaticIcons.setInt(icons, limit)
+                lockscreenWidthLimit.setInt(icons, limit)
+                updateState.invoke(icons)
+                param.returnAndSkip(null)
             }
         })
     }
