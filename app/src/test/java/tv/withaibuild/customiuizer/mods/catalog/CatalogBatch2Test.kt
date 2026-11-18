@@ -126,11 +126,14 @@ class CatalogBatch2Test {
 
     @Test
     fun folderColumns_installed() {
+        FakeXposedInterface.reset()
         val prefs = PrefMap<String, Any>()
         prefs["pref_key_launcher_folder_cols"] = 4
         val launcher = launcherRuntime(prefs)
 
         assertTrue(FeatureDispatcher.installById("folderColumns", launcher))
+        assertNotNull(FakeXposedInterface.findHook("com.miui.home.launcher.Folder", "updateViewsLayout"))
+        assertTrue(FakeXposedInterface.findHook("com.miui.home.launcher.Folder", "resetViewsLayoutParams") == null)
 
         val summary = DiagnosticRecorder.summarize()[DiagnosticIds.FOLDER_COLUMNS]
         assertNotNull(summary)
@@ -172,11 +175,11 @@ class CatalogBatch2Test {
     }
 
     @Test
-    fun folderColumns_resetViewsLayoutParamsIsOptional() {
+    fun folderColumns_layoutUpdateKeepsTheLegacyCandidateOptional() {
         val requirement = CatalogContracts.folderColumns.requirements
-            .find { it.id == "Folder.resetViewsLayoutParams" }
-        assertNotNull(requirement)
-        assertEquals(Criticality.OPTIONAL, requirement!!.criticality)
+            .single { it.id == "Folder.layoutUpdate" } as tv.withaibuild.customiuizer.mods.utils.AnyOfRequirement
+        assertEquals(Criticality.OPTIONAL, requirement.criticality)
+        assertEquals(listOf("updateViewsLayout", "resetViewsLayoutParams"), requirement.candidates.map { it.memberName })
     }
 
     @Test

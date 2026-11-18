@@ -1,5 +1,8 @@
 package tv.withaibuild.customiuizer.mods.catalog
 
+import android.view.View
+import com.miui.home.launcher.shortcuts.ShortcutMenuItem
+import com.miui.home.launcher.shortcuts.ShortcutMenuManager
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import org.junit.Assert.assertEquals
@@ -26,6 +29,7 @@ class CatalogBatch1Test {
     @Before
     fun setUp() {
         DiagnosticRecorder.reset()
+        FakeXposedInterface.reset()
         FeatureInstallRegistry.clearStatesForTesting()
         logs.clear()
         DiagnosticRecorder.clock = { 0L }
@@ -51,11 +55,11 @@ class CatalogBatch1Test {
 
     private fun launcherRuntime(
         prefs: PrefMap<String, Any>,
-        packageName: String = "com.miui.home"
+        packageName: String = "com.miui.home",
+        classLoader: ClassLoader = javaClass.classLoader!!
     ): FeatureRuntime {
         @Suppress("UNCHECKED_CAST")
         MainModule.mPrefs = prefs as PrefMap<String, Any>
-        val classLoader = this.javaClass.classLoader!!
         val lpparam = newPackageReadyParam(packageName, classLoader)
         return FeatureDispatcher.createRuntime(packageName, lpparam, classLoader, prefs)
     }
@@ -156,16 +160,34 @@ class CatalogBatch1Test {
     }
 
     @Test
+    fun fixAppInfoLaunch_globalUsesTheExactShortcutMenuMethod() {
+        val prefs = PrefMap<String, Any>().apply { put("launcher_fixlaunch", true) }
+        val launcher = launcherRuntime(prefs, packageName = "com.mi.android.globallauncher")
+
+        assertTrue(FeatureDispatcher.installById("fixAppInfoLaunch", launcher))
+        val method = ShortcutMenuManager::class.java.getDeclaredMethod(
+            "startAppDetailsActivity", ShortcutMenuItem::class.java, View::class.java
+        )
+        assertEquals(listOf(method), FakeXposedInterface.recordedHooks.map { it.executable })
+    }
+
+    @Test
     fun fixAppInfoLaunch_fallbackInstalled() {
         val prefs = PrefMap<String, Any>()
         prefs["pref_key_launcher_fixlaunch"] = true
-        val launcher = launcherRuntime(prefs, packageName = "com.mi.android.globallauncher")
+        val legacyLoader = object : ClassLoader(javaClass.classLoader) {
+            override fun loadClass(name: String): Class<*> {
+                if (name == ShortcutMenuManager::class.java.name) throw ClassNotFoundException(name)
+                return super.loadClass(name)
+            }
+        }
+        val launcher = launcherRuntime(prefs, "com.mi.android.globallauncher", legacyLoader)
 
         assertTrue(FeatureDispatcher.installById("fixAppInfoLaunch", launcher))
 
         val summary = DiagnosticRecorder.summarize()[DiagnosticIds.FIX_APP_INFO_LAUNCH]
         assertNotNull(summary)
-        assertEquals(CompatibilityState.COMPATIBLE, summary!!.compatibility)
+        assertEquals(CompatibilityState.DEGRADED, summary!!.compatibility)
         assertEquals(InstallOutcome.DEGRADED, summary.installation)
         assertTrue(summary.installSummary?.fallbackUsed ?: false)
     }

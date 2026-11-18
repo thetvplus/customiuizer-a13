@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.os.CombinedVibration
 import android.os.IBinder
 import android.os.VibrationAttributes
+import android.view.View
 import tv.withaibuild.customiuizer.mods.utils.AnyOfRequirement
 import tv.withaibuild.customiuizer.mods.utils.Criticality
 import tv.withaibuild.customiuizer.mods.utils.HookOperation
@@ -115,29 +116,31 @@ object CatalogContracts {
     )
     }
 
-    val fixAppInfoLaunch: HookTargetContract by lazy(kotlin.LazyThreadSafetyMode.NONE) { HookTargetContract(
-        featureId = "fixAppInfoLaunch",
-        requirements = listOf(
-            AnyOfRequirement(
-                id = "fixAppInfoLaunch.launcher",
-                criticality = Criticality.REQUIRED,
-                candidates = listOf(
-                    HookTargetSpec(
-                        id = "ShortcutMenuManager.startAppDetailsActivity",
-                        operation = HookOperation.ALL_METHODS_BY_NAME,
-                        className = "com.miui.home.launcher.shortcuts.ShortcutMenuManager",
-                        memberName = "startAppDetailsActivity"
-                    ),
-                    HookTargetSpec(
-                        id = "Utilities.startDetailsActivityForInfo",
-                        operation = HookOperation.ALL_METHODS_BY_NAME,
-                        className = "com.miui.home.launcher.util.Utilities",
-                        memberName = "startDetailsActivityForInfo"
-                    )
+    fun fixAppInfoLaunch(shortcutItem: Class<*>?, allowLegacy: Boolean): HookTargetContract? {
+        val candidates = buildList {
+            if (shortcutItem != null) add(
+                HookTargetSpec(
+                    id = "ShortcutMenuManager.startAppDetailsActivity",
+                    operation = HookOperation.EXACT_METHOD,
+                    className = "com.miui.home.launcher.shortcuts.ShortcutMenuManager",
+                    memberName = "startAppDetailsActivity",
+                    parameterTypes = listOf(shortcutItem, View::class.java)
                 )
             )
+            if (allowLegacy) add(
+                HookTargetSpec(
+                    id = "Utilities.startDetailsActivityForInfo",
+                    operation = HookOperation.ALL_METHODS_BY_NAME,
+                    className = "com.miui.home.launcher.util.Utilities",
+                    memberName = "startDetailsActivityForInfo"
+                )
+            )
+        }
+        if (candidates.isEmpty()) return null
+        return HookTargetContract(
+            featureId = "fixAppInfoLaunch",
+            requirements = listOf(AnyOfRequirement(candidates, id = "fixAppInfoLaunch.launcher"))
         )
-    )
     }
 
     // Catalog expansion batch 2: system_server
@@ -307,15 +310,23 @@ object CatalogContracts {
                     memberName = "onLayout"
                 )
             ),
-            SingleTargetRequirement(
-                target = HookTargetSpec(
-                    id = "Folder.resetViewsLayoutParams",
-                    operation = HookOperation.EXACT_METHOD,
-                    className = "com.miui.home.launcher.Folder",
-                    memberName = "resetViewsLayoutParams",
-                    parameterTypes = emptyList()
+            AnyOfRequirement(
+                candidates = listOf(
+                    HookTargetSpec(
+                        id = "Folder.updateViewsLayout",
+                        operation = HookOperation.EXACT_METHOD,
+                        className = "com.miui.home.launcher.Folder",
+                        memberName = "updateViewsLayout"
+                    ),
+                    HookTargetSpec(
+                        id = "Folder.resetViewsLayoutParams",
+                        operation = HookOperation.EXACT_METHOD,
+                        className = "com.miui.home.launcher.Folder",
+                        memberName = "resetViewsLayoutParams"
+                    )
                 ),
-                criticality = Criticality.OPTIONAL
+                criticality = Criticality.OPTIONAL,
+                id = "Folder.layoutUpdate"
             )
         )
     )

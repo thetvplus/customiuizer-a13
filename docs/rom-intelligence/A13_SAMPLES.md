@@ -80,6 +80,16 @@ xaga 宿主 `MiuiSystemUI.apk!classes.dex` 中，`PluginInstance$Factory.create`
 
 这两处属于 `A13_COMPAT_VARIANT`。时长语义参考 MonwF 当前主线、A13 初始时长设置及 A14 当前实现，实际入口与分支依据 A13 插件 Smali。xaga 和 veux 插件各 DEX 的 ZIP CRC 与 Adler-32 通过，头部 SHA-1 不匹配。结论覆盖所核对的成员和控制流。veux 宿主的同名入口来自 CRC 失败的 `classes2.dex`，其宿主加载链保持待验。复查 SQL 见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
 
+## 桌面与应用详情入口
+
+输入为 xaga 的 `product/priv-app/MiuiHomeT/MiuiHomeT.apk`，以及 veux 同路径 Home 和 `product/priv-app/MiLauncherGlobal/MiLauncherGlobal.apk`。三份 APK 的两个 DEX 均通过 ZIP CRC 与 Adler-32，头部 SHA-1 不匹配。Manifest 标明 Home 和 Global Launcher 分别是 `com.miui.home` 和 `com.mi.android.globallauncher`。
+
+- 三份样本的 `classes2.dex` 均定义 `ShortcutMenuManager.startAppDetailsActivity(ShortcutMenuItem, View):void`，由长按菜单点击调用，参数提供组件名和所属用户。当前 MonwF 的入口与该目标一致，A13 初始实现按包名区分旧国际版，A14 当前实现也使用长按菜单目标。A13 优先挂载确认的完整签名，兼容保留缺少该入口的旧国际版。
+- 三份样本的 `classes.dex` 均定义 `Folder.updateViewsLayout():void`，绑定数据或屏幕尺寸变化时原生重写内容宽度。模块只在原生成功更新后复用文件夹宽度设置。保留 `resetViewsLayoutParams()` 作为旧 ABI 的可选回退。
+- Dock 的 `calcHotSeatsHeight(Context, boolean)`、上下间距方法、桌面滑动和最近任务过滤均保留对应宿主。两份安全中心的应用详情和菜单声明与当前绑定匹配，应用信息页仍使用原有 Fragment 所有权。
+
+两项入口调整属于 `A13_COMPAT_VARIANT`。设备上的长按菜单跳转、多用户、文件夹旋转和折叠切换仍待验证。复查查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。

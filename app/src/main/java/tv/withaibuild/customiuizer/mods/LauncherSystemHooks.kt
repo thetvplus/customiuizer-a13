@@ -38,43 +38,55 @@ object LauncherSystemHooks {
 
     @JvmStatic
     fun FixAppInfoLaunchHook(lpparam: PackageReadyParam) {
-        if (lpparam.packageName == "com.mi.android.globallauncher")
-            ModuleHelper.hookAllMethods("com.miui.home.launcher.util.Utilities", lpparam.classLoader, "startDetailsActivityForInfo", object : MethodHook() {
+        val loader = lpparam.classLoader
+        val shortcutItem = XposedHelpers.findClassIfExists("com.miui.home.launcher.shortcuts.ShortcutMenuItem", loader)
+        val shortcut = shortcutItem?.let {
+            XposedHelpers.findMethodExactIfExists(
+                "com.miui.home.launcher.shortcuts.ShortcutMenuManager", loader,
+                "startAppDetailsActivity", it, View::class.java
+            )
+        }
+        if (shortcut != null && shortcut.returnType == Void.TYPE) {
+            ModuleHelper.findAndHookMethod(shortcut.declaringClass, shortcut.name, shortcutItem, View::class.java, object : MethodHook() {
                 override fun before(param: BeforeHookCallback) {
-                    val itemInfo = param.getArg(0) ?: return
-                    val component: ComponentName? = try {
-                        XposedHelpers.callMethod(itemInfo, "getComponentName") as? ComponentName
-                    } catch (t: Throwable) {
-                        RuntimeFatality.throwIfFatal(t)
-                        try {
-                            XposedHelpers.callMethod(XposedHelpers.getObjectField(itemInfo, "intent"), "getComponent") as? ComponentName
-                        } catch (t: Throwable) {
-                            RuntimeFatality.throwIfFatal(t)
-                            try {
-                                XposedHelpers.getObjectField(itemInfo, "providerName") as? ComponentName
-                            } catch (t: Throwable) {
-                                RuntimeFatality.throwIfFatal(t)
-                                XposedHelpers.getObjectField(XposedHelpers.getObjectField(itemInfo, "providerInfo"), "provider") as? ComponentName
-                            }
-                        }
-                    }
-                    if (component == null) return
-                    val context = param.getArg(1) as? Context ?: return
-                    val userHandle = XposedHelpers.callMethod(param.getArg(0), "getUser") as? UserHandle
-                    ModuleHelper.openAppInfo(context, component.packageName, userHandle?.hashCode() ?: 0)
-                    param.returnAndSkip(true)
-                }
-            })
-        else
-            ModuleHelper.hookAllMethods("com.miui.home.launcher.shortcuts.ShortcutMenuManager", lpparam.classLoader, "startAppDetailsActivity", object : MethodHook() {
-                override fun before(param: BeforeHookCallback) {
-                    val component = XposedHelpers.callMethod(param.getArg(0), "getComponentName") as? ComponentName ?: return
+                    val item = param.getArg(0) ?: return
                     val view = param.getArg(1) as? View ?: return
-                    val userHandle = XposedHelpers.callMethod(param.getArg(0), "getUserHandle") as? UserHandle
+                    val component = XposedHelpers.callMethod(item, "getComponentName") as? ComponentName ?: return
+                    val userHandle = XposedHelpers.callMethod(item, "getUserHandle") as? UserHandle
                     ModuleHelper.openAppInfo(view.context, component.packageName, userHandle?.hashCode() ?: 0)
                     param.returnAndSkip(null)
                 }
             })
+            return
+        }
+
+        if (lpparam.packageName != "com.mi.android.globallauncher") return
+        ModuleHelper.hookAllMethods("com.miui.home.launcher.util.Utilities", loader, "startDetailsActivityForInfo", object : MethodHook() {
+            override fun before(param: BeforeHookCallback) {
+                val itemInfo = param.getArg(0) ?: return
+                val component: ComponentName? = try {
+                    XposedHelpers.callMethod(itemInfo, "getComponentName") as? ComponentName
+                } catch (t: Throwable) {
+                    RuntimeFatality.throwIfFatal(t)
+                    try {
+                        XposedHelpers.callMethod(XposedHelpers.getObjectField(itemInfo, "intent"), "getComponent") as? ComponentName
+                    } catch (t: Throwable) {
+                        RuntimeFatality.throwIfFatal(t)
+                        try {
+                            XposedHelpers.getObjectField(itemInfo, "providerName") as? ComponentName
+                        } catch (t: Throwable) {
+                            RuntimeFatality.throwIfFatal(t)
+                            XposedHelpers.getObjectField(XposedHelpers.getObjectField(itemInfo, "providerInfo"), "provider") as? ComponentName
+                        }
+                    }
+                }
+                if (component == null) return
+                val context = param.getArg(1) as? Context ?: return
+                val userHandle = XposedHelpers.callMethod(itemInfo, "getUser") as? UserHandle
+                ModuleHelper.openAppInfo(context, component.packageName, userHandle?.hashCode() ?: 0)
+                param.returnAndSkip(true)
+            }
+        })
     }
 
     @JvmStatic

@@ -39,3 +39,16 @@
 | 控制中心样式 | xaga 插件定义 `MainPanelHeaderController` 的可见性、约束和时钟更新方法。双参 `PluginComponentFactory.create` 指向插件启动路径，委托单参重载并绑定宿主 Context。 |
 
 样本来源、时长分支和复查查询见 [插件加载和音量计时](A13_SAMPLES.md#插件加载和音量计时)。后续覆盖其余插件资源、动态目标和实机回调。
+
+## 第 3 轮 Launcher 与独立应用
+
+对 Launcher 的 96 组字面类名和方法名初筛。xaga Home 命中 90 组，veux Global Launcher 89 组，veux Home 90 组。签名和真实调用另做定向核对。
+
+| 功能 | 静态复查与处理 |
+| --- | --- |
+| 桌面长按打开应用信息 | 三份样本都从长按菜单调用 `ShortcutMenuManager.startAppDetailsActivity(ShortcutMenuItem, View)`。国际版优先匹配与国行相同的入口，旧 Utilities 路径作为已有国际版兼容回退。 |
+| 文件夹宽度 | 三份样本的 `Folder.bind(FolderInfo)` 和 `onScreenSizeChanged()` 调用 `updateViewsLayout()` 并重写内容宽度。模块在原生更新后重新应用宽度设置。 |
+| Dock、手势和最近任务 | 三份样本的 Dock 高度及上下间距、`Workspace.onVerticalGesture`、`HotSeats.dispatchTouchEvent` 和最近任务相关样本入口已定向核对。 |
+| 安全中心与安装器 | 两份安全中心样本定义应用详情 Activity 的初始化、点击和菜单入口，也定义应用信息 Fragment 的偏好入口。xaga 安装器 Manifest 包名与现有路由匹配。 |
+
+样本范围和查询见 [桌面与应用详情入口](A13_SAMPLES.md#桌面与应用详情入口)。桌面资源覆盖、其余动态目标和设备行为仍待验证。

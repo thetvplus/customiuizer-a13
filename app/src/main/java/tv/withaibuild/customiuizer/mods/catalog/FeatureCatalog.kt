@@ -31,6 +31,7 @@ import tv.withaibuild.customiuizer.mods.LauncherSystemHooks
 import tv.withaibuild.customiuizer.mods.diagnostics.DiagnosticIds
 import tv.withaibuild.customiuizer.mods.diagnostics.InstallOutcome
 import tv.withaibuild.customiuizer.mods.diagnostics.InstallSummary
+import tv.withaibuild.customiuizer.mods.diagnostics.ReasonCode
 import tv.withaibuild.customiuizer.mods.utils.FeatureInstallResult
 import tv.withaibuild.customiuizer.mods.utils.HookInstallResult
 import tv.withaibuild.customiuizer.mods.utils.HookInstaller
@@ -492,8 +493,7 @@ object FeatureCatalog {
             configReloadMode = ConfigReloadMode.NONE
         ),
         FeatureSpec(
-            compatibilityPolicy = CompatibilityPolicy.CONTRACT_REQUIRED,
-            contract = CatalogContracts.fixAppInfoLaunch,
+            compatibilityPolicy = CompatibilityPolicy.CUSTOM,
             id = "fixAppInfoLaunch",
             diagnosticId = DiagnosticIds.FIX_APP_INFO_LAUNCH,
             processScope = ProcessScope.LAUNCHER,
@@ -503,16 +503,26 @@ object FeatureCatalog {
             condition = { prefs ->
                 prefs.getBoolean("launcher_fixlaunch", false)
             },
+            compatibilityCheck = { runtime ->
+                val diagnosticId = DiagnosticIds.FIX_APP_INFO_LAUNCH
+                val shortcutItem = runtime.resolver.resolveClass("com.miui.home.launcher.shortcuts.ShortcutMenuItem", diagnosticId)
+                val pkg = (runtime.lpparam as PackageReadyParam).packageName
+                val contract = CatalogContracts.fixAppInfoLaunch(shortcutItem, pkg == "com.mi.android.globallauncher")
+                if (contract == null) {
+                    CompatibilityResult(CompatibilityState.INCOMPATIBLE, ReasonCode.TARGET_NOT_FOUND, "ShortcutMenuItem missing", HookInstallResult())
+                } else {
+                    val (state, result) = runtime.resolver.evaluateContract(contract, diagnosticId)
+                    CompatibilityResult(state, result.reasonCode, result.detail, result.copy(resolvedContract = contract))
+                }
+            },
             installer = { runtime, compatResult ->
                 legacyInstall(
                     runtime = runtime,
                     compatResult = compatResult,
-                    contract = CatalogContracts.fixAppInfoLaunch,
+                    contract = requireNotNull(compatResult.resolvedContract),
                     diagnosticId = DiagnosticIds.FIX_APP_INFO_LAUNCH
                 ) {
-                    LauncherSystemHooks.FixAppInfoLaunchHook(
-                    runtime.lpparam as PackageReadyParam
-                    )
+                    LauncherSystemHooks.FixAppInfoLaunchHook(runtime.lpparam as PackageReadyParam)
                 }
             },
             activationRestartTarget = RestartTarget.LAUNCHER_RESTART,

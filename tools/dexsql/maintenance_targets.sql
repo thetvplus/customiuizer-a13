@@ -83,6 +83,27 @@ WHERE m.method_descriptor IN (
     AND m.method_name IN ('removeHeadsUpNotification', 'removeOldHeadsUpNotification', 'onExpandingFinished'))
 ORDER BY m.method_descriptor;
 
+-- Home / Global Launcher: scope declarations to the actual host DEX.
+SELECT d.entry_name, m.method_descriptor
+FROM class_methods m JOIN dex_files d USING (file_id)
+WHERE (m.class_descriptor = 'Lcom/miui/home/launcher/shortcuts/ShortcutMenuManager;'
+       AND m.method_name = 'startAppDetailsActivity')
+   OR (m.class_descriptor = 'Lcom/miui/home/launcher/util/Utilities;'
+       AND m.method_name = 'startDetailsActivityForInfo')
+   OR (m.class_descriptor = 'Lcom/miui/home/launcher/Folder;'
+       AND m.method_name IN ('updateViewsLayout', 'resetViewsLayoutParams'))
+   OR (m.class_descriptor = 'Lcom/miui/home/launcher/DeviceConfig;'
+       AND m.method_name IN ('calcHotSeatsHeight', 'calcHotSeatsMarginTop', 'calcHotSeatsMarginBottom'))
+ORDER BY m.method_descriptor;
+
+SELECT DISTINCT d.entry_name, method, callee
+FROM method_calls JOIN dex_files d USING (file_id)
+WHERE (callee_class = 'Lcom/miui/home/launcher/shortcuts/ShortcutMenuManager;'
+       AND callee_name = 'startAppDetailsActivity')
+   OR (callee_class = 'Lcom/miui/home/launcher/Folder;'
+       AND callee_name = 'updateViewsLayout')
+ORDER BY d.entry_name, method;
+
 SELECT d.entry_name, f.field_descriptor
 FROM class_fields f JOIN dex_files d USING (file_id)
 WHERE f.field_descriptor IN (
