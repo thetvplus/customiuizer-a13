@@ -156,14 +156,14 @@ MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 
 
 - xaga `MiuiSystemUI.apk!classes2.dex` 的 `NotificationFilterController.shouldShowOnKeyguard(NotificationEntry):boolean` 只在 `NotificationSettingsHelper.alwaysShowKeyguardNotifications():boolean` 为 false 时按已显示标记隐藏普通通知。继续显示的通知仍由 `ExpandedNotification.canShowOnKeyguard()` 判断资格。解锁状态监听经 `NotificationAlertController.markVisibleNotificationsShown()` 和 `setHasShownAfterUnlock(boolean)` 写入标记。第 14 轮采用系统已有的保留策略，旧版保留精确的标记读取回退。
 - `StatusBarKeyguardViewManager.hide(long, long)` 调用 `KeyguardNotificationController.clear()`。控制器在清理后按 `needReadd(NotificationEntry)` 回填仍可见且原先已在锁屏列表中的条目。把 `isKeptOnKeyguard(Notification)` 一律改为 true 会使普通可清除条目跳过回填，第 14 轮保留原生回填条件。
-- MonwF 当前实现与 A14 参考同样处理解锁后已显示的标记。A13 在独立核实的原生策略入口生效，属于 `A13_COMPAT_VARIANT`。veux 的相关过滤与清理分支可局部解码，样本完整性有缺口。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/main/app/src/main/java/name/monwf/customiuizer/mods/System.java#L1389-L1397) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
+- MonwF 当前实现与 A14 参考同样处理解锁后已显示的标记。A13 在独立核实的原生策略入口生效，属于 `A13_COMPAT_VARIANT`。veux 的相关过滤与清理分支可局部解码，样本完整性有缺口。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/421c16a0a6f2df759fb8078cfcb1dee456cbbe46/app/src/main/java/name/monwf/customiuizer/mods/System.java#L1465-L1473) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
 
 ## 单应用通知数量与清理
 
 - xaga `MiuiSystemUI.apk!classes2.dex` 的 `NotificationEntryManager` 在通知视图绑定后加入活动集合，再回调 `NotificationCountLimitPolicy$1.onNotificationAdded(NotificationEntry)`。这会传入通知包名并调用 `checkNotificationCountLimit(String):void`。原生从 `getAllNotifs()` 筛选同一包名，超过阈值才清理。旧 A13 在达到 24 条时恢复原生清理，会提前移除第 24 条到达时的一条通知。
 - 原生 `shouldRemove(NotificationEntry, NotificationEntry)` 优先选普通行、其次选折叠通知、再按 `Notification.when` 选较早条目。xaga 通过 `performRemoveNotification` 移除。第 15 轮只延后进入清理，继续沿用原生处理。
 - veux 局部方法体显示同一检查额外通过 `lambda$checkNotificationCountLimit$1(NotificationEntry)` 排除主要通话与闹钟候选，超限后通过 `NotificationSettingsHelper.cancelNotification` 取消。A13 在同包数量已超过 24 条且该精确成员存在时复用其筛选。veux 样本完整性有缺口，结论限兼容线索。
-- A13 初始实现和设置文案的上限均为 24。当前 MonwF 与 A14 处理新版管线的上限移除，A13 修正属于 `A13_COMPAT_VARIANT`。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/main/app/src/main/java/name/monwf/customiuizer/mods/SystemUI.java#L3897-L3899) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
+- A13 初始实现和设置文案的上限均为 24。当前 MonwF 与 A14 处理新版管线的上限移除，A13 修正属于 `A13_COMPAT_VARIANT`。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/421c16a0a6f2df759fb8078cfcb1dee456cbbe46/app/src/main/java/name/monwf/customiuizer/mods/SystemUI.java#L4045-L4047) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
 
 ## 状态栏图标上限与可见性
 
@@ -174,7 +174,7 @@ MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 
 
 - xaga `MiuiSystemUI.apk!classes2.dex` 中，初次绑定的 `NotificationRowBinderImpl.inflateContentViews` 和行状态变化时的 `LowPriorityInflationHelper.recheckLowPriorityViewAndInflate` 都读取 `shouldUseLowPriorityView(NotificationEntry):boolean`。原生判断要求 `NotificationEntry.isAmbient()` 为 true 且条目不在组内。样本的 `isAmbient()` 固定返回 false，条目的 `getImportance()` 则读取当前 Ranking。
 - 原生绑定把判断结果写入 `RowContentBindParams.setUseLowPriority(boolean)` 后发起绑定。`NotificationContentInflater.createContentView` 在对应分支调用 `Notification.Builder.makeLowPriorityContentView(boolean)`。第 17 轮在原生成功返回 false 时，仅为最低重要性且符合分组条件的条目启用这个分支。
-- A13 初始版本与 MonwF 当前实现使用旧 `StatusBar.updateNotification` 路径。xaga 未找到对应入口。本轮采用 A13 已核实的绑定链，属于 `A13_COMPAT_VARIANT`。veux 局部解码显示相同的低优先级判断与模板分支，样本完整性有缺口。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/main/app/src/main/java/name/monwf/customiuizer/mods/System.java#L3171) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
+- A13 初始版本与 MonwF 当前实现使用旧 `StatusBar.updateNotification` 路径。xaga 未找到对应入口。本轮采用 A13 已核实的绑定链，属于 `A13_COMPAT_VARIANT`。veux 局部解码显示相同的低优先级判断与模板分支，样本完整性有缺口。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/421c16a0a6f2df759fb8078cfcb1dee456cbbe46/app/src/main/java/name/monwf/customiuizer/mods/System.java#L3372-L3388) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
 
 ## 输入身份（SHA-256）
 

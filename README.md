@@ -4,7 +4,7 @@
 
 米客 A13 是用于定制 **MIUI 14 / Android 13** 系统界面、桌面与交互的 Xposed 模块。支持 `arm64-v8a`，需要提供 **libxposed API 102** 的框架。**HyperOS 1 / Android 13** 为实验兼容，功能取决于 ROM 与系统应用版本。其他平台见[兼容矩阵](COMPATIBILITY.md)。
 
-[下载正式版](https://github.com/thetvplus/customiuizer-a13/releases/latest) · [Xposed 模块仓库](https://github.com/Xposed-Modules-Repo/tv.withaibuild.customiuizer.r13/releases/latest) · [更新日志](CHANGELOG.md)
+[下载正式版](https://github.com/thetvplus/customiuizer-a13/releases/latest) · [Xposed 下载](https://github.com/Xposed-Modules-Repo/tv.withaibuild.customiuizer.r13/releases/latest) · [更新日志](CHANGELOG.md)
 
 ## 功能概览
 
