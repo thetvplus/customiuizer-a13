@@ -356,14 +356,14 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
     }
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?) {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == PICK_BACKFILE && resultCode == Activity.RESULT_OK) {
-            val uri = resultData?.data
+            val uri = data?.data
             if (uri != null) {
                 doRestoreSettings(uri)
             }
         } else if (requestCode == SAVE_BACKFILE && resultCode == Activity.RESULT_OK) {
-            val uri = resultData?.data ?: return
+            val uri = data?.data ?: return
             var output: OutputStream? = null
             try {
                 output = getValidContext().contentResolver.openOutputStream(uri)
