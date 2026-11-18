@@ -120,6 +120,13 @@ MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 
 
 初始 A13 和本轮基线都按双参数量筛选原生结果。当前 MonwF 和 A14 使用其它版本的通知判断点，本轮保留 A13 的双参专用入口并限定对全屏候选的影响。分类为 `A13_COMPAT_VARIANT`。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
 
+## 展开通知与原生计时
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `StatusBarNotificationPresenter.onExpandClicked(NotificationEntry, View, boolean)` 经 `HeadsUpManager.setExpanded(NotificationEntry, boolean)` 调用手机条目的 `setExpanded(boolean)`。它先写入状态，展开时取消计时，收起时调用 `updateEntry(false)`。旧 A13 Hook 跳过原生展开并固定提交 5000ms 回调。
+- 原生 `AlertingNotificationManager$AlertEntry.updateEntry(boolean)` 先取消旧回调，根据 `isSticky()`、完成时刻和最短显示窗口安排同一个移除回调。手机条目的常驻条件是固定且展开、远程输入、全屏 Intent 或 `mMenuShownPinned`。远程输入和菜单退出都能经原生 `updateEntry(false)` 恢复计时。锁屏状态切换和通知生命周期也会读取常驻结果。
+
+第 9 轮用对应 A13 签名恢复原生计时，保持其它常驻查询的可见结果。当前 MonwF 使用另一套带取消原因的入口。A14 参考使用原生计时但菜单字段不同。A13 属于 `A13_COMPAT_VARIANT`，证据限上述 xaga 路径。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。

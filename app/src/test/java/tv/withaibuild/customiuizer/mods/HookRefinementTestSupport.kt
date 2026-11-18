@@ -34,6 +34,7 @@ internal fun invokeRecordedRomHook(owner: Any, name: String, args: List<Any?>,
             "getExecutable" -> record.executable
             "getThisObject" -> owner
             "getArgs" -> args
+            "getArg" -> args[forwarded?.firstOrNull() as Int]
             "proceed" -> {
                 val actual = (forwarded?.firstOrNull() as? Array<*>)?.toList() ?: args
                 if (proceed != null) proceed(actual) else try {

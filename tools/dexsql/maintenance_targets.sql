@@ -246,3 +246,18 @@ SELECT d.entry_name, f.field_descriptor
 FROM class_fields f JOIN dex_files d USING (file_id)
 WHERE f.class_descriptor = 'Lcom/android/systemui/statusbar/phone/PhoneStatusBarPolicy;'
   AND f.field_name = 'mMuteVisible';
+
+-- MiuiSystemUI.apk: native expansion and timer transitions plus other sticky readers.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE (callee_name = 'setExpanded' AND callee_class LIKE '%HeadsUpManager%')
+   OR (callee_name IN ('removeAutoRemovalCallbacks', 'updateEntry')
+       AND method_class LIKE '%HeadsUpManagerPhone%'
+       AND method_name IN ('setExpanded', 'setRemoteInputActive', 'setMenuShownPinned'))
+   OR (callee_name = 'isSticky' AND callee_class = 'Lcom/android/systemui/statusbar/AlertingNotificationManager$AlertEntry;')
+ORDER BY method, callee;
+
+SELECT d.entry_name, f.field_descriptor
+FROM class_fields f JOIN dex_files d USING (file_id)
+WHERE f.class_descriptor LIKE '%HeadsUpEntry%'
+  AND f.field_name IN ('expanded', 'remoteInputActive', 'mMenuShownPinned', 'mGutsShownPinned')
+ORDER BY f.field_descriptor;

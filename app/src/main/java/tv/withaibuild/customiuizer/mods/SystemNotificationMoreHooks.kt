@@ -9,17 +9,18 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
 import android.media.AudioManager
-import android.os.Handler
 import android.os.CombinedVibration
 import android.os.IBinder
 import android.os.UserHandle
 import android.os.VibrationAttributes
 import android.provider.Settings
+import android.service.notification.StatusBarNotification
 import android.util.TypedValue
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import tv.withaibuild.customiuizer.MainModule
@@ -694,22 +695,85 @@ object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun AutoDismissExpandedPopupsHook(lpparam: PackageReadyParam) {
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.phone.HeadsUpManagerPhone\$HeadsUpEntryPhone", lpparam.classLoader, "setExpanded", Boolean::class.javaPrimitiveType, object : MethodHook() {
-            override fun before(param: BeforeHookCallback) {
-                val newValue = param.getArg(0) as? Boolean ?: false
-                if (newValue) {
-                    val expanded = XposedHelpers.getBooleanField(param.thisObject, "expanded")
-                    if (expanded != newValue) {
-                        XposedHelpers.callMethod(param.thisObject, "removeAutoRemovalCallbacks")
-                        val nm = XposedHelpers.getSurroundingThis(param.thisObject)
-                        val mHandler = XposedHelpers.getObjectField(nm, "mHandler") as? Handler ?: return
-                        val mRemoveAlertRunnable = XposedHelpers.getObjectField(param.thisObject, "mRemoveAlertRunnable") as? Runnable ?: return
-                        mHandler.postDelayed(mRemoveAlertRunnable, 5000)
-                    }
-                    param.returnAndSkip(null)
+        fun enabled() = MainModule.mPrefs.getBoolean("system_betterpopups_autoclose_expanded") &&
+            !MainModule.mPrefs.getBoolean("system_betterpopups_nohide")
+        if (!enabled()) return
+
+        val phoneEntry = XposedHelpers.findClassIfExists(
+            "com.android.systemui.statusbar.phone.HeadsUpManagerPhone\$HeadsUpEntryPhone", lpparam.classLoader
+        ) ?: return
+        val setExpanded = XposedHelpers.findMethodExactIfExists(phoneEntry, "setExpanded", Boolean::class.javaPrimitiveType) ?: return
+        val updateEntry = XposedHelpers.findMethodExactIfExists(phoneEntry, "updateEntry", Boolean::class.javaPrimitiveType) ?: return
+        val isSticky = XposedHelpers.findMethodExactIfExists(phoneEntry, "isSticky") ?: return
+        if (setExpanded.returnType != Void.TYPE || updateEntry.returnType != Void.TYPE ||
+            isSticky.returnType != Boolean::class.javaPrimitiveType
+        ) return
+
+        val expanded = XposedHelpers.findFieldIfExists(phoneEntry, "expanded") ?: return
+        val remoteInput = XposedHelpers.findFieldIfExists(phoneEntry, "remoteInputActive") ?: return
+        val menuShown = XposedHelpers.findFieldIfExists(phoneEntry, "mMenuShownPinned") ?: return
+        val entry = XposedHelpers.findFieldIfExists(phoneEntry, "mEntry") ?: return
+        val isRowPinned = XposedHelpers.findMethodExactIfExists(entry.type, "isRowPinned") ?: return
+        val getSbn = XposedHelpers.findMethodExactIfExists(entry.type, "getSbn") ?: return
+        if (expanded.type != Boolean::class.javaPrimitiveType || remoteInput.type != Boolean::class.javaPrimitiveType ||
+            menuShown.type != Boolean::class.javaPrimitiveType || isRowPinned.returnType != Boolean::class.javaPrimitiveType ||
+            !StatusBarNotification::class.java.isAssignableFrom(getSbn.returnType)
+        ) return
+
+        fun mayAutoDismiss(owner: Any): Boolean {
+            if (!enabled() || !expanded.getBoolean(owner) || remoteInput.getBoolean(owner) ||
+                menuShown.getBoolean(owner)
+            ) return false
+            val notificationEntry = entry.get(owner) ?: return false
+            if (isRowPinned.invoke(notificationEntry) != true) return false
+            val notification = (getSbn.invoke(notificationEntry) as? StatusBarNotification)?.notification ?: return false
+            return notification.fullScreenIntent == null
+        }
+
+        // Other readers of isSticky manage notification lifetime and keyguard transitions.
+        val updatingEntry = ThreadLocal<Any>()
+        val stickyHook = ModuleHelper.hookMethod(isSticky, object : MethodHook() {
+            override fun after(param: AfterHookCallback) {
+                if (param.throwable != null || param.isSkipped || param.result != true) return
+                val owner = param.thisObject ?: return
+                if (updatingEntry.get() === owner && mayAutoDismiss(owner)) param.result = false
+            }
+        }) ?: return
+        val updateHook = ModuleHelper.hookMethod(updateEntry, object : MethodHook() {
+            override fun intercept(chain: XposedInterface.Chain): Any? {
+                val owner = chain.thisObject ?: return chain.proceed()
+                val scoped = ModuleHelper.guarded(false) { enabled() && expanded.getBoolean(owner) }
+                if (!scoped) return chain.proceed()
+                val previous = updatingEntry.get()
+                updatingEntry.set(owner)
+                try {
+                    return chain.proceed()
+                } finally {
+                    if (previous == null) updatingEntry.remove() else updatingEntry.set(previous)
                 }
             }
         })
+        if (updateHook == null) {
+            ModuleHelper.guarded { stickyHook.unhook() }
+            return
+        }
+
+        val expansionHook = ModuleHelper.hookMethod(setExpanded, object : MethodHook() {
+            override fun intercept(chain: XposedInterface.Chain): Any? {
+                val owner = chain.thisObject ?: return chain.proceed()
+                val starting = chain.getArg(0) == true &&
+                    ModuleHelper.guarded(false) { enabled() && !expanded.getBoolean(owner) }
+                val result = chain.proceed()
+                if (starting) ModuleHelper.guarded {
+                    if (mayAutoDismiss(owner)) updateEntry.invoke(owner, false)
+                }
+                return result
+            }
+        })
+        if (expansionHook == null) {
+            ModuleHelper.guarded { updateHook.unhook() }
+            ModuleHelper.guarded { stickyHook.unhook() }
+        }
     }
 
     @JvmStatic
