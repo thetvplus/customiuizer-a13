@@ -67,3 +67,25 @@ WHERE (method_class = 'Lcom/android/systemui/statusbar/StatusBarMobileView;'
    OR (method_class LIKE 'Lcom/miui/powercenter/BatteryFragment$%;' AND method_name = 'handleMessage'
        AND callee = 'Landroid/os/Handler;->handleMessage(Landroid/os/Message;)V')
 ORDER BY d.entry_name, method, callee;
+
+-- SystemUI: no-auto-hide. Compare old declarations with the phone entry and
+-- its parent. Decode the new targets to distinguish automatic and explicit removal.
+SELECT d.entry_name, m.method_descriptor
+FROM class_methods m JOIN dex_files d USING (file_id)
+WHERE m.method_descriptor IN (
+    'Lcom/android/systemui/statusbar/phone/HeadsUpManagerPhone$HeadsUpEntryPhone;->updateEntry(Z)V',
+    'Lcom/android/systemui/statusbar/AlertingNotificationManager$AlertEntry;->updateEntry(Z)V',
+    'Lcom/android/systemui/statusbar/AlertingNotificationManager$AlertEntry;->removeAutoRemovalCallbacks()V',
+    'Lcom/android/systemui/statusbar/AlertingNotificationManager$AlertEntry;->removeAsSoonAsPossible()V',
+    'Lcom/android/systemui/statusbar/notification/row/ExpandableNotificationRow;->isDozing()Z',
+    'Lcom/android/systemui/statusbar/policy/HeadsUpManager$HeadsUpEntry;->updateEntry(Z)V'
+) OR (m.class_descriptor = 'Lcom/android/systemui/statusbar/policy/HeadsUpManager;'
+    AND m.method_name IN ('removeHeadsUpNotification', 'removeOldHeadsUpNotification', 'onExpandingFinished'))
+ORDER BY m.method_descriptor;
+
+SELECT d.entry_name, f.field_descriptor
+FROM class_fields f JOIN dex_files d USING (file_id)
+WHERE f.field_descriptor IN (
+    'Lcom/android/systemui/statusbar/AlertingNotificationManager$AlertEntry;->mEntry:Lcom/android/systemui/statusbar/notification/collection/NotificationEntry;',
+    'Lcom/android/systemui/statusbar/notification/collection/NotificationEntry;->row:Lcom/android/systemui/statusbar/notification/row/ExpandableNotificationRow;'
+) ORDER BY f.field_descriptor;

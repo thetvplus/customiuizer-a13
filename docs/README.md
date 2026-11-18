@@ -8,6 +8,7 @@
 | Hook、ClassLoader、状态与所有权 | [架构](../ARCHITECTURE.md)、[进程矩阵](rom-intelligence/A13_PROCESS_MATRIX.md) |
 | 平台范围、证据等级与移植 | [兼容性](../COMPATIBILITY.md)、[A13_PARITY](A13_PARITY.md) |
 | ROM 输入、签名和调用链 | [A13 样本](rom-intelligence/A13_SAMPLES.md)、[DexSQL](../tools/dexsql/README.md) |
+| r13.14.3 Hook 校准 | [DexSQL 精修计划](rom-intelligence/A13_HOOK_REFINEMENT.md) |
 | 正式签名、发布和恢复 | [A13_RELEASE](A13_RELEASE.md) |
 | 退役分支与整理 CI 历史 | [Git 与 Actions 维护](DEVELOPMENT.md#git-与-actions-维护) |
 | 安装、下载、用户数据与日志 | [项目说明](../README.md)、[隐私说明](../PRIVACY.md) |

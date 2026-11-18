@@ -64,6 +64,14 @@ A13 绑定实际 Fragment 的生命周期、唯一签名和当前 Activity，不
 
 历史日志仅覆盖报告中的发布版本。候选版的宿主回调、显示与生命周期保持待验。
 
+## 通知计时校准
+
+浮动通知不自动隐藏属于 `A13_COMPAT_VARIANT`。MonwF 当前上游已无该入口，A13 初始源码通过旧的 `HeadsUpManager` 私有入口阻止计时关闭，本地主线仍沿用该目标，A14 当前实现已移除该设置。保留 A13 设置的原意和 preference key。
+
+xaga `MiuiSystemUI.apk!classes2.dex` 的 `HeadsUpManagerPhone$HeadsUpEntryPhone.updateEntry(Z)V` 同步调用 `AlertingNotificationManager$AlertEntry.updateEntry(Z)V`。父类先更新最早移除时间和状态，再为非 sticky 条目提交自动关闭回调。显式移除可单独经 `removeAsSoonAsPossible()V` 调度。
+
+A13 在手机浮动条目的更新成功后复用 `removeAutoRemovalCallbacks()V`，仅取消已绑定、非 Doze 条目的自动关闭回调。原生显式移除、通知更新和 Doze 计时照常执行。安装前解析所需 Field 和 Method，视图或成员缺失时保持原生行为。核对查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。veux 对应 DEX 校验失败，实际行为待日志或设备验证。
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。
