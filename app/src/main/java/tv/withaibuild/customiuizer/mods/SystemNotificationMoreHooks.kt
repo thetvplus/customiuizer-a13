@@ -82,13 +82,28 @@ object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun ShowNotificationsAfterUnlockHook(lpparam: PackageReadyParam) {
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.notification.ExpandedNotification", lpparam.classLoader, "hasShownAfterUnlock", HookerClassHelper.returnConstant(false))
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.notification.ExpandedNotification", lpparam.classLoader, "setHasShownAfterUnlock", Boolean::class.javaPrimitiveType, object : MethodHook() {
+        val preference = "system_notifafterunlock"
+        if (!MainModule.mPrefs.getBoolean(preference)) return
+        val loader = lpparam.classLoader
+        val booleanType = Boolean::class.javaPrimitiveType
+        val nativePolicy = XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.notification.NotificationSettingsHelper",
+            loader, "alwaysShowKeyguardNotifications"
+        )?.takeIf { it.returnType == booleanType && Modifier.isStatic(it.modifiers) }
+        val target = nativePolicy ?: XposedHelpers.findMethodExactIfExists(
+            "com.android.systemui.statusbar.notification.ExpandedNotification",
+            loader, "hasShownAfterUnlock"
+        ) ?: return
+        if (target.returnType != booleanType) return
+
+        // The legacy getter reports the inverse condition. SystemUI owns the stored marker.
+        val result = nativePolicy != null
+        ModuleHelper.hookMethod(target, object : MethodHook() {
             override fun after(param: AfterHookCallback) {
-                XposedHelpers.setBooleanField(param.thisObject, "mHasShownAfterUnlock", false)
+                if (param.throwable != null || param.isSkipped || param.result !is Boolean) return
+                if (MainModule.mPrefs.getBoolean(preference)) param.result = result
             }
         })
-        ModuleHelper.findAndHookMethodSilently("com.android.systemui.statusbar.notification.MiuiNotificationCompat", lpparam.classLoader, "isKeptOnKeyguard", Notification::class.java, HookerClassHelper.returnConstant(true))
     }
 
     @JvmStatic

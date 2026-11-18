@@ -305,3 +305,11 @@ WHERE (method_class = 'Lcom/android/systemui/statusbar/NotificationViewHierarchy
        AND method_name = 'isExpanded'
        AND callee_name IN ('hasUserChangedExpansion', 'isUserExpanded', 'isSystemExpanded'))
 ORDER BY method, callee;
+
+-- MiuiSystemUI.apk: unlock retention policy, marker writes, and dismissal rebuild.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE callee_name IN ('alwaysShowKeyguardNotifications', 'hasShownAfterUnlock', 'setHasShownAfterUnlock',
+                     'isKeptOnKeyguard', 'needReadd')
+   OR (callee_class = 'Lcom/android/systemui/statusbar/notification/policy/KeyguardNotificationController;'
+       AND callee_name = 'clear')
+ORDER BY method, callee;

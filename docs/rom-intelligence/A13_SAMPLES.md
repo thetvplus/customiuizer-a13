@@ -150,6 +150,12 @@ MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 
 - 原生 setter 仅在布尔值改变时更新高度、通知展开变化和组溢出状态。`isExpanded(boolean):boolean` 在用户已手动改变展开时优先读取用户状态。第 13 轮让已有名单规则调整原生 setter 的入参，保留这些副作用和手动操作。MonwF 当前上游、A13 初始实现和 A14 参考均通过反馈图标应用系统展开状态，A13 入口校准属于 `A13_COMPAT_VARIANT`。
 - veux 的 `classes2.dex` 中局部解码显示相同的非锁屏 setter 与反馈图标顺序，展开布尔值由该 ROM 自己的布局策略决定。样本完整性缺口仍在。复查查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
 
+## 解锁后锁屏通知保留
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `NotificationFilterController.shouldShowOnKeyguard(NotificationEntry):boolean` 只在 `NotificationSettingsHelper.alwaysShowKeyguardNotifications():boolean` 为 false 时按已显示标记隐藏普通通知。继续显示的通知仍由 `ExpandedNotification.canShowOnKeyguard()` 判断资格。解锁状态监听经 `NotificationAlertController.markVisibleNotificationsShown()` 和 `setHasShownAfterUnlock(boolean)` 写入标记。第 14 轮采用系统已有的保留策略，旧版保留精确的标记读取回退。
+- `StatusBarKeyguardViewManager.hide(long, long)` 调用 `KeyguardNotificationController.clear()`。控制器在清理后按 `needReadd(NotificationEntry)` 回填仍可见且原先已在锁屏列表中的条目。把 `isKeptOnKeyguard(Notification)` 一律改为 true 会使普通可清除条目跳过回填，第 14 轮保留原生回填条件。
+- MonwF 当前实现与 A14 参考同样处理解锁后已显示的标记。A13 在独立核实的原生策略入口生效，属于 `A13_COMPAT_VARIANT`。veux 的相关过滤与清理分支可局部解码，样本完整性有缺口。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/main/app/src/main/java/name/monwf/customiuizer/mods/System.java#L1389-L1397) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。
