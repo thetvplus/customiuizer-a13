@@ -49,7 +49,7 @@ public final class SystemUiInstaller {
         String pkg = lpparam.getPackageName();
         if (!pkg.equals("com.android.systemui")) return;
 
-        if (MainModule.mPrefs.getInt("system_statusbarheight", 19) > 19) SystemStatusBarAndClockHooks.StatusBarHeightRes();
+        if (SystemStatusBarAndClockHooks.hasCustomStatusBarHeight(MainModule.mPrefs)) SystemStatusBarAndClockHooks.StatusBarHeightRes();
         if (MainModule.mPrefs.getInt("controls_navbarheight", 19) > 19) Controls.NavbarHeightRes();
             Context mContext = ModuleHelper.findContext(lpparam);
             long restartTime = mContext == null ? 0L : Settings.System.getLong(mContext.getContentResolver(), "systemui_restart_time", 0L);
@@ -335,7 +335,7 @@ public final class SystemUiInstaller {
 // Startup family predicate for SystemUI
     public static boolean hasAnySystemUiStartupFeature(PrefMap<String, Object> prefs) {
         if (hasAnyGlobalAction(prefs)) return true;
-        if (prefs.getInt("system_statusbarheight", 19) > 19) return true;
+        if (SystemStatusBarAndClockHooks.hasCustomStatusBarHeight(prefs)) return true;
         if (prefs.getInt("controls_navbarheight", 19) > 19) return true;
         if (prefs.getStringAsInt("various_showcallui", 0) > 0 || prefs.getBoolean("controls_volumecursor")) return true;
         if (prefs.getBoolean("system_fivegtile") || prefs.getBoolean("system_cc_fpstile")) return true;

@@ -97,6 +97,13 @@ xaga 宿主 `MiuiSystemUI.apk!classes.dex` 中，`PluginInstance$Factory.create`
 
 两项均属于 `A13_COMPAT_VARIANT`。旋转设置保留 A13 初始功能的模式，充电时使用与 MonwF 当前实现相同的 void 跳过值，并保留 A13 自有的选项 3 语义。A14 的选项 3 使用不同产品语义。复用已核实的两个 services 和 MIUI 扩展输入，结论限上述调用。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
 
+## 状态栏窗口与系统高度
+
+- **系统窗口配置**。xaga、veux 的 `services.jar!classes2.dex` 中，`DisplayPolicy.onConfigurationChanged()` 调用 `getStatusBarHeightForRotation(int):int` 写入 `mStatusBarHeightForRotation`。原生 `getConfigDisplayHeight` 和 `convertNonDecorInsetsToStableInsets` 消费该缓存。系统 Hook 使用同一 policy 的 `mUiContext` 密度和 `DisplayContent.calculateDisplayCutoutForRotation(int)` 返回的 `WmDisplayCutout`。xaga framework 以 `max(安全顶部, 基础高度 + 瀑布屏顶部)` 计算高度。A13 模块沿用该公式和既有 SystemUI dp 转换。
+- **实时窗口 Insets**。xaga SystemUI 的 `StatusBarWindowController.getBarLayoutParamsForRotation` 和 `applyHeight` 通过 `SystemBarUtils` 读取 `android:dimen/status_bar_height_default`。两份 services 都由 `DisplayPolicy.addWindowLw` 的 Insets 提供方读取 `getStatusBarHeight(DisplayFrames)`，使用该方向的 `WindowState` 属性和安全挖孔顶部。原生提供方还处理挖孔触摸区最小高度。
+
+MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 轮以 A14 的系统窗口几何为语义参考，A13 系统接入口、资源及调用链按以上样本独立确认。veux SystemUI 对应 DEX 尚缺完整输入。复查查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
 ## 输入身份（SHA-256）
 
 路径相对于各自 ROM 根目录。后续更换输入时重新取证，不复用局部 method_idx。

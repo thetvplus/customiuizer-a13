@@ -168,3 +168,26 @@ SELECT DISTINCT method, callee FROM method_calls
 WHERE method_class = 'Lcom/android/server/power/PowerManagerService;'
   AND method_name = 'updateIsPoweredLocked'
   AND callee_name = 'wakePowerGroupLocked';
+
+-- services.jar: status-bar configuration cache and live Insets source geometry.
+SELECT d.entry_name, m.method_descriptor
+FROM class_methods m JOIN dex_files d USING (file_id)
+WHERE (m.class_descriptor = 'Lcom/android/server/wm/DisplayPolicy;'
+       AND m.method_name IN ('getStatusBarHeight', 'getStatusBarHeightForRotation'))
+   OR (m.class_descriptor = 'Lcom/android/server/wm/DisplayContent;'
+       AND m.method_name = 'calculateDisplayCutoutForRotation')
+   OR (m.class_descriptor = 'Lcom/android/server/wm/utils/WmDisplayCutout;'
+       AND m.method_name = 'getDisplayCutout')
+ORDER BY m.method_descriptor;
+
+SELECT DISTINCT method, callee FROM method_calls
+WHERE callee_class = 'Lcom/android/server/wm/DisplayPolicy;'
+  AND callee_name IN ('getStatusBarHeight', 'getStatusBarHeightForRotation')
+ORDER BY method, callee;
+
+-- MiuiSystemUI.apk: real status-bar window height uses the framework dimension.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE method_class = 'Lcom/android/systemui/statusbar/window/StatusBarWindowController;'
+  AND callee_class = 'Lcom/android/internal/policy/SystemBarUtils;'
+  AND callee_name IN ('getStatusBarHeight', 'getStatusBarHeightForRotation')
+ORDER BY method, callee;
