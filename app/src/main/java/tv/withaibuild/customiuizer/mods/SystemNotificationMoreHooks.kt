@@ -34,16 +34,46 @@ import tv.withaibuild.customiuizer.mods.utils.XposedHelpers
 import java.lang.reflect.Constructor
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
 
 object SystemNotificationMoreHooks {
 
     @JvmStatic
     fun NoMoreIconHook(lpparam: PackageReadyParam) {
-        ModuleHelper.findAndHookMethod("com.android.systemui.statusbar.phone.NotificationIconAreaController", lpparam.classLoader, "setIconsVisibility", object : MethodHook() {
+        val controller = XposedHelpers.findClassIfExists(
+            "com.android.systemui.statusbar.phone.NotificationIconAreaController", lpparam.classLoader
+        ) ?: return
+        val notificationIcons = XposedHelpers.findFieldIfExists(controller, "mNotificationIcons")
+        val maxDots = notificationIcons?.let { XposedHelpers.findFieldIfExists(it.type, "MAX_DOTS") }
+        val updateState = notificationIcons?.let { XposedHelpers.findMethodExactIfExists(it.type, "updateState") }
+        val onIconChanged = XposedHelpers.findMethodExactIfExists(
+            controller, "onNotificationIconChanged", Boolean::class.javaPrimitiveType
+        )
+        if (notificationIcons != null && !Modifier.isStatic(notificationIcons.modifiers) &&
+            maxDots != null && maxDots.type == Int::class.javaPrimitiveType && !Modifier.isStatic(maxDots.modifiers) &&
+            updateState != null && updateState.returnType == Void.TYPE && onIconChanged?.returnType == Void.TYPE
+        ) {
+            ModuleHelper.findAndHookMethod(controller, "onNotificationIconChanged", Boolean::class.javaPrimitiveType, object : MethodHook() {
+                override fun after(param: AfterHookCallback) {
+                    if (param.throwable != null || param.isSkipped) return
+                    val icons = notificationIcons.get(param.thisObject) ?: return
+                    if (maxDots.getInt(icons) <= 0) return
+
+                    // The observer callback resets the dot limit before rendering the status bar.
+                    maxDots.setInt(icons, 0)
+                    updateState.invoke(icons)
+                }
+            })
+            return
+        }
+
+        val moreIcon = XposedHelpers.findFieldIfExists(controller, "mMoreIcon") ?: return
+        val forceHide = XposedHelpers.findFieldIfExists(controller, "mForceHideMoreIcon") ?: return
+        if (forceHide.type != Boolean::class.javaPrimitiveType) return
+        ModuleHelper.findAndHookMethod(controller, "setIconsVisibility", object : MethodHook() {
             override fun before(param: BeforeHookCallback) {
-                val mMoreIcon = XposedHelpers.getObjectField(param.thisObject, "mMoreIcon")
-                if (mMoreIcon != null) XposedHelpers.setBooleanField(param.thisObject, "mForceHideMoreIcon", true)
+                if (moreIcon.get(param.thisObject) != null) forceHide.setBoolean(param.thisObject, true)
             }
         })
     }

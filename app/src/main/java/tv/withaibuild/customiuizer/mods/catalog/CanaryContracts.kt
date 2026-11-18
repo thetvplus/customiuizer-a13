@@ -207,13 +207,22 @@ object CanaryContracts {
     val noMoreIcon: HookTargetContract by lazy(kotlin.LazyThreadSafetyMode.NONE) { HookTargetContract(
         featureId = "noMoreIcon",
         requirements = listOf(
-            SingleTargetRequirement(
-                target = HookTargetSpec(
-                    id = "NotificationIconAreaController.setIconsVisibility",
-                    operation = HookOperation.EXACT_METHOD,
-                    className = "com.android.systemui.statusbar.phone.NotificationIconAreaController",
-                    memberName = "setIconsVisibility",
-                    parameterTypes = emptyList()
+            AnyOfRequirement(
+                id = "noMoreIcon.statusBarOverflow",
+                candidates = listOf(
+                    HookTargetSpec(
+                        id = "NotificationIconAreaController.onNotificationIconChanged",
+                        operation = HookOperation.EXACT_METHOD,
+                        className = "com.android.systemui.statusbar.phone.NotificationIconAreaController",
+                        memberName = "onNotificationIconChanged",
+                        parameterTypes = listOf(BOOLEAN)
+                    ),
+                    HookTargetSpec(
+                        id = "NotificationIconAreaController.setIconsVisibility",
+                        operation = HookOperation.EXACT_METHOD,
+                        className = "com.android.systemui.statusbar.phone.NotificationIconAreaController",
+                        memberName = "setIconsVisibility"
+                    )
                 )
             )
         )

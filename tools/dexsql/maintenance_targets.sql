@@ -214,3 +214,17 @@ SELECT DISTINCT method, callee FROM method_calls
 WHERE callee_class = 'Lcom/android/systemui/statusbar/phone/NotificationIconContainer;'
   AND callee_name IN ('miuiShowNotificationIcons', 'hasMaxNumDot', 'setInNotificationIconShelf')
 ORDER BY method, callee;
+
+-- MiuiSystemUI.apk: verify initial and later setting delivery to the status-bar controller.
+SELECT DISTINCT method, callee FROM method_calls
+WHERE callee_class = 'Lcom/android/systemui/statusbar/policy/NotificationIconObserver$Callback;'
+  AND callee_name = 'onNotificationIconChanged'
+ORDER BY method, callee;
+
+SELECT d.entry_name, f.field_descriptor
+FROM class_fields f JOIN dex_files d USING (file_id)
+WHERE (f.class_descriptor = 'Lcom/android/systemui/statusbar/phone/NotificationIconAreaController;'
+       AND f.field_name = 'mNotificationIcons')
+   OR (f.class_descriptor = 'Lcom/android/systemui/statusbar/phone/NotificationIconContainer;'
+       AND f.field_name IN ('MAX_DOTS', 'MAX_STATIC_ICONS', 'MAX_ICONS_ON_LOCKSCREEN'))
+ORDER BY f.field_descriptor;

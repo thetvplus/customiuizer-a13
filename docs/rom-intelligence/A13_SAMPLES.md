@@ -109,6 +109,8 @@ MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 
 - **自动隐藏时长**。xaga 的 `HeadsUpEntry.calculateFinishTime()J` 从 `AlertingNotificationManager.mAutoDismissNotificationDecay` 取基础值，经 `getRecommendedHeadsUpTimeoutMs(I)I` 加到 post time。该方法优先读取条目的 MIUI float time，未提供时用 `AccessibilityManagerWrapper.getRecommendedTimeoutMillis(II)I` 和 flags `7`。手机条目另在父类结果上叠加原生扩展时长。旧实现写入的 `mHeadsUpNotificationDecay` 缺失。模块在取得实际 manager 和无障碍 wrapper 后才应用自定义基础时长，保留默认路径和原生扩展。分类为 `A13_COMPAT_VARIANT`。
 - **溢出提示**。xaga 的 `NotificationIconAreaController.onNotificationIconChanged(Z)V` 调用状态栏容器的 `miuiShowNotificationIcons(Z)V`。`NotificationIconContainer.calculateIconXTranslations()V` 用 `MAX_DOTS` 写溢出条目的可见状态。通知搁板也使用同类，并调用 `hasMaxNumDot()`。旧的 `setIconsVisibility()`、`mMoreIcon` 和 `mForceHideMoreIcon` 在样本中未声明，校准须限定状态栏宿主。
 
+第 7 轮另外核对 `NotificationIconAreaController.initializeNotificationAreaViews(Context)` 先用 `notificationIcons` 视图 ID 绑定 `mNotificationIcons`，随后构造函数注册到 `NotificationIconObserver.addCallback`。注册与后续可见性变更都走 `onNotificationIconChanged(boolean)`。xaga 原生 `miuiShowNotificationIcons(boolean)` 同时设置点数、日常图标和锁屏图标上限，再调用 `updateState()`。模块只修正状态栏容器的 `MAX_DOTS`，并在需要时调用一次 `updateState()`。原有图标上限功能的设置结果由原生回调与其现有 Hook 先完成。该入口调整属于 `A13_COMPAT_VARIANT`。
+
 证据来自 xaga `MiuiSystemUI.apk!classes2.dex`，veux 对应条目待完整输入。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
 
 ## 输入身份（SHA-256）
