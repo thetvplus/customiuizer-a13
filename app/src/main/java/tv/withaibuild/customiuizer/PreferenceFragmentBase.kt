@@ -2,7 +2,6 @@ package tv.withaibuild.customiuizer
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -22,7 +21,6 @@ import androidx.recyclerview.widget.RecyclerView
 import java.io.InputStream
 import java.io.OutputStream
 import tv.withaibuild.customiuizer.mods.GlobalActions
-import tv.withaibuild.customiuizer.subs.WebPage
 import tv.withaibuild.customiuizer.utils.AppHelper
 import tv.withaibuild.customiuizer.utils.AppLocaleController
 import tv.withaibuild.customiuizer.utils.BackupRestore
@@ -60,9 +58,6 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
     protected var tailLayoutId = 0
 
     @JvmField
-    protected var pageUrl: String? = null
-
-    @JvmField
     protected val mapKeys = HashMap<Int, String>().apply {
         put(R.id.search_btn, "search")
         put(R.id.restartlauncher, "launcher")
@@ -73,7 +68,6 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
         put(R.id.backuprestore, "settings")
         put(R.id.resetsettings, "reset")
         put(R.id.about, "about")
-        put(R.id.openinweb, "openinweb")
     }
 
     protected fun getActionBar(): ActionBar? {
@@ -97,7 +91,7 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
                 val menuId = item.itemId
                 val menuKey = mapKeys[menuId]
                 when {
-                    activeMenus == "all" && (menuId == R.id.edit_confirm || menuId == R.id.openinweb) -> item.isVisible = false
+                    activeMenus == "all" && menuId == R.id.edit_confirm -> item.isVisible = false
                     activeMenus == "all" -> item.isVisible = true
                     menuKey != null && activeMenus.contains(menuKey) -> item.isVisible = true
                     else -> item.isVisible = false
@@ -150,10 +144,6 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
             }
             R.id.backuprestore -> {
                 showBackupRestoreDialog()
-                return true
-            }
-            R.id.openinweb -> {
-                Helpers.openURL(getValidContext(), pageUrl)
                 return true
             }
             R.id.softreboot -> {
@@ -299,11 +289,6 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
         super.onDestroyView()
     }
 
-    fun openWebPage(url: String) {
-        val args = Bundle().apply { putString("pageUrl", url) }
-        openSubFragment(WebPage(), args, Helpers.SettingsType.Edit, Helpers.ActionBarType.HomeUp, "", R.layout.fragment_webpage)
-    }
-
     fun openSubFragment(fragment: Fragment, args: Bundle?, settingsType: Helpers.SettingsType, abType: Helpers.ActionBarType, titleResId: Int, contentResId: Int) {
         openSubFragment(fragment, args, settingsType, abType, getString(titleResId), contentResId)
     }
@@ -370,14 +355,14 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
     }
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?) {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == PICK_BACKFILE && resultCode == Activity.RESULT_OK) {
-            val uri = resultData?.data
+            val uri = data?.data
             if (uri != null) {
                 doRestoreSettings(uri)
             }
         } else if (requestCode == SAVE_BACKFILE && resultCode == Activity.RESULT_OK) {
-            val uri = resultData?.data ?: return
+            val uri = data?.data ?: return
             var output: OutputStream? = null
             try {
                 output = getValidContext().contentResolver.openOutputStream(uri)
@@ -428,12 +413,11 @@ open class PreferenceFragmentBase : PreferenceFragmentCompat() {
             input = act.contentResolver.openInputStream(uri)
                 ?: throw IllegalStateException("Backup input stream unavailable")
             val appPrefs = AppHelper.appPrefs ?: return
-            val componentName = ComponentName(act, GateWayLauncher::class.java)
             val result = BackupRestore.performRestore(
                 input,
                 act.packageManager,
                 appPrefs,
-                componentName,
+                AppHelper.launcherComponent(act),
             )
             when (result.status) {
                 BackupRestore.Status.SUCCESS, BackupRestore.Status.PARTIAL_FAILURE -> {

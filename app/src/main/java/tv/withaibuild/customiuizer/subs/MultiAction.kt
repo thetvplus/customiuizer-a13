@@ -38,7 +38,7 @@ class MultiAction : SubFragment() {
     private var shortcutName: String? = null
     private var shortcutIcon: String? = null
     private lateinit var shortcutIconPath: String
-    private var shortcutIntent: Intent? = null
+    private var shortcutIntent: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         this.padded = false
@@ -259,7 +259,7 @@ class MultiAction : SubFragment() {
     override fun saveSharedPrefs() {
         val filesDir = context?.filesDir ?: return
         val tmpIconFile = File(filesDir, "shortcuts/tmp.png")
-        if (tmpIconFile.exists()) {
+        if (shortcutIcon == tmpIconFile.absolutePath && tmpIconFile.exists()) {
             val prefIconFile = File(shortcutIconPath)
             prefIconFile.delete()
             tmpIconFile.renameTo(prefIconFile)

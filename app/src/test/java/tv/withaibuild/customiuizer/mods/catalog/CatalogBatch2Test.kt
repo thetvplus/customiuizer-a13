@@ -36,7 +36,7 @@ class CatalogBatch2Test {
 
     private fun serverRuntime(prefs: PrefMap<String, Any>): FeatureRuntime {
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val classLoader = this.javaClass.classLoader!!
         val lpparam = newSystemServerParam(classLoader)
         return FeatureDispatcher.createRuntime("android", lpparam, classLoader, prefs)
@@ -44,7 +44,7 @@ class CatalogBatch2Test {
 
     private fun systemuiRuntime(prefs: PrefMap<String, Any>): FeatureRuntime {
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val classLoader = this.javaClass.classLoader!!
         val lpparam = newPackageReadyParam("com.android.systemui", classLoader)
         return FeatureDispatcher.createRuntime("com.android.systemui", lpparam, classLoader, prefs)
@@ -52,7 +52,7 @@ class CatalogBatch2Test {
 
     private fun launcherRuntime(prefs: PrefMap<String, Any>): FeatureRuntime {
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val classLoader = this.javaClass.classLoader!!
         val lpparam = newPackageReadyParam("com.miui.home", classLoader)
         return FeatureDispatcher.createRuntime("com.miui.home", lpparam, classLoader, prefs)
@@ -126,11 +126,14 @@ class CatalogBatch2Test {
 
     @Test
     fun folderColumns_installed() {
+        FakeXposedInterface.reset()
         val prefs = PrefMap<String, Any>()
         prefs["pref_key_launcher_folder_cols"] = 4
         val launcher = launcherRuntime(prefs)
 
         assertTrue(FeatureDispatcher.installById("folderColumns", launcher))
+        assertNotNull(FakeXposedInterface.findHook("com.miui.home.launcher.Folder", "updateViewsLayout"))
+        assertTrue(FakeXposedInterface.findHook("com.miui.home.launcher.Folder", "resetViewsLayoutParams") == null)
 
         val summary = DiagnosticRecorder.summarize()[DiagnosticIds.FOLDER_COLUMNS]
         assertNotNull(summary)
@@ -158,7 +161,7 @@ class CatalogBatch2Test {
         prefs["pref_key_launcher_folder_cols"] = 4
 
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val classLoader = ClassLoader.getSystemClassLoader().parent
         val lpparam = newPackageReadyParam("com.miui.home", classLoader)
         val launcher = FeatureDispatcher.createRuntime("com.miui.home", lpparam, classLoader, prefs)
@@ -172,11 +175,11 @@ class CatalogBatch2Test {
     }
 
     @Test
-    fun folderColumns_resetViewsLayoutParamsIsOptional() {
+    fun folderColumns_layoutUpdateKeepsTheLegacyCandidateOptional() {
         val requirement = CatalogContracts.folderColumns.requirements
-            .find { it.id == "Folder.resetViewsLayoutParams" }
-        assertNotNull(requirement)
-        assertEquals(Criticality.OPTIONAL, requirement!!.criticality)
+            .single { it.id == "Folder.layoutUpdate" } as tv.withaibuild.customiuizer.mods.utils.AnyOfRequirement
+        assertEquals(Criticality.OPTIONAL, requirement.criticality)
+        assertEquals(listOf("updateViewsLayout", "resetViewsLayoutParams"), requirement.candidates.map { it.memberName })
     }
 
     @Test

@@ -83,9 +83,9 @@ class StatusBarClockTweakClosedLoopTest {
         assertEquals(CompatibilityState.COMPATIBLE, summary!!.compatibility)
         assertEquals(InstallOutcome.INSTALLED, summary.installation)
         assertEquals(2, summary.installSummary!!.requiredInstalled)
-        assertEquals(2, summary.installSummary!!.requiredTotal)
-        assertEquals(1, summary.installSummary!!.optionalInstalled)
-        assertEquals(1, summary.installSummary!!.optionalTotal)
+        assertEquals(2, summary.installSummary.requiredTotal)
+        assertEquals(1, summary.installSummary.optionalInstalled)
+        assertEquals(1, summary.installSummary.optionalTotal)
     }
 
     @Test
@@ -102,8 +102,8 @@ class StatusBarClockTweakClosedLoopTest {
         assertEquals(CompatibilityState.COMPATIBLE, summary!!.compatibility)
         assertEquals(InstallOutcome.INSTALLED, summary.installation)
         assertEquals(2, summary.installSummary!!.requiredInstalled)
-        assertEquals(2, summary.installSummary!!.requiredTotal)
-        assertEquals(0, summary.installSummary!!.optionalTotal)
+        assertEquals(2, summary.installSummary.requiredTotal)
+        assertEquals(0, summary.installSummary.optionalTotal)
     }
 
     @Test
@@ -120,8 +120,8 @@ class StatusBarClockTweakClosedLoopTest {
         assertEquals(CompatibilityState.COMPATIBLE, summary!!.compatibility)
         assertEquals(InstallOutcome.INSTALLED, summary.installation)
         assertEquals(4, summary.installSummary!!.requiredInstalled)
-        assertEquals(4, summary.installSummary!!.requiredTotal)
-        assertEquals(0, summary.installSummary!!.optionalTotal)
+        assertEquals(4, summary.installSummary.requiredTotal)
+        assertEquals(0, summary.installSummary.optionalTotal)
     }
 
     @Test
@@ -138,8 +138,8 @@ class StatusBarClockTweakClosedLoopTest {
         assertEquals(CompatibilityState.COMPATIBLE, summary!!.compatibility)
         assertEquals(InstallOutcome.INSTALLED, summary.installation)
         assertEquals(5, summary.installSummary!!.requiredInstalled)
-        assertEquals(5, summary.installSummary!!.requiredTotal)
-        assertEquals(0, summary.installSummary!!.optionalTotal)
+        assertEquals(5, summary.installSummary.requiredTotal)
+        assertEquals(0, summary.installSummary.optionalTotal)
     }
 
     @Test

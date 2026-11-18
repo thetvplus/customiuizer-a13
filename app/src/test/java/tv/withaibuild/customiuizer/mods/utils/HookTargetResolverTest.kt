@@ -282,7 +282,7 @@ class HookTargetResolverTest {
             if (name == ResolverTestTarget::class.java.name) {
                 findLoadedClass(name)?.let { return it }
                 findClassCalls.incrementAndGet()
-                val resource = name!!.replace('.', '/') + ".class"
+                val resource = name.replace('.', '/') + ".class"
                 val bytes = ClassLoader.getSystemResourceAsStream(resource)?.readBytes()
                     ?: throw ClassNotFoundException(name)
                 return defineClass(name, bytes, 0, bytes.size)

@@ -1,5 +1,7 @@
 package android.service.notification
 
+import android.app.Notification
+
 /**
  * Minimal test shadow of [android.service.notification.StatusBarNotification] for JVM unit tests.
  *
@@ -14,6 +16,7 @@ open class StatusBarNotification {
     open var mId: Int = 0
     open var mTag: String? = null
     open var mAppUid: Int = 0
+    open var notification: Notification? = null
     open var isSubstitute: Boolean = false
     open var throwOnIsSubstitute: Throwable? = null
 

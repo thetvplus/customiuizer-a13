@@ -17,4 +17,35 @@
 			miuizer:valueAsSummary="true" />
 	</tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx>
 
+	<tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx
+		android:title="@string/about_project">
+		<tv.withaibuild.customiuizer.prefs.PreferenceEx
+			android:key="about_repository"
+			android:persistent="false"
+			android:title="@string/about_repository" />
+		<tv.withaibuild.customiuizer.prefs.PreferenceEx
+			android:key="about_releases"
+			android:persistent="false"
+			android:title="@string/about_releases" />
+		<tv.withaibuild.customiuizer.prefs.PreferenceEx
+			android:key="about_support"
+			android:persistent="false"
+			android:title="@string/about_support" />
+	</tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx>
+
+	<tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx
+		android:title="@string/about_notes">
+		<tv.withaibuild.customiuizer.prefs.PreferenceEx
+			android:selectable="false"
+			android:title="@string/about_compatibility"
+			android:summary="@string/about_platform" />
+		<tv.withaibuild.customiuizer.prefs.PreferenceEx
+			android:selectable="false"
+			android:title="@string/about_restart"
+			android:summary="@string/about_dynamic" />
+		<tv.withaibuild.customiuizer.prefs.PreferenceEx
+			android:selectable="false"
+			android:title="@string/about_unsupported_title"
+			android:summary="@string/about_unsupported" />
+	</tv.withaibuild.customiuizer.prefs.PreferenceCategoryEx>
 </PreferenceScreen>

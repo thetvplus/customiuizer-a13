@@ -16,7 +16,7 @@ class PreferenceCardDecorationTest {
     private val unsafe = Unsafe::class.java.getDeclaredField("theUnsafe").run {
         isAccessible = true; get(null) as Unsafe
     }
-    private fun <T> allocate(type: Class<T>): T = type.cast(unsafe.allocateInstance(type))
+    private fun <T : Any> allocate(type: Class<T>): T = checkNotNull(type.cast(unsafe.allocateInstance(type)))
     private fun group(group: PreferenceGroup, children: List<Preference>) {
         PreferenceGroup::class.java.getDeclaredField("mPreferences").apply { isAccessible = true }
             .set(group, ArrayList(children))

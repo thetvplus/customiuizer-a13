@@ -10,7 +10,6 @@ import android.location.LocationManager
 import android.net.NetworkInfo
 import android.net.wifi.ScanResult
 import android.net.wifi.WifiManager
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -60,13 +59,8 @@ class WiFiList : SubFragment() {
                     updateProgressBar()
                 }
                 WifiManager.NETWORK_STATE_CHANGED_ACTION -> {
-                    val netInfo: NetworkInfo? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO, NetworkInfo::class.java)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO)
-                    }
-                    if (netInfo == null) return
+                    val netInfo = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO, NetworkInfo::class.java)
+                        ?: return
                     if (netInfo.detailedState == NetworkInfo.DetailedState.CONNECTED) isWiFiReady()
                     if (netInfo.detailedState == NetworkInfo.DetailedState.CONNECTED ||
                         netInfo.detailedState == NetworkInfo.DetailedState.DISCONNECTED
@@ -120,9 +114,7 @@ class WiFiList : SubFragment() {
 
             val locationStub: ViewStub = view.findViewById(R.id.location_settings)
             locationStub.setLayoutResource(R.layout.pref_item)
-            locationStub.inflate()
-
-            val location: View = view.findViewById(R.id.location_settings)
+            val location = locationStub.inflate()
             (location.findViewById<TextView>(android.R.id.title)).setText(R.string.wifi_location_title)
             (location.findViewById<TextView>(android.R.id.summary)).setText(R.string.wifi_location_summ)
             location.setOnClickListener {
@@ -181,7 +173,7 @@ class WiFiList : SubFragment() {
             Toast.makeText(act, R.string.request_wifi, Toast.LENGTH_SHORT).show()
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && !isLocationServicesEnabled()) {
+        if (!isLocationServicesEnabled()) {
             Toast.makeText(act, R.string.request_location, Toast.LENGTH_LONG).show()
         }
     }

@@ -17,7 +17,9 @@ Home / plugin 的 DEX 也存在 SHA-1 头摘要不一致，因此不将其当作
 - **来电不中断应用**：两份 services 都有 `TelephonyRegistry$Record.matchTelephonyCallbackEvent(I)Z`、
   `callingPackage:String`、`eventList:Set`，没有旧 `events:int`。两条通知路径都经此匹配器分发
   事件 6 / 36。按应用过滤这两个事件，不修改订阅集合；取消勾选或关闭功能后恢复原分发。
-  `callingPackage` 在安装任何 Hook 前解析，失败不产生部分安装。
+  安装两条 Hook 前核对 `callingPackage` 为 `String`、匹配器返回 `boolean`，ABI 不一致时保留原生来电行为。
+  DexSQL 在两份 `services.jar` 的 `classes.dex` 均查到同一条 `AudioService.requestAudioFocus` 定义，
+  客户端 ID 和调用包名分别位于从零开始的参数位置 4 和 5。这里只验证成员声明，音频焦点和来电的实机行为仍待验。
 - **通知渠道设置**：xaga 的 `NotificationUtil.isHybrid(ExpandedNotification)Z` 位于
   `com.android.systemui.statusbar.notification`；旧的 `.miui.statusbar.notification` 路径不存在。
   `onClickInfoItem(Context, MenuItem)` 保留原回调时序。Settings Manifest 的公开 action
@@ -63,6 +65,116 @@ A13 绑定实际 Fragment 的生命周期、唯一签名和当前 Activity，不
 **锁屏可视化（#14）**。xaga 有 CentralSurfaces、KeyguardStateController 和 NotificationMediaManager 对应入口。源码复用当前面板视图，替换面板时移除旧视图。仅允许控制器模式下，无活动会话则跳过音频服务查询。报告设备的失效点仍待定位。
 
 历史日志仅覆盖报告中的发布版本。候选版的宿主回调、显示与生命周期保持待验。
+
+## 通知计时校准
+
+浮动通知不自动隐藏属于 `A13_COMPAT_VARIANT`。MonwF 当前上游已无该入口，A13 初始源码通过旧的 `HeadsUpManager` 私有入口阻止计时关闭，本地主线仍沿用该目标，A14 当前实现已移除该设置。保留 A13 设置的原意和 preference key。
+
+xaga `MiuiSystemUI.apk!classes2.dex` 的 `HeadsUpManagerPhone$HeadsUpEntryPhone.updateEntry(Z)V` 同步调用 `AlertingNotificationManager$AlertEntry.updateEntry(Z)V`。父类先更新最早移除时间和状态，再为非 sticky 条目提交自动关闭回调。显式移除可单独经 `removeAsSoonAsPossible()V` 调度。
+
+A13 在手机浮动条目的更新成功后复用 `removeAutoRemovalCallbacks()V`，仅取消已绑定、非 Doze 条目的自动关闭回调。原生显式移除、通知更新和 Doze 计时照常执行。安装前解析所需 Field 和 Method，视图或成员缺失时保持原生行为。核对查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。veux 对应 DEX 校验失败，实际行为待日志或设备验证。
+
+## 插件加载和音量计时
+
+xaga 宿主 `MiuiSystemUI.apk!classes.dex` 中，`PluginInstance$Factory.create` 调用 `getClassLoader(ApplicationInfo, ClassLoader):ClassLoader`。该入口可返回 null，也可从按包名的缓存返回 loader。模块在成功返回后绑定 `miui.systemui.plugin` 的实际 loader，空结果和异常可等待下一次宿主加载。各消费者保留进程内一次安装语义。
+
+两个样本的 `product/app/MIUISystemUIPlugin/MIUISystemUIPlugin.apk!classes.dex` 都显示 `MiuiVolumeDialogImpl.rescheduleTimeoutH()V` 调用 `computeTimeoutH()I`。原生折叠 2000ms、展开 5000ms、鼠标悬停 16000ms 都使用无障碍 controls 标志，安全音量提示的 5000ms 使用 controls 和 text。自定义时长依旧以原有偏好值为毫秒数，优先使用原生无障碍推荐值。未配置、悬停或必要成员缺失时交给插件原方法。
+
+这两处属于 `A13_COMPAT_VARIANT`。时长语义参考 MonwF 当前主线、A13 初始时长设置及 A14 当前实现，实际入口与分支依据 A13 插件 Smali。xaga 和 veux 插件各 DEX 的 ZIP CRC 与 Adler-32 通过，头部 SHA-1 不匹配。结论覆盖所核对的成员和控制流。veux 宿主的同名入口来自 CRC 失败的 `classes2.dex`，其宿主加载链保持待验。复查 SQL 见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
+## 桌面与应用详情入口
+
+输入为 xaga 的 `product/priv-app/MiuiHomeT/MiuiHomeT.apk`，以及 veux 同路径 Home 和 `product/priv-app/MiLauncherGlobal/MiLauncherGlobal.apk`。三份 APK 的两个 DEX 均通过 ZIP CRC 与 Adler-32，头部 SHA-1 不匹配。Manifest 标明 Home 和 Global Launcher 分别是 `com.miui.home` 和 `com.mi.android.globallauncher`。
+
+- 三份样本的 `classes2.dex` 均定义 `ShortcutMenuManager.startAppDetailsActivity(ShortcutMenuItem, View):void`，由长按菜单点击调用，参数提供组件名和所属用户。当前 MonwF 的入口与该目标一致，A13 初始实现按包名区分旧国际版，A14 当前实现也使用长按菜单目标。A13 优先挂载确认的完整签名，兼容保留缺少该入口的旧国际版。
+- 三份样本的 `classes.dex` 均定义 `Folder.updateViewsLayout():void`，绑定数据或屏幕尺寸变化时原生重写内容宽度。模块只在原生成功更新后复用文件夹宽度设置。保留 `resetViewsLayoutParams()` 作为旧 ABI 的可选回退。
+- Dock 的 `calcHotSeatsHeight(Context, boolean)`、上下间距方法、桌面滑动和最近任务过滤均保留对应宿主。两份安全中心的应用详情和菜单声明与当前绑定匹配，应用信息页仍使用原有 Fragment 所有权。
+
+两项入口调整属于 `A13_COMPAT_VARIANT`。设备上的长按菜单跳转、多用户、文件夹旋转和折叠切换仍待验证。复查查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
+## 系统服务旋转与充电唤醒
+
+- **旋转动画**。xaga、veux 的 `system_ext/framework/miui-services.jar!classes.dex` 由 `ScreenRotationAnimationImpl.loadEnterAnimation` 和 `loadExitAnimation` 调用四参 `createRotationEnterAnimation(IIII)` 和 `createRotationExitAnimation(IIII)`。`loadRotation180Enter` 和 `loadRotation180Exit` 调用各自无参工厂。四个工厂均返回 `Animation`。进场 loader 还执行 Surface 隐藏。旧门禁查询的 `AppTransitionInjector.createAnimation` 在两个扩展输入中无定义，其 `QUART_EASE_OUT_INTERPOLATOR` 字段仍存在。原生工厂完成后才调整成功结果，保留空结果和异常。关闭动画仍设为 0ms，淡入淡出保留 300ms 和原有插值器。
+- **充电唤醒**。两份 `services.jar!classes2.dex` 都定义 `PowerManagerService.wakePowerGroupLocked(PowerGroup, long, int, String, int, String, int):void`。`updateIsPoweredLocked(int)` 调用它并传入 `android.server.power:PLUGGED:` 前缀。模块检查唯一声明的全部参数及返回类型，保留 A13 两种充电选项原有的原因范围。仅在匹配时跳过原生唤醒并返回 null。其它唤醒仍调用原方法。
+
+两项均属于 `A13_COMPAT_VARIANT`。旋转设置保留 A13 初始功能的模式，充电时使用与 MonwF 当前实现相同的 void 跳过值，并保留 A13 自有的选项 3 语义。A14 的选项 3 使用不同产品语义。复用已核实的两个 services 和 MIUI 扩展输入，结论限上述调用。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
+## 状态栏窗口与系统高度
+
+- **系统窗口配置**。xaga、veux 的 `services.jar!classes2.dex` 中，`DisplayPolicy.onConfigurationChanged()` 调用 `getStatusBarHeightForRotation(int):int` 写入 `mStatusBarHeightForRotation`。原生 `getConfigDisplayHeight` 和 `convertNonDecorInsetsToStableInsets` 消费该缓存。系统 Hook 使用同一 policy 的 `mUiContext` 密度和 `DisplayContent.calculateDisplayCutoutForRotation(int)` 返回的 `WmDisplayCutout`。xaga framework 以 `max(安全顶部, 基础高度 + 瀑布屏顶部)` 计算高度。A13 模块沿用该公式和既有 SystemUI dp 转换。
+- **实时窗口 Insets**。xaga SystemUI 的 `StatusBarWindowController.getBarLayoutParamsForRotation` 和 `applyHeight` 通过 `SystemBarUtils` 读取 `android:dimen/status_bar_height_default`。两份 services 都由 `DisplayPolicy.addWindowLw` 的 Insets 提供方读取 `getStatusBarHeight(DisplayFrames)`，使用该方向的 `WindowState` 属性和安全挖孔顶部。原生提供方还处理挖孔触摸区最小高度。
+
+MonwF 当前实现与 A13 初始实现都从状态栏尺寸资源入手。第 5 轮以 A14 的系统窗口几何为语义参考，A13 系统接入口、资源及调用链按以上样本独立确认。veux SystemUI 对应 DEX 尚缺完整输入。复查查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
+## 浮动通知时长与溢出提示
+
+- **自动隐藏时长**。xaga 的 `HeadsUpEntry.calculateFinishTime()J` 从 `AlertingNotificationManager.mAutoDismissNotificationDecay` 取基础值，经 `getRecommendedHeadsUpTimeoutMs(I)I` 加到 post time。该方法优先读取条目的 MIUI float time，未提供时用 `AccessibilityManagerWrapper.getRecommendedTimeoutMillis(II)I` 和 flags `7`。手机条目另在父类结果上叠加原生扩展时长。旧实现写入的 `mHeadsUpNotificationDecay` 缺失。模块在取得实际 manager 和无障碍 wrapper 后才应用自定义基础时长，保留默认路径和原生扩展。分类为 `A13_COMPAT_VARIANT`。
+- **溢出提示**。xaga 的 `NotificationIconAreaController.onNotificationIconChanged(Z)V` 调用状态栏容器的 `miuiShowNotificationIcons(Z)V`。`NotificationIconContainer.calculateIconXTranslations()V` 用 `MAX_DOTS` 写溢出条目的可见状态。通知搁板也使用同类，并调用 `hasMaxNumDot()`。旧的 `setIconsVisibility()`、`mMoreIcon` 和 `mForceHideMoreIcon` 在样本中未声明，校准须限定状态栏宿主。
+
+第 7 轮另外核对 `NotificationIconAreaController.initializeNotificationAreaViews(Context)` 先用 `notificationIcons` 视图 ID 绑定 `mNotificationIcons`，随后构造函数注册到 `NotificationIconObserver.addCallback`。注册与后续可见性变更都走 `onNotificationIconChanged(boolean)`。xaga 原生 `miuiShowNotificationIcons(boolean)` 同时设置点数、日常图标和锁屏图标上限，再调用 `updateState()`。模块只修正状态栏容器的 `MAX_DOTS`，并在需要时调用一次 `updateState()`。原有图标上限功能的设置结果由原生回调与其现有 Hook 先完成。该入口调整属于 `A13_COMPAT_VARIANT`。
+
+证据来自 xaga `MiuiSystemUI.apk!classes2.dex`，veux 对应条目待完整输入。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
+## 静音与全屏通知判定
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `MiuiNotificationInterruptStateProviderImpl.shouldHeadsUp(NotificationEntry)` 先运行父类判断，再经单参 `shouldPeek` 调用实际的双参 `shouldPeek(NotificationEntry, ExpandedNotification):boolean`。父类 `shouldLaunchFullScreenIntentWhenAdded(NotificationEntry)` 会读取同一结果。带全屏 Intent 的通知在原生预期不浮动时可进入 `shouldSend`，所以静音过滤只作用于普通浮动通知。
+- `MiuiPhoneStatusBarPolicy.miuiInit()` 会调用 `updateVolumeZen():void`。原生读取 `RingerModeTracker.getRingerModeInternal()`，将静音和振动记入继承的 `mMuteVisible:boolean`。勿扰状态单独计算。模块在原生更新成功后读取此字段，浮动回调直接读取进程内的状态。
+
+初始 A13 和本轮基线都按双参数量筛选原生结果。当前 MonwF 和 A14 使用其它版本的通知判断点，本轮保留 A13 的双参专用入口并限定对全屏候选的影响。分类为 `A13_COMPAT_VARIANT`。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
+## 展开通知与原生计时
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `StatusBarNotificationPresenter.onExpandClicked(NotificationEntry, View, boolean)` 经 `HeadsUpManager.setExpanded(NotificationEntry, boolean)` 调用手机条目的 `setExpanded(boolean)`。它先写入状态，展开时取消计时，收起时调用 `updateEntry(false)`。旧 A13 Hook 跳过原生展开并固定提交 5000ms 回调。
+- 原生 `AlertingNotificationManager$AlertEntry.updateEntry(boolean)` 先取消旧回调，根据 `isSticky()`、完成时刻和最短显示窗口安排同一个移除回调。手机条目的常驻条件是固定且展开、远程输入、全屏 Intent 或 `mMenuShownPinned`。远程输入和菜单退出都能经原生 `updateEntry(false)` 恢复计时。锁屏状态切换和通知生命周期也会读取常驻结果。
+
+第 9 轮用对应 A13 签名恢复原生计时，保持其它常驻查询的可见结果。当前 MonwF 使用另一套带取消原因的入口。A14 参考使用原生计时但菜单字段不同。A13 属于 `A13_COMPAT_VARIANT`，证据限上述 xaga 路径。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
+## 浮动通知下滑与小窗资格
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `MiuiExpandableNotificationRow.updateMiniWindowBar()` 把 `AppMiniWindowManager.canNotificationSlide(String, PendingIntent)` 的结果写入行状态。该方法调用 `NotificationSettingsManager.canSlide(String)` 读取原生名单，随后校验 Activity 型 PendingIntent、分屏应用和固定模式，再交给 `MiniWindowPolicy.canSlidePackage(...)` 处理窗口冲突。A13 按包调整名单结果，移除原先对整个窗口冲突方法的统一放行。
+- 小窗手势通过 `AppMiniWindowRowTouchHelper` 调用原生 `launchMiniWindowActivity(String, PendingIntent)`。该方法生成小窗 ActivityOptions，设置原生 Intent 参数并发送已有 PendingIntent。单独允许下滑小窗时沿用此路径。
+- `MiuiHeadsUpTouchHelper` 根据小窗手势是否接管，决定是否继续到父类 `HeadsUpTouchHelper`。父类下滑分支调用 `PanelViewController.startExpandMotion`。启用设置中的下滑手势后，小窗分支让出触摸处理，交给原生通知抽屉路径。
+
+两项均保持 A13 偏好契约。MonwF 与 A14 当前名单调整在行更新时进行，本轮使用 A13 静态确认的直接名单入口。分类为 `A13_COMPAT_VARIANT`。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
+## 浮动通知位置与展开入口
+
+- xaga 的 `HeadsUpManagerInjector.miuiHeadsUpInset(Context):int` 由通知面板、浮动条目管理器、通知栈及布局算法在加载尺寸时调用。原生横屏返回 `heads_up_status_bar_padding`，竖屏加实际状态栏高度。样本资源表含 `heads_up_status_bar_padding` 和 `notification_max_heads_up_height`，默认值分别约 7.27dp 和 136dp。第 11 轮保留初始 A13 的居中公式，每次从本次调用的资源取像素值，并按原生顶部偏移和可用空间夹定。该修正属于 `A13_COMPAT_VARIANT`。
+- xaga 的 `AlertingNotificationManager.addAlertEntry(NotificationEntry):void` 先写入活动条目表，再调用 `HeadsUpManager.onAlertEntryAdded(AlertEntry):void`。该回调先设置浮动态，再确定固定状态并通知监听器。通知层级刷新也会调用 `ExpandableNotificationRow.setHeadsUp(boolean)`。第 12 轮改在管理器入队回调后调度展开，属于 `A13_COMPAT_VARIANT`。
+- xaga 的 `HeadsUpEntryPhone.setEntry(NotificationEntry):void` 为每次入队新建原生移除任务，`AlertEntry.reset():void` 清除它，管理器移除条目时先从活动表取出条目，再回收对象。延迟展开执行时通过 `getHeadsUpEntry(String):HeadsUpEntry` 取当前条目并核对移除任务的身份。原生 `expandNotification():void` 经点击监听器切换组状态、`mExpandedWhenPinned` 或普通展开状态。目标及上述方法体位于 `classes2.dex`。
+- veux 的对应入队、活动项查找、移除任务重建及点击分支可局部解码，和 xaga 结果一致。样本 `classes2.dex` 存在完整性缺口，本轮把这些结果保留为兼容线索。
+
+证据来自 xaga `MiuiSystemUI.apk!classes2.dex` 及其资源表，veux 相应条目待完整输入。查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
+## 通知抽屉展开状态
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `NotificationViewHierarchyManager.updateRowStatesInternal():void` 在非锁屏分支为每个通知行调用 `ExpandableNotificationRow.setSystemExpanded(boolean):void`，随后调用 `setFeedbackIcon(FeedbackIcon):void`。该展开方法在样本中的直接调用者只有行状态更新。原生传入 false 且应用符合展开规则时，旧 Hook 会经反馈图标再次改变同一轮布局写入的状态。
+- 原生 setter 仅在布尔值改变时更新高度、通知展开变化和组溢出状态。`isExpanded(boolean):boolean` 在用户已手动改变展开时优先读取用户状态。第 13 轮让已有名单规则调整原生 setter 的入参，保留这些副作用和手动操作。MonwF 当前上游、A13 初始实现和 A14 参考均通过反馈图标应用系统展开状态，A13 入口校准属于 `A13_COMPAT_VARIANT`。
+- veux 的 `classes2.dex` 中局部解码显示相同的非锁屏 setter 与反馈图标顺序，展开布尔值由该 ROM 自己的布局策略决定。样本完整性缺口仍在。复查查询见 [maintenance_targets.sql](../../tools/dexsql/maintenance_targets.sql)。
+
+## 解锁后锁屏通知保留
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `NotificationFilterController.shouldShowOnKeyguard(NotificationEntry):boolean` 只在 `NotificationSettingsHelper.alwaysShowKeyguardNotifications():boolean` 为 false 时按已显示标记隐藏普通通知。继续显示的通知仍由 `ExpandedNotification.canShowOnKeyguard()` 判断资格。解锁状态监听经 `NotificationAlertController.markVisibleNotificationsShown()` 和 `setHasShownAfterUnlock(boolean)` 写入标记。第 14 轮采用系统已有的保留策略，旧版保留精确的标记读取回退。
+- `StatusBarKeyguardViewManager.hide(long, long)` 调用 `KeyguardNotificationController.clear()`。控制器在清理后按 `needReadd(NotificationEntry)` 回填仍可见且原先已在锁屏列表中的条目。把 `isKeptOnKeyguard(Notification)` 一律改为 true 会使普通可清除条目跳过回填，第 14 轮保留原生回填条件。
+- MonwF 当前实现与 A14 参考同样处理解锁后已显示的标记。A13 在独立核实的原生策略入口生效，属于 `A13_COMPAT_VARIANT`。veux 的相关过滤与清理分支可局部解码，样本完整性有缺口。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/main/app/src/main/java/name/monwf/customiuizer/mods/System.java#L1389-L1397) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
+
+## 单应用通知数量与清理
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `NotificationEntryManager` 在通知视图绑定后加入活动集合，再回调 `NotificationCountLimitPolicy$1.onNotificationAdded(NotificationEntry)`。这会传入通知包名并调用 `checkNotificationCountLimit(String):void`。原生从 `getAllNotifs()` 筛选同一包名，超过阈值才清理。旧 A13 在达到 24 条时恢复原生清理，会提前移除第 24 条到达时的一条通知。
+- 原生 `shouldRemove(NotificationEntry, NotificationEntry)` 优先选普通行、其次选折叠通知、再按 `Notification.when` 选较早条目。xaga 通过 `performRemoveNotification` 移除。第 15 轮只延后进入清理，继续沿用原生处理。
+- veux 局部方法体显示同一检查额外通过 `lambda$checkNotificationCountLimit$1(NotificationEntry)` 排除主要通话与闹钟候选，超限后通过 `NotificationSettingsHelper.cancelNotification` 取消。A13 在同包数量已超过 24 条且该精确成员存在时复用其筛选。veux 样本完整性有缺口，结论限兼容线索。
+- A13 初始实现和设置文案的上限均为 24。当前 MonwF 与 A14 处理新版管线的上限移除，A13 修正属于 `A13_COMPAT_VARIANT`。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/main/app/src/main/java/name/monwf/customiuizer/mods/SystemUI.java#L3897-L3899) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
+
+## 状态栏图标上限与可见性
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 的 `NotificationIconAreaController.onNotificationIconChanged(boolean):void` 对状态栏容器调用 `miuiShowNotificationIcons(boolean):void`。可见时把三项上限设为 3，隐藏时设为 0，然后调用原生 `updateState():void`。veux 对应方法体可局部解码，可见时日常图标上限为 1。这就是默认值回退要使用原生可见性回调的原因。
+- `calculateIconXTranslations():void` 在普通静态布局读取 `MAX_STATIC_ICONS`，锁屏分支使用固定值 3。`calculateWidthFor(float):float` 读取 `MAX_ICONS_ON_LOCKSCREEN` 计算宽度。第 16 轮保持 A13 自定义值的原有字段映射和系统定位规则，属于 `A13_COMPAT_VARIANT`。veux 样本完整性有缺口，结论限兼容线索。[复查 SQL](../../tools/dexsql/maintenance_targets.sql)
+
+## 低优先级通知绑定
+
+- xaga `MiuiSystemUI.apk!classes2.dex` 中，初次绑定的 `NotificationRowBinderImpl.inflateContentViews` 和行状态变化时的 `LowPriorityInflationHelper.recheckLowPriorityViewAndInflate` 都读取 `shouldUseLowPriorityView(NotificationEntry):boolean`。原生判断要求 `NotificationEntry.isAmbient()` 为 true 且条目不在组内。样本的 `isAmbient()` 固定返回 false，条目的 `getImportance()` 则读取当前 Ranking。
+- 原生绑定把判断结果写入 `RowContentBindParams.setUseLowPriority(boolean)` 后发起绑定。`NotificationContentInflater.createContentView` 在对应分支调用 `Notification.Builder.makeLowPriorityContentView(boolean)`。第 17 轮在原生成功返回 false 时，仅为最低重要性且符合分组条件的条目启用这个分支。
+- A13 初始版本与 MonwF 当前实现使用旧 `StatusBar.updateNotification` 路径。xaga 未找到对应入口。本轮采用 A13 已核实的绑定链，属于 `A13_COMPAT_VARIANT`。veux 局部解码显示相同的低优先级判断与模板分支，样本完整性有缺口。[MonwF 源码](https://github.com/MonwF/customiuizer/blob/main/app/src/main/java/name/monwf/customiuizer/mods/System.java#L3171) · [复查 SQL](../../tools/dexsql/maintenance_targets.sql)
 
 ## 输入身份（SHA-256）
 

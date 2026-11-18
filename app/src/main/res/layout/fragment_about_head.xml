@@ -12,6 +12,7 @@
 	android:clipToPadding="false">
 
 	<FrameLayout
+		android:id="@+id/miuizer_icon"
 		android:layout_width="80dp"
 		android:layout_height="80dp"
 		android:background="@drawable/ic_mask"
@@ -20,7 +21,6 @@
 		android:clipToPadding="false">
 
 		<ImageView
-			android:id="@+id/miuizer_icon"
 			android:layout_width="match_parent"
 			android:layout_height="match_parent"
 			android:contentDescription="@null"

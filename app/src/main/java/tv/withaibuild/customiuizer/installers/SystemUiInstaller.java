@@ -49,7 +49,7 @@ public final class SystemUiInstaller {
         String pkg = lpparam.getPackageName();
         if (!pkg.equals("com.android.systemui")) return;
 
-        if (MainModule.mPrefs.getInt("system_statusbarheight", 19) > 19) SystemStatusBarAndClockHooks.StatusBarHeightRes();
+        if (SystemStatusBarAndClockHooks.hasCustomStatusBarHeight(MainModule.mPrefs)) SystemStatusBarAndClockHooks.StatusBarHeightRes();
         if (MainModule.mPrefs.getInt("controls_navbarheight", 19) > 19) Controls.NavbarHeightRes();
             Context mContext = ModuleHelper.findContext(lpparam);
             long restartTime = mContext == null ? 0L : Settings.System.getLong(mContext.getContentResolver(), "systemui_restart_time", 0L);
@@ -98,7 +98,7 @@ public final class SystemUiInstaller {
 
             if (MainModule.mPrefs.getInt("system_drawer_blur", 100) < 100) SystemDisplayAndWindowHooks.DrawerBlurRatioHook(lpparam);
             if (MainModule.mPrefs.getInt("system_chargeanimtime", 20) < 20) SystemDisplayAndWindowHooks.ChargeAnimationHook(lpparam);
-            if (MainModule.mPrefs.getInt("system_betterpopups_delay", 0) > 0 && !MainModule.mPrefs.getBoolean("system_betterpopups_nohide")) SystemNotificationPopupsHooks.BetterPopupsHideDelayHook(lpparam);
+            if (SystemNotificationPopupsHooks.hasCustomHideDelay(MainModule.mPrefs)) SystemNotificationPopupsHooks.BetterPopupsHideDelayHook(lpparam);
             if (MainModule.mPrefs.getInt("system_netspeedinterval", 4) != 4) SystemUIStatusBarHooks.NetSpeedIntervalHook(lpparam);
             if (MainModule.mPrefs.getInt("system_qsgridrows", 1) > 1 || MainModule.mPrefs.getBoolean("system_qsnolabels")) SystemUIControlCenterHooks.QSGridLabelsHook(lpparam);
             if (MainModule.mPrefs.getInt("system_lstimeout", 3) > 3) SystemAudioAndVisualAndMoreHooks.LockScreenTimeoutHook(lpparam);
@@ -319,7 +319,6 @@ public final class SystemUiInstaller {
 
             if (MainModule.mPrefs.getBoolean("system_notify_openinfw")
                 || MainModule.mPrefs.getBoolean("system_notifrowmenu")
-                || MainModule.mPrefs.getBoolean("system_betterpopups_allowfloat")
             ) {
                 SystemUINotificationHooks.FixOpenNotifyInFreeFormHook(lpparam);
             }
@@ -335,7 +334,7 @@ public final class SystemUiInstaller {
 // Startup family predicate for SystemUI
     public static boolean hasAnySystemUiStartupFeature(PrefMap<String, Object> prefs) {
         if (hasAnyGlobalAction(prefs)) return true;
-        if (prefs.getInt("system_statusbarheight", 19) > 19) return true;
+        if (SystemStatusBarAndClockHooks.hasCustomStatusBarHeight(prefs)) return true;
         if (prefs.getInt("controls_navbarheight", 19) > 19) return true;
         if (prefs.getStringAsInt("various_showcallui", 0) > 0 || prefs.getBoolean("controls_volumecursor")) return true;
         if (prefs.getBoolean("system_fivegtile") || prefs.getBoolean("system_cc_fpstile")) return true;
@@ -344,7 +343,7 @@ public final class SystemUiInstaller {
         if (prefs.getBoolean("system_networkindicator_wifi")) return true;
         if (prefs.getInt("system_drawer_blur", 100) < 100) return true;
         if (prefs.getInt("system_chargeanimtime", 20) < 20) return true;
-        if (prefs.getInt("system_betterpopups_delay", 0) > 0 && !prefs.getBoolean("system_betterpopups_nohide")) return true;
+        if (SystemNotificationPopupsHooks.hasCustomHideDelay(prefs)) return true;
         if (prefs.getInt("system_netspeedinterval", 4) != 4) return true;
         if (prefs.getInt("system_qsgridrows", 1) > 1 || prefs.getBoolean("system_qsnolabels")) return true;
         if (prefs.getInt("system_lstimeout", 3) > 3) return true;

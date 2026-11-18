@@ -1,4 +1,4 @@
-# 米客 A13｜CustoMIUIzer A13
+# 米客 A13
 
 简体中文 | [English](README_EN.md)
 
@@ -22,12 +22,16 @@
 
 从使用旧证书的 r13.12.2 或更早版本升级时，先导出设置，然后卸载旧版、安装并恢复，最后重新启用模块。详见[签名与升级](COMPATIBILITY.md#签名与升级)。同一设备仅启用一个 CustoMIUIzer 模块。
 
-## 开发与支持
+## 文档与开发
 
 应用 ID 为 `tv.withaibuild.customiuizer.r13`。当前正式版本和来源见[发布页](https://github.com/thetvplus/customiuizer-a13/releases/latest)；源码版本以[构建配置](app/build.gradle.kts)为准。
 
 项目优先修复 Android 13 上的正确性、兼容性与稳定性问题。通过 [GitHub Issues](https://github.com/thetvplus/customiuizer-a13/issues) 报告问题，请注明模块版本、ROM、宿主版本和重现步骤。分享日志前请先脱敏，参见[隐私说明](PRIVACY.md)。
 
-从[工程文档](docs/README.md)进入构建、验证、ROM 证据与发行流程。可通过 [PayPal](https://paypal.me/Jinjitv) 支持维护。
+维护任务从[工程规则](AGENTS.md)进入。构建与验证见[工程文档](docs/README.md)，宿主进程与 Hook 入口见[架构](ARCHITECTURE.md#入口与进程)。
+
+## 支持与许可
+
+可通过 [PayPal](https://paypal.me/Jinjitv) 支持维护。
 
 项目依据 [GPL-3.0](LICENSE) 分发，派生自 [Mikanoshi/CustoMIUIzer](https://code.highspec.ru/Mikanoshi/CustoMIUIzer)，并参考 [MonwF/customiuizer](https://github.com/MonwF/customiuizer) 的 Android 13 实现。

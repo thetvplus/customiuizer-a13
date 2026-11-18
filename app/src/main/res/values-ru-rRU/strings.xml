@@ -975,7 +975,6 @@
     <string name="soft_reboot">Быстрая перезагрузка</string>
     <string name="soft_reboot_ask">Выполнить быструю перезагрузку?</string>
     <string name="restart_launcher">Перезагрузить рабочий стол</string>
-    <string name="open_inweb">Открыть в браузере</string>
     <string name="restart_systemui">Перезапуск интерфейса</string>
     <string name="restart_securitycenter">Перезапустить центр безопасности</string>
     <string name="backup_restore">Управление настройками</string>

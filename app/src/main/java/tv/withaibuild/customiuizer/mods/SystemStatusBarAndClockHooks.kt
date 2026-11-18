@@ -6,6 +6,8 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
 import android.util.TypedValue
+import android.view.DisplayCutout
+import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.view.Window
@@ -18,20 +20,69 @@ import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.BeforeHookCallba
 import tv.withaibuild.customiuizer.mods.utils.HookerClassHelper.MethodHook
 import tv.withaibuild.customiuizer.mods.utils.ModuleHelper
 import tv.withaibuild.customiuizer.mods.utils.XposedHelpers
+import tv.withaibuild.customiuizer.utils.PrefMap
 import java.lang.ref.WeakReference
 import java.util.*
 
 object SystemStatusBarAndClockHooks {
 
     @JvmStatic
+    fun hasCustomStatusBarHeight(prefs: PrefMap<String, Any>): Boolean =
+        customStatusBarHeight(prefs) != null
+
+    private fun customStatusBarHeight(prefs: PrefMap<String, Any>): Int? =
+        prefs.getInt("system_statusbarheight", 19).takeIf { it in 20..80 }
+
+    @JvmStatic
     fun StatusBarHeightRes() {
-        val opt = MainModule.mPrefs.getInt("system_statusbarheight", 19)
-        val heightDpi = if (opt == 19) 27 else opt
-        MainModule.getResHooks().setDensityReplacement("*", "dimen", "status_bar_height_default", heightDpi.toFloat())
-        MainModule.getResHooks().setDensityReplacement("*", "dimen", "status_bar_height", heightDpi.toFloat())
-        MainModule.getResHooks().setDensityReplacement("*", "dimen", "status_bar_height_portrait", heightDpi.toFloat())
-        MainModule.getResHooks().setDensityReplacement("*", "dimen", "status_bar_height_landscape", heightDpi.toFloat())
+        val heightDp = customStatusBarHeight(MainModule.mPrefs)?.toFloat() ?: return
+        val resources = MainModule.getResHooks()
+        resources.setDensityReplacement("*", "dimen", "status_bar_height_default", heightDp)
+        resources.setDensityReplacement("*", "dimen", "status_bar_height", heightDp)
+        resources.setDensityReplacement("*", "dimen", "status_bar_height_portrait", heightDp)
+        resources.setDensityReplacement("*", "dimen", "status_bar_height_landscape", heightDp)
     }
+
+    @JvmStatic
+    fun StatusBarHeightSystemHook(lpparam: SystemServerStartingParam) {
+        val heightDp = customStatusBarHeight(MainModule.mPrefs) ?: return
+        ModuleHelper.guarded("StatusBarHeightSystemHook") {
+            val policy = XposedHelpers.findClass("com.android.server.wm.DisplayPolicy", lpparam.classLoader)
+            val target = XposedHelpers.findMethodExact(policy, "getStatusBarHeightForRotation", Int::class.javaPrimitiveType)
+            if (target.returnType != Int::class.javaPrimitiveType) return@guarded
+            val uiContext = XposedHelpers.findField(policy, "mUiContext")
+            val displayContent = XposedHelpers.findField(policy, "mDisplayContent")
+            val cutoutForRotation = XposedHelpers.findMethodExact(
+                displayContent.type, "calculateDisplayCutoutForRotation", Int::class.javaPrimitiveType
+            )
+            val displayCutout = cutoutForRotation.returnType.getDeclaredMethod("getDisplayCutout").apply {
+                isAccessible = true
+            }
+            check(displayCutout.returnType == DisplayCutout::class.java)
+
+            // A13 updates its stable-inset cache through this configuration method.
+            // The live InsetsSource still gets its frame from SystemUI's rotated status-bar window.
+            ModuleHelper.hookMethod(target, object : MethodHook() {
+                override fun after(param: AfterHookCallback) {
+                    if (param.throwable != null) return
+                    val rotation = param.getArg(0) as Int
+                    if (rotation !in Surface.ROTATION_0..Surface.ROTATION_270) return
+                    val context = uiContext.get(param.thisObject) as? Context ?: return
+                    val density = context.resources.displayMetrics.density
+                    if (!density.isFinite() || density <= 0f) return
+                    val display = displayContent.get(param.thisObject) ?: return
+                    val rotatedCutout = cutoutForRotation.invoke(display, rotation) ?: return
+                    val cutout = displayCutout.invoke(rotatedCutout) as? DisplayCutout
+                    param.result = statusBarHeightPx(
+                        heightDp, density, cutout?.safeInsetTop ?: 0, cutout?.waterfallInsets?.top ?: 0
+                    )
+                }
+            })
+        }
+    }
+
+    internal fun statusBarHeightPx(heightDp: Int, density: Float, safeTop: Int, waterfallTop: Int): Int =
+        maxOf(safeTop, (heightDp.toFloat() * density).toInt() + waterfallTop)
 
     @JvmStatic
     fun HideMemoryCleanHook(lpparam: PackageReadyParam, isInLauncher: Boolean) {

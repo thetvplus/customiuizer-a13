@@ -8,6 +8,9 @@ class AppMiniWindowManager private constructor() {
     var throwOnCall: Throwable? = null
     var sideEffectThenThrow: Throwable? = null
 
+    fun canNotificationSlide(pkgName: String, pendingIntent: PendingIntent?): Boolean =
+        pkgName.isNotBlank() && pendingIntent?.isActivity == true
+
     fun launchMiniWindowActivity(pkgName: String, pendingIntent: PendingIntent?) {
         throwOnCall?.let { throw it }
         calls.add(pkgName to pendingIntent)

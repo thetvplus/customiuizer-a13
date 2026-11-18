@@ -1,4 +1,4 @@
-# AGENTS.md · CustoMIUIzer A13
+# AGENTS.md · 米客 A13
 
 **Judgment over Procedure.** 先确定触发、预期行为和完成条件。沿实际调用链检查输入、所有者、失败和释放，只有具体证据缺口才扩大范围。相关的同根因回归一并修复。复用已核实的来源和检查结果，完整审阅 diff、验证受影响合同后收口。
 
@@ -11,4 +11,4 @@
 - 从已确认的 exact SHA 建 `devin/a13-*`。保护未知修改和已有工作树，禁止 force push、破坏性 reset、改写公开历史和无差别 clean。开发授权覆盖 commit、push、PR 和必要 CI 跟进。合并 `main` 须用户要求，只读或本地停止点优先。交付记录 Base SHA、Final SHA 和 commits。
 - 仅在当前发行授权下变更正式版本、签名、打 tag 或发布，遵循 [A13_RELEASE](docs/A13_RELEASE.md)。正式版本名、单调递增的 versionCode 和双语 CHANGELOG 同步。APK、签名材料、ROM、DEX、原始日志、trace、mapping 和 profiler 数据留在仓库外。
 
-仓库清理按 [Git 与 Actions 维护](docs/DEVELOPMENT.md#git-与-actions-维护) 执行。编写或更新文档从 [文档导航](docs/README.md#文档维护) 进入；实施与只读审查按 [项目 Skills](.agents/skills/README.md) 分流。
+仓库清理按 [Git 与 Actions 维护](docs/DEVELOPMENT.md#git-与-actions-维护) 执行。编写或更新文档从 [文档规范](docs/DOCS_STYLE.md) 进入；实施与只读审查按 [项目 Skills](.agents/skills/README.md) 分流。

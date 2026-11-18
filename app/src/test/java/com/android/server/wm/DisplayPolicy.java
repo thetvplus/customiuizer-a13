@@ -1,9 +1,33 @@
 package com.android.server.wm;
 
+import android.content.Context;
+import android.view.DisplayCutout;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
 
 public class DisplayPolicy {
+    public Context mUiContext;
+    public final DisplayContent mDisplayContent = new DisplayContent();
+
+    public int getStatusBarHeightForRotation(int rotation) {
+        return 75;
+    }
+
+    public static class DisplayContent {
+        public int lastRotation = -1;
+
+        public WmDisplayCutout calculateDisplayCutoutForRotation(int rotation) {
+            lastRotation = rotation;
+            return new WmDisplayCutout();
+        }
+    }
+
+    public static class WmDisplayCutout {
+        public DisplayCutout getDisplayCutout() {
+            return null;
+        }
+    }
+
     public AccessibilityManager mAccessibilityManager = new AccessibilityManager();
     public java.util.function.BiFunction<Integer, Integer, Integer> timeoutCalculator =
         (base, flags) -> mAccessibilityManager.getRecommendedTimeoutMillis(base, flags);

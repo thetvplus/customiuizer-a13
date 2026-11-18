@@ -34,7 +34,7 @@ class CatalogBatch3Test {
 
     private fun serverRuntime(prefs: PrefMap<String, Any>): FeatureRuntime {
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val classLoader = this.javaClass.classLoader!!
         val lpparam = newSystemServerParam(classLoader)
         return FeatureDispatcher.createRuntime("android", lpparam, classLoader, prefs)
@@ -42,7 +42,7 @@ class CatalogBatch3Test {
 
     private fun systemuiRuntime(prefs: PrefMap<String, Any>): FeatureRuntime {
         @Suppress("UNCHECKED_CAST")
-        MainModule.mPrefs = prefs as PrefMap<String, Any>
+        MainModule.mPrefs = prefs
         val classLoader = this.javaClass.classLoader!!
         val lpparam = newPackageReadyParam("com.android.systemui", classLoader)
         return FeatureDispatcher.createRuntime("com.android.systemui", lpparam, classLoader, prefs)

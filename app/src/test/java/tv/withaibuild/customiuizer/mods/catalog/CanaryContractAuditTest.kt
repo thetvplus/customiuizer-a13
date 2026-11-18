@@ -37,8 +37,12 @@ class CanaryContractAuditTest {
     @Test
     fun noMoreIconContractHasAuditedTarget() {
         val contract = CanaryContracts.noMoreIcon
-        val expected = setOf("NotificationIconAreaController.setIconsVisibility")
-        assertEquals(expected, contract.allTargets.map { it.id }.toSet())
+        val expected = listOf(
+            "NotificationIconAreaController.onNotificationIconChanged",
+            "NotificationIconAreaController.setIconsVisibility"
+        )
+        assertEquals(expected, contract.allTargets.map { it.id })
+        assertEquals(listOf(Boolean::class.javaPrimitiveType), contract.allTargets.first().parameterTypes)
     }
 
     @Test

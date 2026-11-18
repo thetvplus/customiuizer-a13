@@ -277,12 +277,13 @@ class MultiActionSelectorResultRegressionTest {
                 putExtra("shortcut_contents", "com.example.shortcut|Entry")
                 putExtra("shortcut_name", "Shortcut Name")
                 putExtra("shortcut_icon", "/tmp/icon.png")
+                putExtra("shortcut_intent", "intent:#Intent;component=com.example.shortcut/.Entry;end")
             }
         )
         assertEquals("com.example.shortcut|Entry", state.shortcutValue)
         assertEquals("Shortcut Name", state.shortcutName)
         assertEquals("/tmp/icon.png", state.shortcutIcon)
-        assertEquals(null, state.shortcutIntent)
+        assertEquals("intent:#Intent;component=com.example.shortcut/.Entry;end", state.shortcutIntent)
 
         state = MultiActionSelectionStateReducer.reduce(
             state,
