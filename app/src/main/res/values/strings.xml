@@ -1,7 +1,17 @@
 <resources>
-    <string name="app_name" translatable="false">米客 A13</string>
+    <string name="app_name">Customiuizer A13</string>
     <string name="app_slogan" translatable="false">MIUI 14 / Android 13 · libxposed API 102</string>
     <string name="app_about">About</string>
+    <string name="about_project">Project</string>
+    <string name="about_repository">Source code</string>
+    <string name="about_releases">Official releases</string>
+    <string name="about_support">Support on PayPal</string>
+    <string name="about_link_unavailable">No app is available to open this link.</string>
+    <string name="about_notes">Notes</string>
+    <string name="about_compatibility">Compatibility</string>
+    <string name="about_platform">Targets MIUI 14 on Android 13. HyperOS 1 on Android 13 is experimental. Requires libxposed API 102 and arm64-v8a.</string>
+    <string name="about_restart">Restart requirements</string>
+    <string name="about_unsupported_title">Unsupported options</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_maintainer">Maintained by thetvplus</string>
     <string name="about_based_on">Based on open-source work by Mikanoshi and MonwF</string>

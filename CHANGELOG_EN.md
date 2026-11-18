@@ -2,6 +2,10 @@
 
 [简体中文](CHANGELOG.md) | English
 
+## Unreleased
+
+- Use Customiuizer A13 as the default English name and 米客 A13 in Chinese. About now includes links to the source, official releases, and support, plus compatibility notes.
+
 ## r13.14.2 — 2026-11-17
 
 `versionCode 143`, an Android 13 maintenance update over `r13.14.1 / 142` with no new features.

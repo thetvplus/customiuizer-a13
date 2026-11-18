@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">米客 A13</string>
     <string name="app_about">關於</string>
+    <string name="about_project">專案</string>
+    <string name="about_repository">原始碼</string>
+    <string name="about_releases">正式版本</string>
+    <string name="about_support">透過 PayPal 支持專案</string>
+    <string name="about_link_unavailable">沒有可開啟此連結的應用程式。</string>
+    <string name="about_notes">使用說明</string>
+    <string name="about_compatibility">相容範圍</string>
+    <string name="about_platform">適用於 MIUI 14 / Android 13。HyperOS 1 / Android 13 為實驗性相容。需要 libxposed API 102 與 arm64-v8a。</string>
+    <string name="about_restart">重新啟動需求</string>
+    <string name="about_unsupported_title">不支援的選項</string>
     <string name="about_version">版本：%1$s</string>
     <string name="about_maintainer">維護：thetvplus</string>
     <string name="about_based_on">基於 Mikanoshi 與 MonwF 的開源工作</string>

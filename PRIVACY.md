@@ -1,4 +1,4 @@
-# Privacy · CustoMIUIzer A13
+# Privacy · Customiuizer A13
 
 - **Settings and app selection.** The module stores settings on the device. The settings app reads installed apps for pickers and selected features. When connected to the Xposed framework, it synchronizes module settings through libxposed so the scoped host processes can read their options.
 - **Backup and restore.** Exports are settings files written to the location you select in Android's document picker. They can contain package names and custom values. The format does not encrypt the contents. If you select a cloud document provider, that provider handles the file under its own terms.

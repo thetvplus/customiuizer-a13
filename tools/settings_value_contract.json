@@ -44,6 +44,9 @@
     "prefs_controls_cat": "c3af7989a2c6f6fa7bb67526ea3bd6d299aaa6a9ba9f73b3f41794f7220aa3ff"
   },
   "added_navigation_keys": [
-    "pref_key_launcher_cat_layout"
+    "pref_key_launcher_cat_layout",
+    "about_repository",
+    "about_releases",
+    "about_support"
   ]
 }
