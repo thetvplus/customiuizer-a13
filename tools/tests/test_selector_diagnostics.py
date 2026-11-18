@@ -78,6 +78,8 @@ class SelectorDiagnosticsContractTest(unittest.TestCase):
             "AppSelector.loadApps.start",
             "ShortcutSelector.launchProvider",
             "ShortcutSelector.readResult",
+            "ShortcutSelector.restoreDraft",
+            "ShortcutSelector.saveDraft",
             "ShortcutSelector.loadIconResource",
             "ShortcutSelector.persistIcon",
             "SortableList.loadDragShadow",
@@ -173,7 +175,8 @@ class SelectorDiagnosticsContractTest(unittest.TestCase):
         self.assertIn("Bitmap.CompressFormat.PNG", try_body)
         self.assertIn("100", try_body)
         self.assertIn("FileOutputStream", try_body)
-        self.assertIn("File.createTempFile", try_body)
+        self.assertIn("FileOutputStream(draft.incompleteIcon)", try_body)
+        self.assertLess(try_body.index("icon.compress"), try_body.index("draft.incompleteIcon.renameTo"))
 
         catch_body = self._extract_catch_body_after_call("ShortcutSelector.persistIcon")
         self.assertIsNotNone(catch_body)
@@ -187,7 +190,7 @@ class SelectorDiagnosticsContractTest(unittest.TestCase):
         self.assertIn("parentFragmentManager.isStateSaved", delivery)
         self.assertIn("val target = targetFragment ?: return", delivery)
         self.assertNotIn("target.isAdded", delivery, "MultiAction is on the back stack")
-        self.assertIn('File(pendingIcon.parentFile, "tmp.png")', delivery)
+        self.assertIn('File(filesDir, "shortcuts/tmp.png")', delivery)
         self.assertIn('if (pendingIcon.renameTo(iconFile)) result.putExtra("shortcut_icon",', delivery)
         self.assertLess(delivery.index("parentFragmentManager.isStateSaved"), delivery.index("takeResult()"))
         self.assertLess(delivery.index("takeResult()"), delivery.index("pendingIcon.renameTo"))

@@ -9,7 +9,7 @@ data class MultiActionSelectionState(
     val shortcutValue: String? = null,
     val shortcutName: String? = null,
     val shortcutIcon: String? = null,
-    val shortcutIntent: Intent? = null,
+    val shortcutIntent: String? = null,
     val activityValue: String? = null,
     val activityUser: Int = -1
 )
@@ -31,7 +31,7 @@ object MultiActionSelectionStateReducer {
                 shortcutValue = data?.getStringExtra("shortcut_contents"),
                 shortcutName = data?.getStringExtra("shortcut_name"),
                 shortcutIcon = data?.getStringExtra("shortcut_icon"),
-                shortcutIntent = data?.getParcelableExtra("shortcut_intent")
+                shortcutIntent = data?.getStringExtra("shortcut_intent")
             )
             2 -> current.copy(
                 activityValue = data?.getStringExtra("activity"),
